@@ -193,10 +193,11 @@ CDG_MASK 					= 0x3F
 
 # States
 STATE_INIT			= 1
-STATE_PLAYING		= 2
-STATE_PAUSED		= 3
-STATE_NOT_PLAYING	= 4
-STATE_CLOSING		= 5
+STATE_INIT_DONE		= 2
+STATE_PLAYING		= 3
+STATE_PAUSED		= 4
+STATE_NOT_PLAYING	= 5
+STATE_CLOSING		= 6
 
 
 # cdgPlayer Class
@@ -254,18 +255,6 @@ class cdgPlayer(Thread):
 		
 		# Initialise the display
 		self.cdgDisplaySize = (294,204)
-		# Fix the position at top-left of window. Note when doing this, if the
-		# mouse was moving around as the window opened, it made the window tiny.
-		# Have stopped doing anything for resize events until 1sec into the song
-		# to work around this. Note there appears to be no way to find out the
-		# current window position, in order to bring up the next window in the
-		# same place.
-		os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
-		pygame.init()
-		pygame.display.set_caption(self.FileName)
-		self.cdgUnscaledSurface = pygame.Surface(self.cdgDisplaySize)
-		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, pygame.RESIZABLE, 8)
-		self.cdgScreenUpdateRequired = 0
 			
 		# Build a 300x216 array for the pixel indeces, including border area
 		self.cdgPixelColours = N.zeros((300,216))
@@ -276,13 +265,15 @@ class cdgPlayer(Thread):
 		# blitted, only the central 294x204 area.
 		self.cdgSurfarray = N.zeros((300,216))
 
-		# Open the cdg and sound files
-		self.cdgFile = open (self.FileName, "rb") 
-		pygame.mixer.music.load(self.SoundFileName)
-
 		# Handle a bug in pygame (pre-1.7) which means that the position
 		# timer carries on even when the song has been paused.
 		self.TotalOffsetTime = 0
+
+		# Can only do the set_mode() on Windows in the pygame thread.
+		# Therefore use a variable to tell the thread when a resize
+		# is required. This can then be modified by any thread calling
+		# SetDisplaySize()
+		self.ResizeTuple = None
 
 		# Automatically start the thread which handles pygame events
 		# Doesn't actually start playing until Play() is called.
@@ -290,8 +281,11 @@ class cdgPlayer(Thread):
 		self.State = STATE_INIT
 		self.start()
 
-	# Start the thread running
+	# Start the thread running. Blocks until the thread is started and
+	# has finished initialising pygame.
 	def Play(self):
+		while self.State == STATE_INIT:
+			pass
 		pygame.mixer.music.play()
 		self.State = STATE_PLAYING
 
@@ -310,8 +304,10 @@ class cdgPlayer(Thread):
 	def Close(self):
 		self.State = STATE_CLOSING
 
-	# you must call Play() to restart
+	# you must call Play() to restart. Blocks until pygame is initialised
 	def Rewind(self):
+		while self.State == STATE_INIT:
+			pass
 		# Reset the state of the packet-reading thread
 		self.cdgReadPackets = 0
 		self.cdgPacketsDue = 0
@@ -337,21 +333,51 @@ class cdgPlayer(Thread):
 		self.ErrorNotifyCallback (ErrorString)
 		return None
 		
-	# Get the current time (in milliseconds)
+	# Get the current time (in milliseconds). Blocks if pygame is
+	# not initialised yet.
 	def GetPos(self):
+		while self.State == STATE_INIT:
+			pass
 		return pygame.mixer.music.get_pos()
 
 	# Get the current display size
 	def GetDisplaySize(self):
 		return self.cdgDisplaySize
 
-	# Set the display size
+	# Set the display size. On MS Windows the actual set_mode must
+	# be done in the pygame thread context, so defer it.
 	def SetDisplaySize(self, displaySizeTuple):
-		self.cdgDisplaySize = displaySizeTuple
-		pygame.display.set_mode (displaySizeTuple, pygame.RESIZABLE)
+		self.ResizeTuple = displaySizeTuple
 
 	# Start the thread but don't play until Play() called
 	def run(self):
+
+		# It turns out that on MS Windows you have to initialise pygame in the
+		# thread that is going to check for events. Therefore move all pygame
+		# init stuff here. Play() will now have to block until pygame init is
+		# complete.
+
+		# Fix the position at top-left of window. Note when doing this, if the
+		# mouse was moving around as the window opened, it made the window tiny.
+		# Have stopped doing anything for resize events until 1sec into the song
+		# to work around this. Note there appears to be no way to find out the
+		# current window position, in order to bring up the next window in the
+		# same place. Things seem to be different in development versions of
+		# pygame-1.7 - it appears to remember the position, and it is the only
+		# version for which fixing the position works on MS Windows.
+		os.environ['SDL_VIDEO_WINDOW_POS'] = "30,30"
+		pygame.init()
+		pygame.display.set_caption(self.FileName)
+		self.cdgUnscaledSurface = pygame.Surface(self.cdgDisplaySize)
+		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, pygame.RESIZABLE, 8)
+		self.cdgScreenUpdateRequired = 0
+
+		# Open the cdg and sound files
+		self.cdgFile = open (self.FileName, "rb") 
+		pygame.mixer.music.load(self.SoundFileName)
+
+		# We're now ready to accept Play() commands
+		self.State = STATE_INIT_DONE
 		
 		# Set the CDG file at the beginning
 		self.cdgReadPackets = 0
@@ -382,6 +408,14 @@ class cdgPlayer(Thread):
 			# Check if any screen updates are now due
 			if ((curr_pos - self.LastPos) / 1000.0) > (1 / CDG_SCREEN_UPDATES_PER_SEC):
 				self.cdgDisplayUpdate()
+
+			# Resizes have to be done in the pygame thread context on
+			# MS Windows, so other threads can set ResizeTuple to 
+			# request a resize (This is wrappered by SetDisplaySize()).
+			if self.ResizeTuple != None and self.GetPos() > 1000:
+				self.cdgDisplaySize = self.ResizeTuple
+				pygame.display.set_mode (self.cdgDisplaySize, pygame.RESIZABLE)
+				self.ResizeTuple = None
 
 			# Check for and handle pygame events and close requests
 			for event in pygame.event.get():

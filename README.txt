@@ -1,22 +1,34 @@
 
 ---------------------------------------------------------------------------
 
-Release:    pykaraoke v0.1
-Date:       26/01/2005
+Release:    pykaraoke v0.2
+Date:       01/03/2005
 Author:     Kelvin Lawson <kelvinl@users.sourceforge.net>
-License:	LGPL
+License:    LGPL
+Website:    http://www.kibosh.org/pykaraoke/
 
 ---------------------------------------------------------------------------
 
 INTRODUCTION
 
-PyKaraoke is a karaoke player that works on multiple operating
-systems. It has been tested on Linux and Windows, and is expected to
-also run on OS X.
+PyKaraoke is a karaoke player for Linux and Windows.
 
-Currently supported song formats are:
+The following song formats are supported:
  * CDG (MP3+G, OGG+G)
  * MPEG
+
+No song files are provided - this package provides you with the player
+needed to play your own karaoke song files.
+
+---------------------------------------------------------------------------
+
+WHATS NEW
+
+Changes since v0.1:
+
+ * PyKaraoke can now be used on Windows (98/XP/2000)
+ * Modified the playlist logic
+ * Changes to work with pygame-1.6.2
 
 ---------------------------------------------------------------------------
 
@@ -102,21 +114,15 @@ MPEG files can be played using:
 
 ---------------------------------------------------------------------------
 
-KNOWN BUGS
-
-There is an issue with the GUI frontend on Windows 2000. Closing the popup
-karaoke player window quits the GUI, not just the player window. There are
-no known issues with the command-line versions. This is expected to be
-fixed in the next release.
-
----------------------------------------------------------------------------
-
 TEST SYSTEMS
 
-PyKaraoke has been tested on the following systems:
+PyKaraoke has been tested on (at least) the following systems:
 
- * Gentoo Linux (wxGTK-2.4.2-r2, pygame-1.6, python-2.3.4, numeric-23.1)
- * Windows 2000 (wxPython-2.5.15, pygame-1.6, python-2.3.2, numeric-23.6)
+ * Gentoo Linux (python-2.3.4, wxGTK-2.4.2-r2, pygame-1.6,   numeric-23.1)
+ * Windows 2000 (python-2.3,   wxPython-2.5,   pygame-1.6,   numeric-23.6)
+ * Windows XP   (python-2.3,   wxPython-2.4,   pygame-1.6.2, numeric-23.7)
+ * Windows XP   (python-2.4,   wxPython-2.5,   pygame-1.6,   numeric-23.7)
+ * Windows 98   (python-2.3,   wxPython-2.4,   pygame-1.6,   numeric-23.7)
 
 ---------------------------------------------------------------------------
 

@@ -784,25 +784,30 @@ class SearchResultsPanel (wxPanel):
 
 	# Handle right-click on a search results item (show the popup menu)
 	def OnRightClick(self, event):
-		menu = wxMenu()
-		menu.Append( self.menuPlayId, "Play song" )
-		EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
-		menu.Append( self.menuPlaylistAddId, "Add to playlist" )
-		EVT_MENU( menu, self.menuPlaylistAddId, self.OnMenuSelection )
-		menu.Append( self.menuFileDetailsId, "File Details" )
-		EVT_MENU( menu, self.menuFileDetailsId, self.OnMenuSelection )
-		# Set the menu position. Add the event x,y offsets to the
-		# location of the listbox
-		menuPos = self.GetPosition()
-		menuPos[0] = menuPos[0] + event.m_x
-		menuPos[1] = menuPos[1] + event.m_y
-		# Select the listbox item, as right-click mouse event doesn't
-		# actually select the item. We have to calculate the line to
-		# find out where the user right-clicked...
-		CharHeight=self.ListPanel.GetCharHeight() + self.InterGap - 1
-		selectedIndex = int(event.m_y/CharHeight)
-		self.ListPanel.SetSelection(selectedIndex)
-		self.parent.PopupMenu( menu, menuPos )
+		# Doesn't bring up a popup if no items are in the list
+		if self.ListPanel.GetCount() > 0:
+			menu = wxMenu()
+			menu.Append( self.menuPlayId, "Play song" )
+			EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
+			menu.Append( self.menuPlaylistAddId, "Add to playlist" )
+			EVT_MENU( menu, self.menuPlaylistAddId, self.OnMenuSelection )
+			menu.Append( self.menuFileDetailsId, "File Details" )
+			EVT_MENU( menu, self.menuFileDetailsId, self.OnMenuSelection )
+			# Set the menu position. Add the event x,y offsets to the
+			# location of the listbox
+			menuPos = self.GetPosition()
+			menuPos[0] = menuPos[0] + event.m_x
+			menuPos[1] = menuPos[1] + event.m_y
+			# Select the listbox item, as right-click mouse event doesn't
+			# actually select the item. We have to calculate the line to
+			# find out where the user right-clicked... If it's below the
+			# last item, just select the last item in the list.
+			CharHeight=self.ListPanel.GetCharHeight() + self.InterGap - 1
+			selectedIndex = int(event.m_y/CharHeight)
+			if selectedIndex > (self.ListPanel.GetCount() - 1):
+				selectedIndex = self.ListPanel.GetCount() - 1
+			self.ListPanel.SetSelection(selectedIndex)
+			self.parent.PopupMenu( menu, menuPos )
 
 	# Handle popup menu selection events
 	def OnMenuSelection( self, event ):
@@ -857,24 +862,29 @@ class Playlist (wxPanel):
 
 	# Handle right-click in the playlist (show popup menu).
 	def OnRightClick(self, event):
-		menu = wxMenu()
-		menu.Append( self.menuPlayId, "Play song" )
-		EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
-		menu.Append( self.menuDeleteId, "Delete from playlist" )
-		EVT_MENU( menu, self.menuDeleteId, self.OnMenuSelection )
-		menu.Append( self.menuClearListId, "Clear playlist" )
-		EVT_MENU( menu, self.menuClearListId, self.OnMenuSelection )
-		# Set the menu position. Add the event x,y offsets to the
-		# location of the listbox
-		menuPos = self.GetPosition()
-		menuPos[0] = menuPos[0] + event.m_x
-		menuPos[1] = menuPos[1] + event.m_y
-		# Select the listbox item, as right-click mouse event doesn't
-		# actually select the item. We have to calculate the line.
-		CharHeight=self.Playlist.GetCharHeight() + self.InterGap - 1
-		selectedIndex = int(event.m_y/CharHeight)
-		self.Playlist.SetSelection(selectedIndex)
-		self.parent.PopupMenu( menu, menuPos )
+		# Doesn't bring up a popup if no items are in the list
+		if self.Playlist.GetCount() > 0:
+			menu = wxMenu()
+			menu.Append( self.menuPlayId, "Play song" )
+			EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
+			menu.Append( self.menuDeleteId, "Delete from playlist" )
+			EVT_MENU( menu, self.menuDeleteId, self.OnMenuSelection )
+			menu.Append( self.menuClearListId, "Clear playlist" )
+			EVT_MENU( menu, self.menuClearListId, self.OnMenuSelection )
+			# Set the menu position. Add the event x,y offsets to the
+			# location of the listbox
+			menuPos = self.GetPosition()
+			menuPos[0] = menuPos[0] + event.m_x
+			menuPos[1] = menuPos[1] + event.m_y
+			# Select the listbox item, as right-click mouse event doesn't
+			# actually select the item. We have to calculate the line.
+			# If it's below the last item, just select the last item.
+			CharHeight=self.Playlist.GetCharHeight() + self.InterGap - 1
+			selectedIndex = int(event.m_y/CharHeight)
+			if selectedIndex > (self.Playlist.GetCount() - 1):
+				selectedIndex = self.Playlist.GetCount() - 1
+			self.Playlist.SetSelection(selectedIndex)
+			self.parent.PopupMenu( menu, menuPos )
 
 	# Handle popup menu selection events.
 	def OnMenuSelection( self, event ):
@@ -980,7 +990,6 @@ class PyKaraokeManager:
 	def __init__(self):
 		# Set the default file types that should be displayed
 		self.Player = None
-		self.PlayingIndex = None
 		# Set up and store the song database instance
 		self.SongDB = SongDB(self)
 		# Set up the WX windows
@@ -1063,10 +1072,10 @@ class PyKaraokeManager:
 			self.DirectPlaySongStruct = None
 			self.StartPlayer(song_struct)
 			# Don't continue with the playlist next
-			self.PlayingIndex = -1
+			self.PlayingIndex = -2
 			# Play the next song in the list, if there is one (and if the
 			# last song wasn't a direct play)
-		elif (self.PlayingIndex != -1) and (next_index <= (self.Frame.PlaylistPanel.Playlist.GetCount() - 1)):
+		elif (self.PlayingIndex != -2) and (next_index <= (self.Frame.PlaylistPanel.Playlist.GetCount() - 1)):
 			song_struct = self.Frame.PlaylistPanel.Playlist.GetClientData(next_index)
 			self.StartPlayer(song_struct)
 			self.PlayingIndex = next_index

@@ -103,9 +103,10 @@ from threading import Thread
 
 
 # States
-STATE_NOT_PLAYING	= 1
-STATE_PLAYING		= 2
-STATE_CLOSING		= 3
+STATE_INIT			= 1
+STATE_NOT_PLAYING	= 2
+STATE_PLAYING		= 3
+STATE_CLOSING		= 4
 
 
 # mpgPlayer Class
@@ -113,6 +114,9 @@ class mpgPlayer(Thread):
 	# Initialise the player instace
 	def __init__(self, mpgFileName, errorNotifyCallback=None, doneCallback=None):
 		Thread.__init__(self)
+
+		# Store the params
+		self.mpgFileName = mpgFileName
 
 		# Caller can register a callback by which we
 		# print out error information, use stdout if none registered
@@ -135,31 +139,28 @@ class mpgPlayer(Thread):
 			self.ErrorNotifyCallback (ErrorString)
 			raise NoSuchFile
 			return
-		
-		# Initialise the pygame movie library
-		# Fix the position at top-left of window. Note when doing this, if the
-		# mouse was moving around as the window opened, it made the window tiny.
-		# Have stopped doing anything for resize events until 1sec into the song
-		# to work around this. Note there appears to be no way to find out the
-		# current window position, in order to bring up the next window in the
-		# same place.
-		os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
-		pygame.init()
-		pygame.mixer.quit()
-		pygame.display.set_caption(mpgFileName)
-		self.Movie = pygame.movie.Movie(mpgFileName)
-		# Default to movie display size
-		self.DisplaySize = self.Movie.get_size()
-		self.DisplaySurface = pygame.display.set_mode(self.DisplaySize, pygame.RESIZABLE, 32)
-		self.Movie.set_display (self.DisplaySurface, (0, 0, self.DisplaySize[0], self.DisplaySize[1]))
-		self.State = STATE_NOT_PLAYING
+
+		# Can only do the set_mode() on Windows in the pygame thread.
+		# Therefore use a variable to tell the thread when a resize
+		# is required. This can then be modified by any thread calling
+		# SetDisplaySize()
+		self.ResizeTuple = None
+
+		# Set the state to init - when the thread starts and pygame
+		# init has been done, we will change this to STATE_NOT_PLAYING.
+		# That makes any callers to Play() etc aware that pygame has
+		# been initialised, and they can do stuff.
+		self.State = STATE_INIT
 		
 		# Automatically start the thread which handles pygame events
 		# The movie doesn't start playing until Play() is called
 		self.start()
 		
-	# Start the thread running
+	# Start the thread running. Blocks until the pygame
+	# initialisation is complete
 	def Play(self):
+		while self.State == STATE_INIT:
+			pass
 		self.Movie.play()
 		self.State = STATE_PLAYING
 
@@ -177,8 +178,12 @@ class mpgPlayer(Thread):
 		self.State = STATE_CLOSING
 
 	# Rewind to the beginning - also stops the movie, so 
-	# you must call Play() to restart
+	# you must call Play() to restart. Blocks until pygame
+	# is initialised. There's no point calling it then,
+	# but it prevents internal errors.
 	def Rewind(self):
+		while self.State == STATE_INIT:
+			pass
 		self.Movie.stop()
 		self.Movie.rewind()
 		self.State = STATE_NOT_PLAYING
@@ -188,25 +193,35 @@ class mpgPlayer(Thread):
 	def Stop(self):
 		self.Rewind()
 			
-	# Get the movie length (in seconds)
+	# Get the movie length (in seconds). Block until pygame init.
 	def GetLength(self):
+		while self.State == STATE_INIT:
+			pass
 		return self.Movie.get_length()
 		
-	# Get the current time (in milliseconds)
+	# Get the current time (in milliseconds). Block until pygame init.
 	def GetPos(self):
+		while self.State == STATE_INIT:
+			pass
 		return (self.Movie.get_time() * 1000)
 
 	# Get the current display size
 	def GetDisplaySize(self):
 		return self.DisplaySize
 
-	# Set the display size
+	# Set the display size. This is deferred to the pygame thread
+	# because MS Windows doesn't like the call to set_mode() done
+	# outside of the pygame thread's context
 	def SetDisplaySize(self, displaySizeTuple):
+		self.ResizeTuple = displaySizeTuple
+
+	# Internal. Only called by the pygame thread
+	def set_display_size(self, displaySizeTuple):
 		self.DisplaySize = displaySizeTuple
 		# The pygame library needs to be paused while resizing
 		if self.State == STATE_PLAYING:
 			self.Movie.pause()
-		# Resize the screen
+		# Resize the screen.
 		pygame.display.set_mode (self.DisplaySize, pygame.RESIZABLE, 32)
 		self.Movie.set_display (self.DisplaySurface, (0, 0, self.DisplaySize[0], self.DisplaySize[1]))
 		# Unpause if it was playing
@@ -215,6 +230,30 @@ class mpgPlayer(Thread):
 	
 	# Start the thread but don't play until Play()
 	def run(self):
+
+		# It turns out that on MS Windows you have to initialise pygame in the
+		# thread that is going to check for events. Therefore move all pygame
+		# init stuff here. Play() will now have to block until pygame init is
+		# complete.
+
+		# Initialise the pygame movie library
+		# Fix the position at top-left of window. Note when doing this, if the
+		# mouse was moving around as the window opened, it made the window tiny.
+		# Have stopped doing anything for resize events until 1sec into the song
+		# to work around this. Note there appears to be no way to find out the
+		# current window position, in order to bring up the next window in the
+		# same place.
+		os.environ['SDL_VIDEO_WINDOW_POS'] = "30,30"
+		pygame.init()
+		pygame.mixer.quit()
+		pygame.display.set_caption(self.mpgFileName)
+		self.Movie = pygame.movie.Movie(self.mpgFileName)
+		# Default to movie display size
+		self.DisplaySize = self.Movie.get_size()
+		self.DisplaySurface = pygame.display.set_mode(self.DisplaySize, pygame.RESIZABLE, 32)
+		self.Movie.set_display (self.DisplaySurface, (0, 0, self.DisplaySize[0], self.DisplaySize[1]))
+		self.State = STATE_NOT_PLAYING
+
 		while 1:
 			# Check for and handle pygame events and close requests
 			for event in pygame.event.get():
@@ -223,12 +262,19 @@ class mpgPlayer(Thread):
 				# you set SDL_VIDEO_WINDOW_POS and move the mouse around while the
 				# window is opening. Give it some time to settle.
 				if event.type == pygame.VIDEORESIZE and self.GetPos() > 1000:
-					self.SetDisplaySize(event.size)
+					self.set_display_size(event.size)
 				# If the pygame window is closed quit the thread
 				elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
 					self.State = STATE_CLOSING
 				elif event.type == pygame.QUIT:
 					self.State = STATE_CLOSING
+
+			# Handle a user call to SetDisplaySize(). That defers the display size
+			# set_mode() to this thread (to keep MS Windows happy).
+			if self.ResizeTuple != None and self.GetPos() > 1000:
+				self.set_display_size(self.ResizeTuple)
+				self.ResizeTuple = None
+					
 			# Common handling code for a close request or if the
 			# pygame window was quit
 			if  self.State == STATE_CLOSING:
