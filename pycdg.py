@@ -2,7 +2,7 @@
 
 # pycdg - CDG/MP3+G Karaoke Player
 
-# Copyright (C) 2004  Kelvin Lawson (kelvinl@users.sourceforge.net)
+# Copyright (C) 2005  Kelvin Lawson (kelvinl@users.sourceforge.net)
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -254,12 +254,19 @@ class cdgPlayer(Thread):
 		
 		# Initialise the display
 		self.cdgDisplaySize = (294,204)
+		# Fix the position at top-left of window. Note when doing this, if the
+		# mouse was moving around as the window opened, it made the window tiny.
+		# Have stopped doing anything for resize events until 1sec into the song
+		# to work around this. Note there appears to be no way to find out the
+		# current window position, in order to bring up the next window in the
+		# same place.
+		os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
 		pygame.init()
 		pygame.display.set_caption(self.FileName)
 		self.cdgUnscaledSurface = pygame.Surface(self.cdgDisplaySize)
 		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, pygame.RESIZABLE, 8)
 		self.cdgScreenUpdateRequired = 0
-		
+			
 		# Build a 300x216 array for the pixel indeces, including border area
 		self.cdgPixelColours = N.zeros((300,216))
 
@@ -378,7 +385,11 @@ class cdgPlayer(Thread):
 
 			# Check for and handle pygame events and close requests
 			for event in pygame.event.get():
-				if event.type == pygame.VIDEORESIZE:
+				# Only handle resize events 1ms into song. This is to handle the
+				# bizarre problem of SDL making the window small automatically if
+				# you set SDL_VIDEO_WINDOW_POS and move the mouse around while the
+				# window is opening. Give it some time to settle.
+				if event.type == pygame.VIDEORESIZE and self.GetPos() > 1000:
 					self.cdgDisplaySize = event.size
 					pygame.display.set_mode (event.size, pygame.RESIZABLE)
 				elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -463,11 +474,11 @@ class cdgPlayer(Thread):
 		# commands by some CDGs. So the load colour table itself
 		# actual recalculates the RGB values for all pixels when
 		# the colour table changes.
-	
+
 		# Set the border colour for every pixel. Must be stored in 
 		# the pixel colour table indeces array, as well as
 		# the screen RGB surfarray.
-		# NOTE: The border area starts at (6,12) and extends all
+		# NOTE: The preset area starts at (6,12) and extends all
 		# the way to the right and bottom edges.
 		
 		# The most efficient way of setting the values in a Numeric
@@ -475,14 +486,14 @@ class cdgPlayer(Thread):
 		# the border and preset slices.
 		self.cdgPixelColours = N.zeros([300,216])
 		self.cdgPixelColours[:,:12] = self.cdgPixelColours[:,:12] + self.cdgBorderColourIndex
-		self.cdgPixelColours[:6,:] = self.cdgPixelColours[:6,:] + self.cdgBorderColourIndex
+		self.cdgPixelColours[:6,12:] = self.cdgPixelColours[:6,12:] + self.cdgBorderColourIndex
 		self.cdgPixelColours[6:,12:] = self.cdgPixelColours[6:,12:] + self.cdgPresetColourIndex
 		
 		# Now set the border and preset colour in our local surfarray. 
 		# This will be blitted next time there is a screen update.
 		self.cdgSurfarray = N.zeros([300,216])
 		self.cdgSurfarray[:,:12] = self.cdgSurfarray[:,:12] + self.cdgColourTable[self.cdgBorderColourIndex]
-		self.cdgSurfarray[:6,:] = self.cdgSurfarray[:6,:] + self.cdgColourTable[self.cdgBorderColourIndex]
+		self.cdgSurfarray[:6,12:] = self.cdgSurfarray[:6,12:] + self.cdgColourTable[self.cdgBorderColourIndex]
 		self.cdgSurfarray[6:,12:] = self.cdgSurfarray[6:,12:] + self.cdgColourTable[self.cdgPresetColourIndex]
 
 		self.cdgScreenUpdateRequired = 1

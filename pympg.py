@@ -2,7 +2,7 @@
 
 # pympg - MPEG Karaoke Player
 #
-# Copyright (C) 2004  Kelvin Lawson (kelvinl@users.sourceforge.net)
+# Copyright (C) 2005  Kelvin Lawson (kelvinl@users.sourceforge.net)
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -137,6 +137,13 @@ class mpgPlayer(Thread):
 			return
 		
 		# Initialise the pygame movie library
+		# Fix the position at top-left of window. Note when doing this, if the
+		# mouse was moving around as the window opened, it made the window tiny.
+		# Have stopped doing anything for resize events until 1sec into the song
+		# to work around this. Note there appears to be no way to find out the
+		# current window position, in order to bring up the next window in the
+		# same place.
+		os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
 		pygame.init()
 		pygame.mixer.quit()
 		pygame.display.set_caption(mpgFileName)
@@ -211,7 +218,11 @@ class mpgPlayer(Thread):
 		while 1:
 			# Check for and handle pygame events and close requests
 			for event in pygame.event.get():
-				if event.type == pygame.VIDEORESIZE:
+				# Only handle resize events 1ms into song. This is to handle the
+				# bizarre problem of SDL making the window small automatically if
+				# you set SDL_VIDEO_WINDOW_POS and move the mouse around while the
+				# window is opening. Give it some time to settle.
+				if event.type == pygame.VIDEORESIZE and self.GetPos() > 1000:
 					self.SetDisplaySize(event.size)
 				# If the pygame window is closed quit the thread
 				elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
