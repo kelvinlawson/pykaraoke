@@ -1,8 +1,8 @@
 
 ---------------------------------------------------------------------------
 
-Release:    pykaraoke v0.2
-Date:       01/03/2005
+Release:    pykaraoke v0.2.1
+Date:       10/03/2005
 Author:     Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:    LGPL
 Website:    http://www.kibosh.org/pykaraoke/
@@ -24,11 +24,10 @@ needed to play your own karaoke song files.
 
 WHATS NEW
 
-Changes since v0.1:
-
- * PyKaraoke can now be used on Windows (98/XP/2000)
- * Modified the playlist logic
- * Changes to work with pygame-1.6.2
+This version provides some important fixes to the CDG playback code. The
+player now supports CDG files that do colour cycling and use transparent
+colours. There are also a number of improvements to the GUI frontend. The 
+full changelog can be found below.
 
 ---------------------------------------------------------------------------
 
@@ -111,6 +110,24 @@ You can play MP3+G or OGG+G files using:
 
 MPEG files can be played using:
 	# python pympg.py mpegfilename.mpg
+
+---------------------------------------------------------------------------
+
+CHANGELOG (v0.2.1)
+
+Changes since v0.2:
+
+ * Fixed colour cycling in the CDG player
+ * Fixed transparent colours used in CDG files
+ * Searches are optimised to handle thousands of CDG files very quickly
+ * Fixed inaccurate right-clicking in the playlist on some systems
+ * Fixed Windows drive icon
+
+Changes since v0.1:
+
+ * PyKaraoke can now be used on Windows (98/XP/2000)
+ * Modified the playlist logic
+ * Changes to work with pygame-1.6.2
 
 ---------------------------------------------------------------------------
 

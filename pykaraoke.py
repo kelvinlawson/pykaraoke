@@ -127,6 +127,8 @@ from wxPython.wx import *
 import os, string, zipfile, pickle
 import pycdg, pympg
 
+PYKARAOKE_VERSION_STRING = "0.2.1"
+
 # SongStruct used as storage only (no methods) to store song details for
 # the database. Separate Titles allow us to cut off the pathname, use ID3
 # tags (when supported) etc. For ZIP files there is an extra member - for
@@ -541,13 +543,9 @@ class FileTree (wxPanel):
 	def __init__(self, parent, id, KaraokeMgr, x, y):
 		wxPanel.__init__(self, parent, id)
 		self.KaraokeMgr = KaraokeMgr
-		# Windows doesn't like expanding when the root is hidden
-		if os.name in ["nt", "dos"]:
-			TreeStyle = wxTR_DEFAULT_STYLE
-		else:
-			TreeStyle = wxTR_HIDE_ROOT|wxTR_NO_LINES|wxTR_HAS_BUTTONS
 
 		# Create the tree control
+		TreeStyle = wxTR_NO_LINES|wxTR_HAS_BUTTONS|wxSUNKEN_BORDER
 		self.FileTree = wxTreeCtrl(self, -1, wxPoint(x, y), style=TreeStyle)
 		self.FolderOpenIcon = wxBitmap("icons/folder_open_16.png")
 		self.FolderClosedIcon = wxBitmap("icons/folder_close_16.png")
@@ -593,7 +591,7 @@ class FileTree (wxPanel):
 			self.TreeRoot = self.FileTree.AddRoot("")
 			self.RootFolder = ""
 			for drive in drives:
-				node = self.FileTree.AppendItem(self.TreeRoot, drive) 
+				node = self.FileTree.AppendItem(self.TreeRoot, drive, image=self.FolderClosedIconIndex)
 				self.FileTree.SetItemHasChildren(node, true)
 		else:
 			self.TreeRoot = self.FileTree.AddRoot("/")
@@ -726,26 +724,34 @@ class SearchResultsPanel (wxPanel):
 		self.SearchSizer.Add(self.SearchText, 1, wxEXPAND, 5)
 		self.SearchSizer.Add(self.SearchButton, 0, wxEXPAND, 5)
 		
-		self.ListPanel = wxListBox(self, -1)
-		
+		self.ListPanel = wxListCtrl(self, -1, style=wxLC_REPORT | wxLC_SINGLE_SEL | wxSUNKEN_BORDER)
+		self.ListPanel.Show(True)
+		self.ListPanel.InsertColumn (0, "Search Results", width=500)
+
 		self.StatusBar = wxStatusBar(self, -1)
-		self.StatusBar.SetStatusText ("Search Results")
+		self.StatusBar.SetStatusText ("No search performed")
 		
 		self.VertSizer = wxBoxSizer(wxVERTICAL)
-		self.InterGap = 5
+		self.InterGap = 0
 		self.VertSizer.Add(self.SearchSizer, 0, wxEXPAND, self.InterGap)
 		self.VertSizer.Add(self.ListPanel, 1, wxEXPAND, self.InterGap)
 		self.VertSizer.Add(self.StatusBar, 0, wxEXPAND, self.InterGap)
 		self.SetSizer(self.VertSizer)
 		self.Show(true)
 
-		EVT_LISTBOX_DCLICK(self, wxID_ANY, self.OnFileSelected)
+		EVT_LIST_ITEM_ACTIVATED(self, wxID_ANY, self.OnFileSelected)
 		EVT_BUTTON(self, wxID_ANY, self.OnSearchClicked)
 		EVT_TEXT_ENTER(self, wxID_ANY, self.OnSearchClicked)
 
 		# Add handlers for right-click in the results box
-		EVT_RIGHT_UP(self.ListPanel, self.OnRightClick)
+		self.RightClicekedItemIndex = -1
+		EVT_LIST_ITEM_RIGHT_CLICK(self.ListPanel, wxID_ANY, self.OnRightClick)
 
+		# Resize column width to the same as list width (or longest title, whichever bigger)
+		EVT_SIZE(self.ListPanel, self.onResize)
+		# Store the width (in pixels not chars) of the longest title
+		self.MaxTitleWidth = 0
+ 
 		# Create IDs for popup menu
 		self.menuPlayId = wxNewId()
 		self.menuPlaylistAddId = wxNewId()
@@ -754,8 +760,8 @@ class SearchResultsPanel (wxPanel):
 	# Handle a file selected event (double-click). Plays directly (not add to playlist)
 	def OnFileSelected(self, event):
 		# The SongStruct is stored as data - get it and pass to karaoke mgr
-		selected_index = self.ListPanel.GetSelection()
-		song = self.ListPanel.GetClientData(selected_index)
+		selected_index = event.GetIndex()
+		song = self.SongStructList[selected_index]
 		self.KaraokeMgr.PlayWithoutPlaylist(song)
 
 	# Handle the search button clicked event
@@ -769,23 +775,34 @@ class SearchResultsPanel (wxPanel):
 			if answer == wxYES:
 				# Open up the database setup dialog
 				self.Frame = DatabaseSetupWindow(self.parent, -1, "Database Setup", self.KaraokeMgr)
-				self.StatusBar.SetStatusText ("Search Results")
+				self.StatusBar.SetStatusText ("No search performed")
 			else:
 				self.StatusBar.SetStatusText ("No songs in song database")
 		elif len(songList) == 0:
 			ErrorPopup("No matches found for " + self.SearchText.GetValue())
 			self.StatusBar.SetStatusText ("No matches found")
 		else:
-			self.ListPanel.Clear()
+			for index in range(self.ListPanel.GetItemCount()):
+				self.ListPanel.DeleteItem(0)
+			self.MaxTitleWidth = 0
+			index = 0
 			for song in songList:
-				# Store the SongStruct as client data and set the list text as the title
-				self.ListPanel.Append(song.Title, song)
-			self.StatusBar.SetStatusText ("Search Results")
+				# Set the SongStruct title as the text
+				self.ListPanel.InsertStringItem(index, song.Title)
+				index = index + 1
+				if (len(song.Title) * self.GetCharWidth()) > self.MaxTitleWidth:
+					self.MaxTitleWidth = (len(song.Title) * self.GetCharWidth())
+			# Keep a copy of all the SongStructs in a list, accessible via item index
+			self.SongStructList = songList
+			self.StatusBar.SetStatusText ("%d songs found" % index)
+			# Set the column width now we've added some titles
+			self.doResize()
 
 	# Handle right-click on a search results item (show the popup menu)
 	def OnRightClick(self, event):
+		self.RightClickedItemIndex = event.GetIndex()
 		# Doesn't bring up a popup if no items are in the list
-		if self.ListPanel.GetCount() > 0:
+		if self.ListPanel.GetItemCount() > 0:
 			menu = wxMenu()
 			menu.Append( self.menuPlayId, "Play song" )
 			EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
@@ -793,26 +810,15 @@ class SearchResultsPanel (wxPanel):
 			EVT_MENU( menu, self.menuPlaylistAddId, self.OnMenuSelection )
 			menu.Append( self.menuFileDetailsId, "File Details" )
 			EVT_MENU( menu, self.menuFileDetailsId, self.OnMenuSelection )
-			# Set the menu position. Add the event x,y offsets to the
-			# location of the listbox
-			menuPos = self.GetPosition()
-			menuPos[0] = menuPos[0] + event.m_x
-			menuPos[1] = menuPos[1] + event.m_y
-			# Select the listbox item, as right-click mouse event doesn't
-			# actually select the item. We have to calculate the line to
-			# find out where the user right-clicked... If it's below the
-			# last item, just select the last item in the list.
-			CharHeight=self.ListPanel.GetCharHeight() + self.InterGap - 1
-			selectedIndex = int(event.m_y/CharHeight)
-			if selectedIndex > (self.ListPanel.GetCount() - 1):
-				selectedIndex = self.ListPanel.GetCount() - 1
-			self.ListPanel.SetSelection(selectedIndex)
-			self.parent.PopupMenu( menu, menuPos )
+			self.ListPanel.SetItemState(
+					self.RightClickedItemIndex,
+					wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED,
+					wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED)
+			self.ListPanel.PopupMenu( menu, event.GetPoint() )
 
 	# Handle popup menu selection events
 	def OnMenuSelection( self, event ):
-		selected_index = self.ListPanel.GetSelection()
-		song = self.ListPanel.GetClientData(selected_index)
+		song = self.SongStructList[self.RightClickedItemIndex]
 		if event.GetId() == self.menuPlayId:
 			self.KaraokeMgr.PlayWithoutPlaylist(song)
 		elif event.GetId() == self.menuPlaylistAddId:
@@ -824,6 +830,43 @@ class SearchResultsPanel (wxPanel):
 				detailsString = "File: " + song.Filepath
 			wxMessageBox(detailsString, song.Title, wxOK)
 
+	def onResize(self, event):
+		self.doResize()
+		event.Skip()
+
+	# Common handler for SIZE events and our own resize requests
+	def doResize(self):
+		# Get the listctrl's width
+		listWidth = self.ListPanel.GetClientSize().width
+		# We're showing the vertical scrollbar -> allow for scrollbar width
+		# NOTE: on GTK, the scrollbar is included in the client size, but on
+		# Windows it is not included
+		if wxPlatform != '__WXMSW__':
+			if self.ListPanel.GetItemCount() > self.ListPanel.GetCountPerPage():
+				scrollWidth = wxSystemSettings_GetSystemMetric(wxSYS_VSCROLL_X)
+				listWidth = listWidth - scrollWidth
+
+		# Only one column, set its width to list width, or the longest title if larger
+		if self.MaxTitleWidth > listWidth:
+			width = self.MaxTitleWidth
+		else:
+			width = listWidth
+		self.ListPanel.SetColumnWidth(0, width)
+
+
+	# Not used yet. Return list of selected items.
+	def GetSelections(self, state =  wxLIST_STATE_SELECTED):
+		indices = []
+		found = 1
+		lastFound = -1
+		while found:
+			index = self.ListPanel.GetNextItem(lastFound, wxLIST_NEXT_ALL, state)
+			if index == -1:
+				break
+			else:
+				lastFound = index
+				indices.append( index )
+		return indices
 
 # Class to manage the playlist panel and list box
 class Playlist (wxPanel):
@@ -833,14 +876,17 @@ class Playlist (wxPanel):
 		self.parent = parent
 		
 		# Create the playlist control
-		self.Playlist = wxListBox(self, -1, wxPoint(x, y))
+		self.PlaylistId = wxNewId()
+		self.Playlist = wxListCtrl(self, self.PlaylistId, style=wxLC_REPORT | wxLC_SINGLE_SEL | wxSUNKEN_BORDER)
+		self.Playlist.InsertColumn (0, "Playlist", width=500)
+		self.Playlist.Show(True)
 
 		# Create the status bar
 		self.StatusBar = wxStatusBar(self, -1)
-		self.StatusBar.SetStatusText ("Playlist")
+		self.StatusBar.SetStatusText ("Not playing")
 
 		# Create a sizer for the tree view and status bar
-		self.InterGap = 5
+		self.InterGap = 0
 		self.VertSizer = wxBoxSizer(wxVERTICAL)
 		self.VertSizer.Add(self.Playlist, 1, wxEXPAND, self.InterGap)
 		self.VertSizer.Add(self.StatusBar, 0, wxEXPAND, self.InterGap)
@@ -848,22 +894,34 @@ class Playlist (wxPanel):
 		self.Show(true)
 
 		# Add handlers for right-click in the listbox
-		EVT_LISTBOX_DCLICK(self, wxID_ANY, self.OnFileSelected)
-		EVT_RIGHT_UP(self.Playlist, self.OnRightClick)
+		EVT_LIST_ITEM_ACTIVATED(self, wxID_ANY, self.OnFileSelected)
+		EVT_LIST_ITEM_RIGHT_CLICK(self.Playlist, wxID_ANY, self.OnRightClick)
+		self.RightClickedItemIndex = -1
+
+		# Resize column width to the same as list width (or max title width, which larger)
+		EVT_SIZE(self.Playlist, self.onResize)
+ 		# Store the width (in pixels not chars) of the longest title
+		self.MaxTitleWidth = 0
 
 		# Create IDs for popup menu
 		self.menuPlayId = wxNewId()
 		self.menuDeleteId = wxNewId()
 		self.menuClearListId = wxNewId()
 
+		# Store a local list of song_structs associated by index to playlist items.
+		# (Cannot store stuff like this associated with an item in a listctrl)
+		self.PlaylistSongStructList = []
+
 	# Handle item selected (double-click). Starts the selected track.
 	def OnFileSelected(self, event):
-		self.KaraokeMgr.PlaylistStart()
+		selected_index = event.GetIndex()
+		self.KaraokeMgr.PlaylistStart(selected_index)
 
 	# Handle right-click in the playlist (show popup menu).
 	def OnRightClick(self, event):
+		self.RightClickedItemIndex = event.GetIndex()
 		# Doesn't bring up a popup if no items are in the list
-		if self.Playlist.GetCount() > 0:
+		if self.Playlist.GetItemCount() > 0:
 			menu = wxMenu()
 			menu.Append( self.menuPlayId, "Play song" )
 			EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
@@ -871,31 +929,102 @@ class Playlist (wxPanel):
 			EVT_MENU( menu, self.menuDeleteId, self.OnMenuSelection )
 			menu.Append( self.menuClearListId, "Clear playlist" )
 			EVT_MENU( menu, self.menuClearListId, self.OnMenuSelection )
-			# Set the menu position. Add the event x,y offsets to the
-			# location of the listbox
-			menuPos = self.GetPosition()
-			menuPos[0] = menuPos[0] + event.m_x
-			menuPos[1] = menuPos[1] + event.m_y
-			# Select the listbox item, as right-click mouse event doesn't
-			# actually select the item. We have to calculate the line.
-			# If it's below the last item, just select the last item.
-			CharHeight=self.Playlist.GetCharHeight() + self.InterGap - 1
-			selectedIndex = int(event.m_y/CharHeight)
-			if selectedIndex > (self.Playlist.GetCount() - 1):
-				selectedIndex = self.Playlist.GetCount() - 1
-			self.Playlist.SetSelection(selectedIndex)
-			self.parent.PopupMenu( menu, menuPos )
+			self.Playlist.SetItemState(
+					self.RightClickedItemIndex,
+					wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED,
+					wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED)
+			self.Playlist.PopupMenu( menu, event.GetPoint() )
 
 	# Handle popup menu selection events.
 	def OnMenuSelection( self, event ):
 		if event.GetId() == self.menuPlayId:
-			self.KaraokeMgr.PlaylistStart()
+			self.KaraokeMgr.PlaylistStart(self.RightClickedItemIndex)
 		elif event.GetId() == self.menuDeleteId:
-			for index in self.Playlist.GetSelections():
-				self.Playlist.Delete(index)
+			for index in self.GetSelections():
+				self.DelItem(index)
 		elif event.GetId() == self.menuClearListId:
-			for index in range(self.Playlist.GetCount()):
-				self.Playlist.Delete(0)
+			for index in range(self.Playlist.GetItemCount()):
+				self.DelItem(0)
+
+	def onResize(self, event):
+		self.doResize()
+		event.Skip()
+
+	# Common handler for SIZE events and our own resize requests
+	def doResize(self):
+		# Get the listctrl's width
+		listWidth = self.Playlist.GetClientSize().width
+		# We're showing the vertical scrollbar -> allow for scrollbar width
+		# NOTE: on GTK, the scrollbar is included in the client size, but on
+		# Windows it is not included
+		if wxPlatform != '__WXMSW__':
+			if self.Playlist.GetItemCount() > self.Playlist.GetCountPerPage():
+				scrollWidth = wxSystemSettings_GetSystemMetric(wxSYS_VSCROLL_X)
+				listWidth = listWidth - scrollWidth
+
+		# Only one column, set its width to list width, or the longest title if larger
+		if self.MaxTitleWidth > listWidth:
+			width = self.MaxTitleWidth
+		else:
+			width = listWidth
+		self.Playlist.SetColumnWidth(0, width)
+
+
+	# Add item to playlist
+	def AddItem( self, song_struct ):
+		self.Playlist.InsertStringItem(self.Playlist.GetItemCount(), song_struct.Title)
+		self.PlaylistSongStructList.append(song_struct)
+		# Update the max title width for column sizing, in case this is the largest one yet
+		if ((len(song_struct.Title) * self.GetCharWidth()) > self.MaxTitleWidth):
+			self.MaxTitleWidth = len(song_struct.Title) * self.GetCharWidth()
+			self.doResize()
+	
+	# Delete item from playlist
+	def DelItem( self, item_index ):
+		# Update the max title width for column sizing, in case this was the largest one
+		if ((len(self.PlaylistSongStructList[item_index].Title) * self.GetCharWidth()) == self.MaxTitleWidth):
+			resize_needed = True
+		else:
+			resize_needed = False
+		# Delete the item from the listctrl and our local song struct list
+		self.Playlist.DeleteItem(item_index)
+		self.PlaylistSongStructList.pop(item_index)
+		# Find the next largest title if necessary
+		if resize_needed:
+			self.MaxTitleWidth = 0
+			for song_struct in self.PlaylistSongStructList:
+				if (len(song_struct.Title) * self.GetCharWidth()) > self.MaxTitleWidth:
+					self.MaxTitleWidth = len(song_struct.Title) * self.GetCharWidth()
+			self.doResize()
+
+	# Get number of items in playlist
+	def GetItemCount( self ):
+		return self.Playlist.GetItemCount()
+
+	# Get the song_struct for an item index
+	def GetSongStruct ( self, item_index ):
+		return self.PlaylistSongStructList[item_index]
+
+	# Set an item as selected
+	def SetItemSelected( self, item_index ):
+		self.Playlist.SetItemState(
+				item_index,
+				wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED,
+				wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED)
+
+	# Return list of selected items.
+	def GetSelections(self, state =  wxLIST_STATE_SELECTED):
+		indices = []
+		found = 1
+		lastFound = -1
+		while found:
+			index = self.Playlist.GetNextItem(lastFound, wxLIST_NEXT_ALL, state)
+			if index == -1:
+				break
+			else:
+				lastFound = index
+				indices.append( index )
+		return indices
 
 
 # Main window
@@ -993,7 +1122,7 @@ class PyKaraokeManager:
 		# Set up and store the song database instance
 		self.SongDB = SongDB(self)
 		# Set up the WX windows
-		self.Frame = PyKaraokeWindow(None, -1, "PyKaraoke", self)
+		self.Frame = PyKaraokeWindow(None, -1, "PyKaraoke " + PYKARAOKE_VERSION_STRING, self)
 		# Set the default display size
 		self.DisplaySize = (640, 480)
 		# Set up an event so the player threads can call back and perform
@@ -1014,7 +1143,7 @@ class PyKaraokeManager:
 	# Takes a SongStruct so it has both title and full path details.
 	# Stores the SongStruct in the Playlist control and sets the title.
 	def AddToPlaylist(self, song_struct):
-		self.Frame.PlaylistPanel.Playlist.Append(song_struct.Title, song_struct)
+		self.Frame.PlaylistPanel.AddItem(song_struct)
 	
 	# Called when a karaoke file is played from the file tree or search
 	# results. Does not add to the playlist, just plays directly,
@@ -1034,14 +1163,13 @@ class PyKaraokeManager:
 	# playlist item. If a song is playing, then tell the player to
 	# start closing, and set PlayingIndex so that the song finished
 	# callback will start playing this one.
-	def PlaylistStart(self):
-		song_index = self.Frame.PlaylistPanel.Playlist.GetSelection()
+	def PlaylistStart(self, song_index):
 		if not self.Player:
-			song_struct = self.Frame.PlaylistPanel.Playlist.GetClientData(song_index)
+			song_struct = self.Frame.PlaylistPanel.GetSongStruct(song_index)
 			self.StartPlayer(song_struct)
 			self.PlayingIndex = song_index
 			# Show the song as selected in the playlist
-			self.Frame.PlaylistPanel.Playlist.SetSelection(self.PlayingIndex)
+			self.Frame.PlaylistPanel.SetItemSelected(self.PlayingIndex)
 		else:
 			# Note that this will be -1 if the first item is playing,
 			# but this is a valid index for GetNextItem() - it will 
@@ -1059,6 +1187,8 @@ class PyKaraokeManager:
 	# runs in the GUI thread, instead of the player thread which the callback
 	# runs in.
 	def SongFinishedEventHandler(self, event):
+		# Set the status bar
+		self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Not playing")
 		# Find out if the user changed the display size, to use on the next song.
 		# Note it's not possible to get the current pygame window position, so
 		# the players always start at the top-left (0,0)
@@ -1075,12 +1205,12 @@ class PyKaraokeManager:
 			self.PlayingIndex = -2
 			# Play the next song in the list, if there is one (and if the
 			# last song wasn't a direct play)
-		elif (self.PlayingIndex != -2) and (next_index <= (self.Frame.PlaylistPanel.Playlist.GetCount() - 1)):
-			song_struct = self.Frame.PlaylistPanel.Playlist.GetClientData(next_index)
+		elif (self.PlayingIndex != -2) and (next_index <= (self.Frame.PlaylistPanel.GetItemCount() - 1)):
+			song_struct = self.Frame.PlaylistPanel.GetSongStruct(next_index)
 			self.StartPlayer(song_struct)
 			self.PlayingIndex = next_index
 			# Show the song as selected in the playlist
-			self.Frame.PlaylistPanel.Playlist.SetSelection(next_index)
+			self.Frame.PlaylistPanel.SetItemSelected(next_index)
 		else:
 			self.Player = None
 		# Delete any temporary files that may have been unzipped
@@ -1160,6 +1290,9 @@ class PyKaraokeManager:
 			else:
 				ErrorPopup ("Unsupported file format " + ext)
 		
+			# Set the status bar
+			self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Playing " + song_struct.Title)
+
 			# Set the display size to the user's current preference (i.e. last song)
 			self.Player.SetDisplaySize (self.DisplaySize)
 		
@@ -1167,7 +1300,7 @@ class PyKaraokeManager:
 			self.Player.Play()
 		except:
 			ErrorPopup ("Error starting player")
-		
+	
 PyKaraokeApp = wxPySimpleApp()
 Mgr = PyKaraokeManager()
 PyKaraokeApp.MainLoop()

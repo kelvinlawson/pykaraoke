@@ -206,7 +206,7 @@ class cdgPlayer(Thread):
 	def __init__(self, cdgFileName, errorNotifyCallback=None, doneCallback=None):
 		Thread.__init__(self)
 		self.FileName = cdgFileName
-		
+
 		# Caller can register a callback by which we
 		# print out error information, use stdout if none registered
 		if errorNotifyCallback:
@@ -412,18 +412,18 @@ class cdgPlayer(Thread):
 			# Resizes have to be done in the pygame thread context on
 			# MS Windows, so other threads can set ResizeTuple to 
 			# request a resize (This is wrappered by SetDisplaySize()).
-			if self.ResizeTuple != None and self.GetPos() > 1000:
+			if self.ResizeTuple != None and self.GetPos() > 250:
 				self.cdgDisplaySize = self.ResizeTuple
 				pygame.display.set_mode (self.cdgDisplaySize, pygame.RESIZABLE)
 				self.ResizeTuple = None
 
 			# Check for and handle pygame events and close requests
 			for event in pygame.event.get():
-				# Only handle resize events 1ms into song. This is to handle the
+				# Only handle resize events 250ms into song. This is to handle the
 				# bizarre problem of SDL making the window small automatically if
 				# you set SDL_VIDEO_WINDOW_POS and move the mouse around while the
 				# window is opening. Give it some time to settle.
-				if event.type == pygame.VIDEORESIZE and self.GetPos() > 1000:
+				if event.type == pygame.VIDEORESIZE and self.GetPos() > 250:
 					self.cdgDisplaySize = event.size
 					pygame.display.set_mode (event.size, pygame.RESIZABLE)
 				elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -659,14 +659,14 @@ class cdgPlayer(Thread):
 				# Set the pixel with the new colour. We set both the surfarray
 				# containing actual RGB values, as well as our array containing
 				# the colour indeces into our colour table.
-				if self.cdgTransparentColour != new_col:
-					self.cdgSurfarray[(row_index + j), (column_index + i)] = self.cdgColourTable[new_col]
-					self.cdgPixelColours[(row_index + j), (column_index + i)] = new_col
+				self.cdgSurfarray[(row_index + j), (column_index + i)] = self.cdgColourTable[new_col]
+				self.cdgPixelColours[(row_index + j), (column_index + i)] = new_col
 		# The changes to cdgSurfarray will be blitted on the next screen update
 		self.cdgScreenUpdateRequired = 1
 		return
 
-	# Set one of the colour indeces as transparent
+	# Set one of the colour indeces as transparent. Don't actually do anything with this
+	# at the moment, as there is currently no mechanism for overlaying onto a movie file.
 	def cdgDefineTransparentColour (self, packd):
 		data_block = packd['data']
 		colour = data_block[0] & 0x0F
@@ -688,13 +688,21 @@ class cdgPlayer(Thread):
 			blue = ((colourEntry & 0x000F)) * 17
 			self.cdgColourTable[i + colourTableStart] = self.cdgUnscaledSurface.map_rgb(red, green, blue)
 		# Redraw the entire screen using the new colour table. We still use the 
-		# same colour indeces at each pixel but these may contain new RGB colours.
-		# This handles CDGs that preset the screen before actually loading the
-		# colour table. This is done in our local RGB surfarray.
-		for row in range(216):
-			for column in range(300):
-				self.cdgSurfarray[(column, row)] = self.cdgColourTable[self.cdgPixelColours[(column, row)]]
-				
+		# same colour indeces (0 to 15) at each pixel but these may translate to
+		# new RGB colours. This handles CDGs that preset the screen before actually
+		# loading the colour table. It is done in our local RGB surfarray.
+
+		# Do this with the Numeric module operation take() which can replace all
+		# values in an array by alternatives from a lookup table. This is ideal as
+		# we already have an array of colour indeces (0 to 15). We can create a
+		# new RGB surfarray from that by doing take() which translates the 0-15
+		# into an RGB colour and stores them in the RGB surfarray.
+		lookupTable = N.array(self.cdgColourTable)
+		self.cdgSurfarray.flat[:] = N.take(lookupTable, self.cdgPixelColours.flat)
+
+		# An alternative way of doing the above - was found to be very slightly slower.
+		#self.cdgSurfarray.flat[:] =  map(self.cdgColourTable.__getitem__, self.cdgPixelColours.flat)
+
 		# Update the screen for any colour changes
 		self.cdgScreenUpdateRequired = 1
 		return
