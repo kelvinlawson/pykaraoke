@@ -122,6 +122,8 @@ Changes since v0.2:
  * Searches are optimised to handle thousands of CDG files very quickly
  * Fixed inaccurate right-clicking in the playlist on some systems
  * Fixed Windows drive icon
+ * Fixed tree root issue on some Linux systems
+ * Added more status messages to the status bars
 
 Changes since v0.1:
 
