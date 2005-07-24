@@ -125,9 +125,15 @@
 
 from wxPython.wx import *
 import os, string, zipfile, pickle
-import pycdg, pympg
+import pycdg, pympg, pykar
 
-PYKARAOKE_VERSION_STRING = "0.2.1"
+PYKARAOKE_VERSION_STRING = "0.3"
+
+# Size of the main window
+MAIN_WINDOW_SIZE = (604,480)
+
+# Size of the Database setup window
+DB_WINDOW_SIZE = (450,300)
 
 # SongStruct used as storage only (no methods) to store song details for
 # the database. Separate Titles allow us to cut off the pathname, use ID3
@@ -157,7 +163,7 @@ class SongDB:
 	
 		# Set the default settings, in case none are stored on disk
 		folder_path = []
-		file_extensions = [".cdg", ".mpg", ".mpeg"]
+		file_extensions = [".cdg", ".mpg", ".mpeg", ".kar", ".mid"]
 		look_inside_zips = True
 	
 		# Create a SettingsStruct instance for storing settings
@@ -210,11 +216,18 @@ class SongDB:
 		file.close()
 	
 	def BuildSearchDatabase(self):
-		# Zap the database and build again from scratch
+		# Zap the database and build again from scratch. Return False
+		# if was cancelled.
+		cancelled = False
 		self.SongList = []
-		busyBox = wxBusyCursor()
+		self.BusyDlg = BusyCancelDialog (self.KaraokeMgr.Frame, "Searching")
+		self.BusyDlg.Show()
 		for root_path in self.Settings.FolderList:
-			self.FolderScan (root_path)
+			cancelled = self.FolderScan (root_path)
+			if cancelled == True:
+				break
+		self.BusyDlg.Destroy()
+		return cancelled
 
 	def FolderScan (self, FolderToScan):
 		# Search for karaoke files inside the folder, looking inside ZIPs if
@@ -225,12 +238,18 @@ class SongDB:
 		for item in filedir_list:
 			searched = searched + 1
 			# Allow windows to refresh now and again while scanning
-			if ((searched % 15) == 0):
-				theApp.Yield()
+			if ((searched % 5) == 0):
+				# Check if cancel was clicked
+				if self.BusyDlg.Clicked == True:
+					return (True)
+				else:
+					theApp.Yield()
 			full_path = os.path.join(FolderToScan, item)
 			# Recurse into subdirectories
 			if os.path.isdir(full_path):
-				self.FolderScan (full_path)
+				cancelled = self.FolderScan (full_path)
+				if cancelled == True:
+					return (True)
 			# Store file details if it's a file type we're interested in
 			else:
 				root, ext = os.path.splitext(full_path)
@@ -255,7 +274,8 @@ class SongDB:
 										print ("ZIP member %s compressed with unsupported type (%d)"%(filename,info.compress_type))
 					except:
 						print "Error looking inside zip " + full_path
-	
+		return (False)
+
 	# Add a folder to the database search list
 	def FolderAdd (self, FolderPath):
 		if FolderPath not in self.Settings.FolderList:
@@ -341,11 +361,37 @@ class SongDB:
 					os.unlink(full_path)
 
 
+
+# Popup busy window with cancel button
+class BusyCancelDialog (wxFrame):
+	def __init__(self,parent,title):
+		pos = parent.GetPosition()
+		pos[0] += (MAIN_WINDOW_SIZE[0] / 2) - 70
+		pos[1] += (MAIN_WINDOW_SIZE[1] / 2) - 25
+		wxFrame.__init__(self,parent,wxID_ANY, title, size=(140,50),
+							style=wxSYSTEM_MENU|wxCAPTION|wxFRAME_FLOAT_ON_PARENT,pos=pos)
+		
+		# Add the buttons
+		self.CancelButtonID = wxNewId()
+		self.CancelButton = wxButton(self, self.CancelButtonID, "Cancel")
+		EVT_BUTTON(self, self.CancelButtonID, self.OnCancelClicked)
+
+		# Set clicked status
+		self.Clicked = False
+
+	# Cancel clicked
+	def OnCancelClicked(self, event):
+		self.Clicked = True
+
+
 # Popup settings window for adding song folders, requesting a 
 # new folder scan to fill the database etc.
 class DatabaseSetupWindow (wxFrame):
 	def __init__(self,parent,id,title,KaraokeMgr):
-		wxFrame.__init__(self,parent,wxID_ANY, title, size=(450,300),
+		pos = parent.GetPosition()
+		pos[0] += (MAIN_WINDOW_SIZE[0] / 2) - (DB_WINDOW_SIZE[0] / 2)
+		pos[1] += (MAIN_WINDOW_SIZE[1] / 2) - (DB_WINDOW_SIZE[1] / 2)
+		wxFrame.__init__(self,parent,wxID_ANY, title, size=DB_WINDOW_SIZE, pos=pos,
 							style=wxDEFAULT_FRAME_STYLE|wxFRAME_FLOAT_ON_PARENT)
 		self.KaraokeMgr = KaraokeMgr
 		
@@ -480,8 +526,8 @@ class DatabaseSetupWindow (wxFrame):
 		
 	# User wants to rescan all folders
 	def OnScanFoldersClicked(self, event):
-		if self.ScanNeeded == True:
-			self.KaraokeMgr.SongDB.BuildSearchDatabase()
+		cancelled = self.KaraokeMgr.SongDB.BuildSearchDatabase()
+		if cancelled == False:
 			self.ScanNeeded = False
 			self.SaveNeeded = True
 
@@ -774,7 +820,7 @@ class SearchResultsPanel (wxPanel):
 			answer = wxMessageBox(setupString, "Setup database now?", wxYES_NO | wxICON_QUESTION)
 			if answer == wxYES:
 				# Open up the database setup dialog
-				self.Frame = DatabaseSetupWindow(self.parent, -1, "Database Setup", self.KaraokeMgr)
+				self.DBFrame = DatabaseSetupWindow(self.parent, -1, "Database Setup", self.KaraokeMgr)
 				self.StatusBar.SetStatusText ("No search performed")
 			else:
 				self.StatusBar.SetStatusText ("No songs in song database")
@@ -1030,9 +1076,7 @@ class Playlist (wxPanel):
 # Main window
 class PyKaraokeWindow (wxFrame):
 	def __init__(self,parent,id,title,KaraokeMgr):
-		self.Width = 640
-		self.Height = 480
-		wxFrame.__init__(self,parent,wxID_ANY, title, size = (self.Width,self.Height),
+		wxFrame.__init__(self,parent,wxID_ANY, title, size = MAIN_WINDOW_SIZE,
 							style=wxDEFAULT_FRAME_STYLE|wxNO_FULL_REPAINT_ON_RESIZE)
 		self.KaraokeMgr = KaraokeMgr
 		
@@ -1136,7 +1180,7 @@ class PyKaraokeManager:
 		self.DirectPlaySongStruct = None
 		# Used to store the currently playing song (if from the playlist)
 		self.PlayingIndex = 0
-	
+
 	# Called when a karaoke file is added to the playlist from the 
 	# file tree or search results for adding to the playlist. 
 	# Handles adding to the playlist panel, playing if necessary etc.
@@ -1282,19 +1326,20 @@ class PyKaraokeManager:
 			root, ext = os.path.splitext(self.FilePath)
 			if ext.lower() == ".cdg":
 				self.Player = pycdg.cdgPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
-		#	elif (ext.lower() == ".kar") or (ext == ".mid"):
-		#		self.Player = pykar.karPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
+				# Set the display size to the user's current preference (i.e. last song)
+				self.Player.SetDisplaySize (self.DisplaySize)
+			elif (ext.lower() == ".kar") or (ext == ".mid"):
+				self.Player = pykar.midPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
 			elif (ext.lower() == ".mpg") or (ext == ".mpeg"):
-				self.Player = pympg.mpgPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
+				self.Player.SetDisplaySize (self.DisplaySize)
+				# Set the display size to the user's current preference (i.e. last song)
+				self.Player.SetDisplaySize (self.DisplaySize)
 			# TODO basic mp3/ogg player
 			else:
 				ErrorPopup ("Unsupported file format " + ext)
 		
 			# Set the status bar
 			self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Playing " + song_struct.Title)
-
-			# Set the display size to the user's current preference (i.e. last song)
-			self.Player.SetDisplaySize (self.DisplaySize)
 		
 			# Start playing
 			self.Player.Play()

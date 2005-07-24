@@ -166,7 +166,7 @@
 #
 # self.cdgDisplaySize
 # Current actual display size. Starts at 294x204
-import struct, sys, pygame, os
+import struct, sys, pygame, os, string
 from threading import Thread
 import Numeric as N
 
@@ -205,7 +205,7 @@ class cdgPlayer(Thread):
 	# Initialise the player instace
 	def __init__(self, cdgFileName, errorNotifyCallback=None, doneCallback=None):
 		Thread.__init__(self)
-		self.FileName = cdgFileName
+		self.FileName = cdgFileName 
 
 		# Caller can register a callback by which we
 		# print out error information, use stdout if none registered
@@ -275,11 +275,36 @@ class cdgPlayer(Thread):
 		# SetDisplaySize()
 		self.ResizeTuple = None
 
+		# Initialise pygame
+		if os.name == "posix":
+			self.pygame_init()
+
 		# Automatically start the thread which handles pygame events
 		# Doesn't actually start playing until Play() is called.
 		# This can be removed when 1.7 is well spread.
 		self.State = STATE_INIT
 		self.start()
+
+	# Pygame initialisation
+	def pygame_init(self):
+		# Fix the position at top-left of window. Note when doing this, if the
+		# mouse was moving around as the window opened, it made the window tiny.
+		# Have stopped doing anything for resize events until 1sec into the song
+		# to work around this. Note there appears to be no way to find out the
+		# current window position, in order to bring up the next window in the
+		# same place. Things seem to be different in development versions of
+		# pygame-1.7 - it appears to remember the position, and it is the only
+		# version for which fixing the position works on MS Windows.
+		# Don't set the environment variable on OSX.
+		if os.name == "posix":
+			(uname, host, release, version, machine) = os.uname()
+		if (os.name != "posix") or (string.lower(uname)[:5] == "linux"):
+			os.environ['SDL_VIDEO_WINDOW_POS'] = "30,30"
+		pygame.init()
+		pygame.display.set_caption(self.FileName)
+		self.cdgUnscaledSurface = pygame.Surface(self.cdgDisplaySize)
+		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, pygame.RESIZABLE, 16)
+		self.cdgScreenUpdateRequired = 0
 
 	# Start the thread running. Blocks until the thread is started and
 	# has finished initialising pygame.
@@ -356,21 +381,8 @@ class cdgPlayer(Thread):
 		# thread that is going to check for events. Therefore move all pygame
 		# init stuff here. Play() will now have to block until pygame init is
 		# complete.
-
-		# Fix the position at top-left of window. Note when doing this, if the
-		# mouse was moving around as the window opened, it made the window tiny.
-		# Have stopped doing anything for resize events until 1sec into the song
-		# to work around this. Note there appears to be no way to find out the
-		# current window position, in order to bring up the next window in the
-		# same place. Things seem to be different in development versions of
-		# pygame-1.7 - it appears to remember the position, and it is the only
-		# version for which fixing the position works on MS Windows.
-		os.environ['SDL_VIDEO_WINDOW_POS'] = "30,30"
-		pygame.init()
-		pygame.display.set_caption(self.FileName)
-		self.cdgUnscaledSurface = pygame.Surface(self.cdgDisplaySize)
-		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, pygame.RESIZABLE, 8)
-		self.cdgScreenUpdateRequired = 0
+		if os.name != "posix":
+			self.pygame_init()
 
 		# Open the cdg and sound files
 		self.cdgFile = open (self.FileName, "rb") 
@@ -384,6 +396,17 @@ class cdgPlayer(Thread):
 		self.cdgPacketsDue = 0
 		self.LastPos = curr_pos = 0
 
+		# Use psyco if possible
+		try:
+			import psyco
+			psyco.bind(self.cdgPresetScreenCommon)
+			psyco.bind(self.cdgScrollCommon)
+			psyco.bind(self.cdgTileBlockCommon)
+			psyco.bind(cdgLoadColourTableCommon)
+			psyco.bind(cdgDisplayUpdate)
+		except:
+			pass
+	
 		# Main thread processing loop
 		while 1:
 			# Check whether the songfile has moved on, if so
@@ -397,7 +420,11 @@ class cdgPlayer(Thread):
 					# A packet needs to be displayed
 					packd = self.cdgGetNextPacket()
 					if (packd):
-						self.cdgPacketProcess (packd)
+						# Protect against possible corrupt rips
+						try:
+							self.cdgPacketProcess (packd)
+						except:
+							pass
 						self.cdgReadPackets = self.cdgReadPackets + 1
 					else:
 						# Couldn't get another packet, finish
@@ -430,6 +457,11 @@ class cdgPlayer(Thread):
 					self.State = STATE_CLOSING
 				elif event.type == pygame.QUIT:
 					self.State = STATE_CLOSING
+				# Use keypad -/= to offset the current graphics time by 1/4 sec
+				elif event.type == pygame.KEYDOWN and event.key == pygame.K_MINUS:
+					self.TotalOffsetTime += 250
+				elif event.type == pygame.KEYDOWN and event.key == pygame.K_EQUALS:
+					self.TotalOffsetTime -= 250
 					
 			# Common handling code for a close request or if the
 			# pygame window was quit
@@ -465,7 +497,7 @@ class cdgPlayer(Thread):
 				self.cdgTileBlockCommon (packd, xor = 1)
 			else:
 				# Don't use the error popup, ignore the unsupported command
-				ErrorString = "Unknown command in CDG file: " + str(inst_code)
+				ErrorString = "CDG file may be corrupt (cmd %d)" + str(inst_code)
 				print (ErrorString)
 
 	# Read the next CDG command from the file (24 bytes each)

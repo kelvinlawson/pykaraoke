@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python 
 
 # pympg - MPEG Karaoke Player
 #
@@ -18,7 +18,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-import pygame, sys, os
+import pygame, sys, os, string
 from threading import Thread
 
 # OVERVIEW
@@ -146,6 +146,10 @@ class mpgPlayer(Thread):
 		# SetDisplaySize()
 		self.ResizeTuple = None
 
+		# Initialise pygame
+		if os.name == "posix":
+			self.pygame_init()
+
 		# Set the state to init - when the thread starts and pygame
 		# init has been done, we will change this to STATE_NOT_PLAYING.
 		# That makes any callers to Play() etc aware that pygame has
@@ -155,6 +159,32 @@ class mpgPlayer(Thread):
 		# Automatically start the thread which handles pygame events
 		# The movie doesn't start playing until Play() is called
 		self.start()
+
+	# Pygame initialisation
+	def pygame_init(self):
+
+		# Initialise the pygame movie library
+		# Fix the position at top-left of window. Note when doing this, if the
+		# mouse was moving around as the window opened, it made the window tiny.
+		# Have stopped doing anything for resize events until 1sec into the song
+		# to work around this. Note there appears to be no way to find out the
+		# current window position, in order to bring up the next window in the
+		# same place. Things seem to be different in development versions of
+		# pygame-1.7 - it appears to remember the position, and it is the only
+		# version for which fixing the position works on MS Windows.
+		# Don't set the environment variable on OSX.
+		if os.name == "posix":
+			(uname, host, release, version, machine) = os.uname()
+		if (os.name != "posix") or (string.lower(uname)[:5] == "linux"):
+			os.environ['SDL_VIDEO_WINDOW_POS'] = "30,30"
+		pygame.init()
+		pygame.mixer.quit()
+		pygame.display.set_caption(self.mpgFileName)
+		self.Movie = pygame.movie.Movie(self.mpgFileName)
+		# Default to movie display size
+		self.DisplaySize = self.Movie.get_size()
+		self.DisplaySurface = pygame.display.set_mode(self.DisplaySize, pygame.RESIZABLE, 32)
+		self.Movie.set_display (self.DisplaySurface, (0, 0, self.DisplaySize[0], self.DisplaySize[1]))
 		
 	# Start the thread running. Blocks until the pygame
 	# initialisation is complete
@@ -235,23 +265,10 @@ class mpgPlayer(Thread):
 		# thread that is going to check for events. Therefore move all pygame
 		# init stuff here. Play() will now have to block until pygame init is
 		# complete.
+		if os.name != "posix":
+			self.pygame_init()
 
-		# Initialise the pygame movie library
-		# Fix the position at top-left of window. Note when doing this, if the
-		# mouse was moving around as the window opened, it made the window tiny.
-		# Have stopped doing anything for resize events until 1sec into the song
-		# to work around this. Note there appears to be no way to find out the
-		# current window position, in order to bring up the next window in the
-		# same place.
-		os.environ['SDL_VIDEO_WINDOW_POS'] = "30,30"
-		pygame.init()
-		pygame.mixer.quit()
-		pygame.display.set_caption(self.mpgFileName)
-		self.Movie = pygame.movie.Movie(self.mpgFileName)
-		# Default to movie display size
-		self.DisplaySize = self.Movie.get_size()
-		self.DisplaySurface = pygame.display.set_mode(self.DisplaySize, pygame.RESIZABLE, 32)
-		self.Movie.set_display (self.DisplaySurface, (0, 0, self.DisplaySize[0], self.DisplaySize[1]))
+		# Set initial state
 		self.State = STATE_NOT_PLAYING
 
 		while 1:
