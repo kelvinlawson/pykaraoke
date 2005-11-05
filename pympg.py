@@ -108,6 +108,9 @@ STATE_NOT_PLAYING	= 2
 STATE_PLAYING		= 3
 STATE_CLOSING		= 4
 
+# Display depth (bits)
+DISPLAY_DEPTH       = 32 
+
 
 # mpgPlayer Class
 class mpgPlayer(Thread):
@@ -139,6 +142,10 @@ class mpgPlayer(Thread):
 			self.ErrorNotifyCallback (ErrorString)
 			raise NoSuchFile
 			return
+
+		# Default display-mode resizable
+		self.DisplayMode = pygame.RESIZABLE
+		self.ResizeFullScreen = False
 
 		# Can only do the set_mode() on Windows in the pygame thread.
 		# Therefore use a variable to tell the thread when a resize
@@ -183,7 +190,7 @@ class mpgPlayer(Thread):
 		self.Movie = pygame.movie.Movie(self.mpgFileName)
 		# Default to movie display size
 		self.DisplaySize = self.Movie.get_size()
-		self.DisplaySurface = pygame.display.set_mode(self.DisplaySize, pygame.RESIZABLE, 32)
+		self.DisplaySurface = pygame.display.set_mode(self.DisplaySize, self.DisplayMode, DISPLAY_DEPTH)
 		self.Movie.set_display (self.DisplaySurface, (0, 0, self.DisplaySize[0], self.DisplaySize[1]))
 		
 	# Start the thread running. Blocks until the pygame
@@ -245,6 +252,10 @@ class mpgPlayer(Thread):
 	def SetDisplaySize(self, displaySizeTuple):
 		self.ResizeTuple = displaySizeTuple
 
+    # Set full-screen mode. Defer to pygame thread context for MS Win.
+	def SetFullScreen(self):
+		self.ResizeFullScreen = True
+
 	# Internal. Only called by the pygame thread
 	def set_display_size(self, displaySizeTuple):
 		self.DisplaySize = displaySizeTuple
@@ -252,7 +263,7 @@ class mpgPlayer(Thread):
 		if self.State == STATE_PLAYING:
 			self.Movie.pause()
 		# Resize the screen.
-		pygame.display.set_mode (self.DisplaySize, pygame.RESIZABLE, 32)
+		pygame.display.set_mode (self.DisplaySize, self.DisplayMode, DISPLAY_DEPTH)
 		self.Movie.set_display (self.DisplaySurface, (0, 0, self.DisplaySize[0], self.DisplaySize[1]))
 		# Unpause if it was playing
 		if self.State == STATE_PLAYING:
@@ -291,6 +302,13 @@ class mpgPlayer(Thread):
 			if self.ResizeTuple != None and self.GetPos() > 1000:
 				self.set_display_size(self.ResizeTuple)
 				self.ResizeTuple = None
+
+            # Handle full-screen in pygame thread context
+			if self.ResizeFullScreen == True:
+				self.DisplaySize = pygame.display.list_modes(DISPLAY_DEPTH, pygame.FULLSCREEN)[0]
+				self.DisplayMode = pygame.FULLSCREEN
+				pygame.display.set_mode (self.DisplaySize, self.DisplayMode, DISPLAY_DEPTH)
+				self.ResizeFullScreen = False
 					
 			# Common handling code for a close request or if the
 			# pygame window was quit

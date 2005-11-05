@@ -166,6 +166,7 @@
 #
 # self.cdgDisplaySize
 # Current actual display size. Starts at 294x204
+
 import struct, sys, pygame, os, string
 from threading import Thread
 import Numeric as N
@@ -199,6 +200,8 @@ STATE_PAUSED		= 4
 STATE_NOT_PLAYING	= 5
 STATE_CLOSING		= 6
 
+# Display depth (bits)
+DISPLAY_DEPTH       = 32 
 
 # cdgPlayer Class
 class cdgPlayer(Thread):
@@ -269,11 +272,15 @@ class cdgPlayer(Thread):
 		# timer carries on even when the song has been paused.
 		self.TotalOffsetTime = 0
 
+		# Default display-mode resizable
+		self.cdgDisplayMode = pygame.RESIZABLE
+
 		# Can only do the set_mode() on Windows in the pygame thread.
 		# Therefore use a variable to tell the thread when a resize
 		# is required. This can then be modified by any thread calling
 		# SetDisplaySize()
 		self.ResizeTuple = None
+		self.ResizeFullScreen = False
 
 		# Initialise pygame
 		if os.name == "posix":
@@ -303,7 +310,7 @@ class cdgPlayer(Thread):
 		pygame.init()
 		pygame.display.set_caption(self.FileName)
 		self.cdgUnscaledSurface = pygame.Surface(self.cdgDisplaySize)
-		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, pygame.RESIZABLE, 16)
+		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
 		self.cdgScreenUpdateRequired = 0
 
 	# Start the thread running. Blocks until the thread is started and
@@ -374,6 +381,10 @@ class cdgPlayer(Thread):
 	def SetDisplaySize(self, displaySizeTuple):
 		self.ResizeTuple = displaySizeTuple
 
+    # Set full-screen mode. Defer to pygame thread context for MS Win.
+	def SetFullScreen(self):
+		self.ResizeFullScreen = True
+
 	# Start the thread but don't play until Play() called
 	def run(self):
 
@@ -416,6 +427,7 @@ class cdgPlayer(Thread):
 					# Check again if any display packets are due
 					curr_pos = self.GetPos() - self.TotalOffsetTime
 					self.cdgPacketsDue = (curr_pos / 1000.0) * 300
+					pygame.time.delay(50)
 				else:
 					# A packet needs to be displayed
 					packd = self.cdgGetNextPacket()
@@ -429,20 +441,26 @@ class cdgPlayer(Thread):
 					else:
 						# Couldn't get another packet, finish
 						self.State = STATE_CLOSING
-					# NOTE: This was after the update check!
-					self.LastPos = curr_pos
 
 			# Check if any screen updates are now due
-			if ((curr_pos - self.LastPos) / 1000.0) > (1 / CDG_SCREEN_UPDATES_PER_SEC):
+			if ((curr_pos - self.LastPos) / 1000.0) > (1.0 / CDG_SCREEN_UPDATES_PER_SEC):
 				self.cdgDisplayUpdate()
+				self.LastPos = curr_pos
 
 			# Resizes have to be done in the pygame thread context on
 			# MS Windows, so other threads can set ResizeTuple to 
 			# request a resize (This is wrappered by SetDisplaySize()).
 			if self.ResizeTuple != None and self.GetPos() > 250:
 				self.cdgDisplaySize = self.ResizeTuple
-				pygame.display.set_mode (self.cdgDisplaySize, pygame.RESIZABLE)
+				pygame.display.set_mode (self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
 				self.ResizeTuple = None
+
+            # Handle full-screen in pygame thread context
+			if self.ResizeFullScreen == True:
+				self.cdgDisplaySize = pygame.display.list_modes(DISPLAY_DEPTH, pygame.FULLSCREEN)[0]
+				self.cdgDisplayMode = pygame.FULLSCREEN
+				pygame.display.set_mode (self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
+				self.ResizeFullScreen = False
 
 			# Check for and handle pygame events and close requests
 			for event in pygame.event.get():
@@ -452,7 +470,7 @@ class cdgPlayer(Thread):
 				# window is opening. Give it some time to settle.
 				if event.type == pygame.VIDEORESIZE and self.GetPos() > 250:
 					self.cdgDisplaySize = event.size
-					pygame.display.set_mode (event.size, pygame.RESIZABLE)
+					pygame.display.set_mode (event.size, self.cdgDisplayMode, DISPLAY_DEPTH)
 				elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
 					self.State = STATE_CLOSING
 				elif event.type == pygame.QUIT:
@@ -497,7 +515,7 @@ class cdgPlayer(Thread):
 				self.cdgTileBlockCommon (packd, xor = 1)
 			else:
 				# Don't use the error popup, ignore the unsupported command
-				ErrorString = "CDG file may be corrupt (cmd %d)" + str(inst_code)
+				ErrorString = "CDG file may be corrupt, cmd :" + str(inst_code)
 				print (ErrorString)
 
 	# Read the next CDG command from the file (24 bytes each)

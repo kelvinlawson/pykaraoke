@@ -1,8 +1,8 @@
 
 ---------------------------------------------------------------------------
 
-Release:    pykaraoke v0.2.1
-Date:       10/03/2005
+Release:    pykaraoke v0.3.1
+Date:       21/10/2005
 Author:     Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:    LGPL
 Website:    http://www.kibosh.org/pykaraoke/
@@ -15,6 +15,7 @@ PyKaraoke is a karaoke player for Linux and Windows.
 
 The following song formats are supported:
  * CDG (MP3+G, OGG+G)
+ * MIDI/KAR
  * MPEG
 
 No song files are provided - this package provides you with the player
@@ -24,10 +25,16 @@ needed to play your own karaoke song files.
 
 WHATS NEW
 
-This version provides some important fixes to the CDG playback code. The
-player now supports CDG files that do colour cycling and use transparent
-colours. There are also a number of improvements to the GUI frontend. The 
-full changelog can be found below.
+Due to popular demand, this release now supports full-screen borderless 
+player windows (CDG and MPG only).
+
+We have modified the GUI to support the latest WxPython (v2.6). CPU usage
+has also been improved, as earlier versions didn't yield the CPU when not
+doing work.
+
+Finally, to handle situations where the zip filename contains the songname
+but the internal song file does not, we now display both the zip and song
+filename in the playlist.
 
 ---------------------------------------------------------------------------
 
@@ -44,12 +51,35 @@ If these libraries are not already installed on your system, you can
 download them from the websites listed.
 
 Linux users may find these packages are available directly from their
-distro's package manager. For example Gentoo users can install all
-prerequisites using:
+distro's package manager.
+
+Gentoo users can install all prerequisites using:
 	# emerge python pygame wxGTK numeric
+
+Debian users can install all prerequisites using:
+    # apt-get install python python-pygame libwxgtk-python python-numeric
 
 There is currently no installer for pykaraoke. Unzip the release
 and you can start the player from the unzip location.
+
+---------------------------------------------------------------------------
+
+INSTALLATION (MIDI/KAR FILE SUPPORT ON LINUX)
+
+Windows users can enjoy MIDI/KAR file support using the standard
+installation procedure.
+
+MIDI/KAR support on Linux, however, requires the following:
+
+ * Timidity++ (timidity.sourceforge.net)
+ * Sound/patches for Timidity++
+
+There are various sound patch collections available for Timidity++. Users
+of PyKaraoke have used freepats and Eric Welsh's GUS patches.
+
+To install Timidity++ on Gentoo together with Eric Welsh's patches use:
+
+	# emerge timidity++ timidity-eawpatches
 
 ---------------------------------------------------------------------------
 
@@ -100,20 +130,69 @@ tracks for playing, or adding to the playlist.
 
 COMMAND LINE VERSION
 
-PyKaraoke is actually a GUI frontend which controls two libraries, pycdg
-for CDG files, and pympg for MPEG files. If you do not wish to use the GUI
-you can actually start a player directly from the command-line (or by
-associating file-types in your operating system).
+PyKaraoke is actually a GUI frontend which controls three libraries, pycdg
+for CDG files, pykar for MIDI/KAR files, and pympg for MPEG files. If you 
+do not wish to use the GUI you can actually start a player directly from 
+the command-line (or by associating file-types in your operating system).
 
 You can play MP3+G or OGG+G files using:
 	# python pycdg.py songfilename.cdg
+
+KAR/MID files can be played using:
+	# python pykar.py karfilename.mid
 
 MPEG files can be played using:
 	# python pympg.py mpegfilename.mpg
 
 ---------------------------------------------------------------------------
 
-CHANGELOG (v0.2.1)
+COMMON INSTALLATION ISSUES
+
+Due to MP3 licensing issues, some distros such as Fedora Core and SUSE may
+not include MP3 support in the SDL_mixer library. If this is the case you
+will see the following message when attempting to play an MP3+G track:
+
+    pygame.mixer.music.load(self.SoundFileName)
+    error: Module format not recognized
+
+To rebuild SDL_mixer with MP3 support, you need to install the smpeg-devel
+package, and download and build SDL_mixer from source. The source tarball
+for SDL_mixer can be downloaded from 
+http://www.libsdl.org/projects/SDL_mixer/ and should be built as follows:
+
+    # ./configure --prefix=/usr --enable-music-mp3
+    # make; make install
+
+You may need to modify the --prefix option depending on where
+libSDL_mixer.so is installed on your distro. The above example assumes it
+will be installed to /usr/lib/libSDL_mixer.so.
+
+A full example SDL_mixer build procedure for Fedora Core has been 
+provided by a PyKaraoke user:
+
+    # rpm -ivh smpeg-devel-0.4.4-0.rhfc1.dag.i386.rpm
+    # rpm -ev --nodeps SDL_mixer
+    # tar xzvf SDL_mixer-1.2.6.tar.gz
+    # cd SDL_mixer-1.2.6
+    # ./configure --prefix=/usr --enable-music-mp3
+    # make; make install
+
+---------------------------------------------------------------------------
+
+CHANGELOG (v0.3.1)
+
+* Added full-screen player mode (CDG and MPG)
+* Supports the latest WxPython (v2.6)
+* Improved CPU usage
+* Displays ZIP filename together with the internal song filename
+
+Changes since v0.3:
+
+ * Added MIDI/KAR file support
+ * CDG player now uses psyco for faster playback on low-end machines 
+ * Better handling of corrupt CDG rips
+ * Minor changes to make it more OSX-friendly
+ * Added facility for cancelling song database builds in PyKaraoke GUI
 
 Changes since v0.2:
 

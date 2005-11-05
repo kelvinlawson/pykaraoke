@@ -776,7 +776,10 @@ class midPlayer(Thread):
 		while 1:
 			if self.State == STATE_PLAYING:
 				curr_pos = pygame.mixer.music.get_pos()
-				self.colourUpdateMs (curr_pos)
+				updated = self.colourUpdateMs(curr_pos)
+				# Sleep if there's not much going on (reduce CPU load)
+				if not updated:
+					pygame.time.delay(50)
 
 				# Check if any screen updates are now due
 				if ((curr_pos - self.LastPos) / 1000.0) > (1.0 / SCREEN_UPDATES_PER_SEC):
@@ -905,11 +908,12 @@ class midPlayer(Thread):
 		self.screenUpdate()
 
 
+	# Returns True if an update was performed
 	def colourUpdateMs(self, curr_ms):
 	
 		# Check if we're at the end of the list, just return
 		if self.coloured_index >= len(self.midifile.lyrics):
-			return
+			return False
 
 		# Get the next lyric/delta tuple for colouring in
 		tuple = self.midifile.lyrics[self.coloured_index]
@@ -960,7 +964,7 @@ class midPlayer(Thread):
 			
 			# Check if we're at the end of the list
 			if self.coloured_index >= len(self.midifile.lyrics):
-				return
+				return True
 
 			# Check if the next lyric will scroll us up, if so do the scroll
 			# now rather than just as the lyric is being coloured. Check for
@@ -998,7 +1002,13 @@ class midPlayer(Thread):
 
 			# Finished the lyric, move the x,y position on
 			self.coloured_x, self.coloured_y = x, y
-	
+
+			# Return True because we updated
+			return True
+
+		# Else no update due
+		return False	
+
 	def screenUpdate(self):
 		# Scale the unscaled surface up to the current screen size
 		transformed = pygame.transform.scale(self.unscaledSurface, self.displaySize)

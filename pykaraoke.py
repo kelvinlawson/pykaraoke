@@ -123,17 +123,19 @@
 # continue adding to the playlist etc.
 
 
-from wxPython.wx import *
-import os, string, zipfile, pickle
+import os, string, zipfile, pickle, wx
 import pycdg, pympg, pykar
 
-PYKARAOKE_VERSION_STRING = "0.3"
+PYKARAOKE_VERSION_STRING = "0.3.1"
 
 # Size of the main window
 MAIN_WINDOW_SIZE = (604,480)
 
 # Size of the Database setup window
 DB_WINDOW_SIZE = (450,300)
+
+# Size of the Config window
+CONFIG_WINDOW_SIZE = (240,60)
 
 # SongStruct used as storage only (no methods) to store song details for
 # the database. Separate Titles allow us to cut off the pathname, use ID3
@@ -146,13 +148,16 @@ class SongStruct:
 		self.Title = Title			# Title for display in playlist
 		self.ZipStoredName = ZipStoredName # Filename stored in ZIP
 
+
 # SettingsStruct used as storage only for settings. The instance
 # can be pickled to save all user's settings.
 class SettingsStruct:
-	def __init__(self, FolderList, FileExtensions, LookInsideZips):
+	def __init__(self, FolderList, FileExtensions, LookInsideZips, FullScreen):
+		self.Version = PYKARAOKE_VERSION_STRING
 		self.FolderList = FolderList			# List of song folders
 		self.FileExtensions = FileExtensions	# List of extensions (.cdg etc)
 		self.LookInsideZips = LookInsideZips	# Whether to look inside zips
+		self.FullScreen = False					# Full-screen mode
 
 
 # Song database class with methods for building the database, searching etc
@@ -168,7 +173,7 @@ class SongDB:
 	
 		# Create a SettingsStruct instance for storing settings
 		# in case none are stored.
-		self.Settings = SettingsStruct (folder_path, file_extensions, look_inside_zips)
+		self.Settings = SettingsStruct (folder_path, file_extensions, look_inside_zips, False)
 		
 		# Store the karaoke manager instance
 		self.KaraokeMgr = KaraokeMgr
@@ -177,7 +182,7 @@ class SongDB:
 		self.TempFilePrefix = "00Pykar__"
 
 		# Get Wx's idea of the home directory
-		self.TempDir = os.path.join(wxGetHomeDir(), ".pykaraoke")
+		self.TempDir = os.path.join(wx.GetHomeDir(), ".pykaraoke")
 		self.CleanupTempFiles()
 		
 		# Override the default settings with stored ones if they exist
@@ -190,7 +195,13 @@ class SongDB:
 		settings_filepath = os.path.join (self.TempDir, "settings.dat")
 		if os.path.exists (settings_filepath):
 			file = open (settings_filepath, "rb")
-			self.Settings = pickle.load (file)
+			loadsettings = pickle.load (file)
+			try:
+				# Check settings are for the current version
+				if (loadsettings.Version == PYKARAOKE_VERSION_STRING):
+					self.Settings = loadsettings
+			except:
+				ErrorPopup ("New version of PyKaraoke, clearing settings")
 			file.close()
 		# Load the database file
 		db_filepath = os.path.join (self.TempDir, "songdb.dat")
@@ -233,7 +244,7 @@ class SongDB:
 		# Search for karaoke files inside the folder, looking inside ZIPs if
 		# configured to do so. Function is recursive for subfolders.
 		filedir_list = os.listdir(FolderToScan)
-		theApp = wxGetApp()
+		theApp = wx.GetApp()
 		searched = 0
 		for item in filedir_list:
 			searched = searched + 1
@@ -269,7 +280,8 @@ class SongDB:
 									if info.compress_type == zipfile.ZIP_STORED or info.compress_type == zipfile.ZIP_DEFLATED:
 										#print ("Adding song %s in ZIP file %s"%(filename, full_path))
 										lose, fileonly = os.path.split(filename)
-										self.SongList.append(SongStruct(full_path, fileonly, filename))
+										zipname_with_file = item + ": " + fileonly
+										self.SongList.append(SongStruct(full_path, zipname_with_file, filename))
 									else:
 										print ("ZIP member %s compressed with unsupported type (%d)"%(filename,info.compress_type))
 					except:
@@ -297,8 +309,8 @@ class SongDB:
 	def SearchDatabase (self, SearchTerms):
 		# Display a busy cursor while searching, yielding now and again
 		# to update the GUI.
-		theApp = wxGetApp()
-		busyBox = wxBusyCursor()
+		theApp = wx.GetApp()
+		busyBox = wx.BusyCursor()
 		searched = 0
 		ResultsList = []
 		LowerTerms = SearchTerms.lower()
@@ -363,18 +375,18 @@ class SongDB:
 
 
 # Popup busy window with cancel button
-class BusyCancelDialog (wxFrame):
+class BusyCancelDialog (wx.Frame):
 	def __init__(self,parent,title):
 		pos = parent.GetPosition()
 		pos[0] += (MAIN_WINDOW_SIZE[0] / 2) - 70
 		pos[1] += (MAIN_WINDOW_SIZE[1] / 2) - 25
-		wxFrame.__init__(self,parent,wxID_ANY, title, size=(140,50),
-							style=wxSYSTEM_MENU|wxCAPTION|wxFRAME_FLOAT_ON_PARENT,pos=pos)
+		wx.Frame.__init__(self,parent,wx.ID_ANY, title, size=(140,50),
+							style=wx.SYSTEM_MENU|wx.CAPTION|wx.FRAME_FLOAT_ON_PARENT,pos=pos)
 		
 		# Add the buttons
-		self.CancelButtonID = wxNewId()
-		self.CancelButton = wxButton(self, self.CancelButtonID, "Cancel")
-		EVT_BUTTON(self, self.CancelButtonID, self.OnCancelClicked)
+		self.CancelButtonID = wx.NewId()
+		self.CancelButton = wx.Button(self, self.CancelButtonID, "Cancel")
+		wx.EVT_BUTTON(self, self.CancelButtonID, self.OnCancelClicked)
 
 		# Set clicked status
 		self.Clicked = False
@@ -386,49 +398,49 @@ class BusyCancelDialog (wxFrame):
 
 # Popup settings window for adding song folders, requesting a 
 # new folder scan to fill the database etc.
-class DatabaseSetupWindow (wxFrame):
+class DatabaseSetupWindow (wx.Frame):
 	def __init__(self,parent,id,title,KaraokeMgr):
 		pos = parent.GetPosition()
 		pos[0] += (MAIN_WINDOW_SIZE[0] / 2) - (DB_WINDOW_SIZE[0] / 2)
 		pos[1] += (MAIN_WINDOW_SIZE[1] / 2) - (DB_WINDOW_SIZE[1] / 2)
-		wxFrame.__init__(self,parent,wxID_ANY, title, size=DB_WINDOW_SIZE, pos=pos,
-							style=wxDEFAULT_FRAME_STYLE|wxFRAME_FLOAT_ON_PARENT)
+		wx.Frame.__init__(self,parent,wx.ID_ANY, title, size=DB_WINDOW_SIZE, pos=pos,
+							style=wx.DEFAULT_FRAME_STYLE|wx.FRAME_FLOAT_ON_PARENT)
 		self.KaraokeMgr = KaraokeMgr
 		
 		# Help text
-		self.HelpText = wxStaticText (self, wxID_ANY,
+		self.HelpText = wx.StaticText (self, wx.ID_ANY,
 				"\nAdd folders to build a searchable database of your karaoke songs\n",
-				style = wxALIGN_RIGHT) 
+				style = wx.ALIGN_RIGHT) 
 		
 		# Add the folder list
-		self.FolderList = wxListBox(self, -1, style=wxLB_SINGLE)
+		self.FolderList = wx.ListBox(self, -1, style=wx.LB_SINGLE)
 		for item in self.KaraokeMgr.SongDB.GetFolderList():
 			self.FolderList.Append(item)
 		
 		# Add the buttons
-		self.AddFolderButtonID = wxNewId()
-		self.DelFolderButtonID = wxNewId()
-		self.AddFolderButton = wxButton(self, self.AddFolderButtonID, "Add Folder")
-		self.DelFolderButton = wxButton(self, self.DelFolderButtonID, "Delete Folder")
-		self.FolderButtonsSizer = wxBoxSizer(wxVERTICAL)
-		self.FolderButtonsSizer.Add(self.AddFolderButton, 0, wxALIGN_LEFT, 3)
-		self.FolderButtonsSizer.Add(self.DelFolderButton, 0, wxALIGN_LEFT, 3)
-		EVT_BUTTON(self, self.AddFolderButtonID, self.OnAddFolderClicked)
-		EVT_BUTTON(self, self.DelFolderButtonID, self.OnDelFolderClicked)
+		self.AddFolderButtonID = wx.NewId()
+		self.DelFolderButtonID = wx.NewId()
+		self.AddFolderButton = wx.Button(self, self.AddFolderButtonID, "Add Folder")
+		self.DelFolderButton = wx.Button(self, self.DelFolderButtonID, "Delete Folder")
+		self.FolderButtonsSizer = wx.BoxSizer(wx.VERTICAL)
+		self.FolderButtonsSizer.Add(self.AddFolderButton, 0, wx.ALIGN_LEFT, 3)
+		self.FolderButtonsSizer.Add(self.DelFolderButton, 0, wx.ALIGN_LEFT, 3)
+		wx.EVT_BUTTON(self, self.AddFolderButtonID, self.OnAddFolderClicked)
+		wx.EVT_BUTTON(self, self.DelFolderButtonID, self.OnDelFolderClicked)
 
 		# Create a sizer for the folder list and folder buttons
-		self.FolderSizer = wxBoxSizer (wxHORIZONTAL)
-		self.FolderSizer.Add (self.FolderList, 1, wxEXPAND, 3)
-		self.FolderSizer.Add (self.FolderButtonsSizer, 0, wxALL, 3)
+		self.FolderSizer = wx.BoxSizer (wx.HORIZONTAL)
+		self.FolderSizer.Add (self.FolderList, 1, wx.EXPAND, 3)
+		self.FolderSizer.Add (self.FolderButtonsSizer, 0, wx.ALL, 3)
 
 		# Create the settings controls
-		self.FileExtensionID = wxNewId()
-		self.FiletypesText = wxStaticText (self, wxID_ANY, "Include File Types: ")
-		self.cdgCheckBox = wxCheckBox(self, self.FileExtensionID, "CDG")
-		self.mpgCheckBox = wxCheckBox(self, self.FileExtensionID, "MPG")
-		self.karCheckBox = wxCheckBox(self, self.FileExtensionID, "KAR")
-		self.midCheckBox = wxCheckBox(self, self.FileExtensionID, "MID")
-		EVT_CHECKBOX (self, self.FileExtensionID, self.OnFileExtChanged)
+		self.FileExtensionID = wx.NewId()
+		self.FiletypesText = wx.StaticText (self, wx.ID_ANY, "Include File Types: ")
+		self.cdgCheckBox = wx.CheckBox(self, self.FileExtensionID, "CDG")
+		self.mpgCheckBox = wx.CheckBox(self, self.FileExtensionID, "MPG")
+		self.karCheckBox = wx.CheckBox(self, self.FileExtensionID, "KAR")
+		self.midCheckBox = wx.CheckBox(self, self.FileExtensionID, "MID")
+		wx.EVT_CHECKBOX (self, self.FileExtensionID, self.OnFileExtChanged)
 		if self.KaraokeMgr.SongDB.IsExtensionValid(".cdg"):
 			self.cdgCheckBox.SetValue(True)
 		else:
@@ -445,67 +457,67 @@ class DatabaseSetupWindow (wxFrame):
 			self.midCheckBox.SetValue(True)
 		else:
 			self.midCheckBox.SetValue(False)
-		self.FiletypesSizer = wxBoxSizer (wxHORIZONTAL)
-		self.FiletypesSizer.Add (self.cdgCheckBox, 0, wxALL)
-		self.FiletypesSizer.Add (self.mpgCheckBox, 0, wxALL)
-		self.FiletypesSizer.Add (self.karCheckBox, 0, wxALL)
-		self.FiletypesSizer.Add (self.midCheckBox, 0, wxALL)
+		self.FiletypesSizer = wx.BoxSizer (wx.HORIZONTAL)
+		self.FiletypesSizer.Add (self.cdgCheckBox, 0, wx.ALL)
+		self.FiletypesSizer.Add (self.mpgCheckBox, 0, wx.ALL)
+		self.FiletypesSizer.Add (self.karCheckBox, 0, wx.ALL)
+		self.FiletypesSizer.Add (self.midCheckBox, 0, wx.ALL)
 
 		# Create the ZIP file setting checkbox
-		self.zipID = wxNewId()
-		self.zipText = wxStaticText (self, wxID_ANY, "Look Inside ZIPs: ")
-		self.zipCheckBox = wxCheckBox(self, self.zipID, "Enabled")
+		self.zipID = wx.NewId()
+		self.zipText = wx.StaticText (self, wx.ID_ANY, "Look Inside ZIPs: ")
+		self.zipCheckBox = wx.CheckBox(self, self.zipID, "Enabled")
 		if self.KaraokeMgr.SongDB.Settings.LookInsideZips == True:
 			self.zipCheckBox.SetValue(True)
 		else:
 			self.zipCheckBox.SetValue(False)
-		self.ZipSizer = wxBoxSizer (wxHORIZONTAL)
-		self.ZipSizer.Add (self.zipCheckBox, 0, wxALL)
-		EVT_CHECKBOX (self, self.zipID, self.OnZipChanged)
+		self.ZipSizer = wx.BoxSizer (wx.HORIZONTAL)
+		self.ZipSizer.Add (self.zipCheckBox, 0, wx.ALL)
+		wx.EVT_CHECKBOX (self, self.zipID, self.OnZipChanged)
 
 		# Create the scan folders button
-		self.ScanText = wxStaticText (self, wxID_ANY, "Rescan all folders: ")
-		self.ScanFoldersButtonID = wxNewId()
-		self.ScanFoldersButton = wxButton(self, self.ScanFoldersButtonID, "Scan Now")
-		EVT_BUTTON(self, self.ScanFoldersButtonID, self.OnScanFoldersClicked)
+		self.ScanText = wx.StaticText (self, wx.ID_ANY, "Rescan all folders: ")
+		self.ScanFoldersButtonID = wx.NewId()
+		self.ScanFoldersButton = wx.Button(self, self.ScanFoldersButtonID, "Scan Now")
+		wx.EVT_BUTTON(self, self.ScanFoldersButtonID, self.OnScanFoldersClicked)
 
 		# Create the save settings button
-		self.SaveText = wxStaticText (self, wxID_ANY, "Save settings and song database: ")
-		self.SaveSettingsButtonID = wxNewId()
-		self.SaveSettingsButton = wxButton(self, self.SaveSettingsButtonID, "Save All")
-		EVT_BUTTON(self, self.SaveSettingsButtonID, self.OnSaveSettingsClicked)
+		self.SaveText = wx.StaticText (self, wx.ID_ANY, "Save settings and song database: ")
+		self.SaveSettingsButtonID = wx.NewId()
+		self.SaveSettingsButton = wx.Button(self, self.SaveSettingsButtonID, "Save All")
+		wx.EVT_BUTTON(self, self.SaveSettingsButtonID, self.OnSaveSettingsClicked)
 
 		# Create the settings and buttons grid
-		self.LowerSizer = wxFlexGridSizer(cols = 2, vgap = 3, hgap = 3)
-		self.LowerSizer.Add(self.FiletypesText, 0, wxALL, 3)
-		self.LowerSizer.Add(self.FiletypesSizer, 1, wxALL, 3)
-		self.LowerSizer.Add(self.zipText, 0, wxALL, 3)
-		self.LowerSizer.Add(self.ZipSizer, 1, wxALL, 3)
-		self.LowerSizer.Add(self.ScanText, 0, wxALL, 3)
-		self.LowerSizer.Add(self.ScanFoldersButton, 1, wxALL, 3)
-		self.LowerSizer.Add(self.SaveText, 0, wxALL, 3)
-		self.LowerSizer.Add(self.SaveSettingsButton, 1, wxALL, 3)
+		self.LowerSizer = wx.FlexGridSizer(cols = 2, vgap = 3, hgap = 3)
+		self.LowerSizer.Add(self.FiletypesText, 0, wx.ALL, 3)
+		self.LowerSizer.Add(self.FiletypesSizer, 1, wx.ALL, 3)
+		self.LowerSizer.Add(self.zipText, 0, wx.ALL, 3)
+		self.LowerSizer.Add(self.ZipSizer, 1, wx.ALL, 3)
+		self.LowerSizer.Add(self.ScanText, 0, wx.ALL, 3)
+		self.LowerSizer.Add(self.ScanFoldersButton, 1, wx.ALL, 3)
+		self.LowerSizer.Add(self.SaveText, 0, wx.ALL, 3)
+		self.LowerSizer.Add(self.SaveSettingsButton, 1, wx.ALL, 3)
 		
 		# Create the main sizer
-		self.MainSizer = wxBoxSizer(wxVERTICAL)
-		self.MainSizer.Add(self.HelpText, 0, wxEXPAND, 3)
-		self.MainSizer.Add(self.FolderSizer, 1, wxEXPAND, 3)
-		self.MainSizer.Add(self.LowerSizer, 0, wxALL, 3)
+		self.MainSizer = wx.BoxSizer(wx.VERTICAL)
+		self.MainSizer.Add(self.HelpText, 0, wx.EXPAND, 3)
+		self.MainSizer.Add(self.FolderSizer, 1, wx.EXPAND, 3)
+		self.MainSizer.Add(self.LowerSizer, 0, wx.ALL, 3)
 		self.SetSizer(self.MainSizer)
 		
 		# Add a close handler to ask the user if they want to rescan folders
 		self.ScanNeeded = False
 		self.SaveNeeded = False
-		EVT_WINDOW_DESTROY(self, self.ExitHandler)
+		wx.EVT_CLOSE(self, self.ExitHandler)
 	
 		self.Show()
 
 	# User wants to add a folder
 	def OnAddFolderClicked(self, event):
-		dirDlg = wxDirDialog(self)
+		dirDlg = wx.DirDialog(self)
 		retval = dirDlg.ShowModal()
 		FolderPath = dirDlg.GetPath()
-		if retval == wxID_OK:
+		if retval == wx.ID_OK:
 			# User made a valid selection
 			folder_list = self.KaraokeMgr.SongDB.GetFolderList()
 			# Add it to the list control and song DB if not already in
@@ -565,65 +577,101 @@ class DatabaseSetupWindow (wxFrame):
 	def ExitHandler(self, event):
 		if self.ScanNeeded == True:
 			changedString = "You have changed settings, would you like to rescan your folders now?"
-			answer = wxMessageBox(changedString, "Rescan folders now?", wxYES_NO | wxICON_QUESTION)
-			if answer == wxYES:
+			answer = wx.MessageBox(changedString, "Rescan folders now?", wx.YES_NO | wx.ICON_QUESTION)
+			if answer == wx.YES:
 				self.KaraokeMgr.SongDB.BuildSearchDatabase()
 				self.SaveNeeded = True
 		if self.SaveNeeded == True:
 			saveString = "You have made changes, would you like to save your settings and database now?"
-			answer = wxMessageBox(saveString, "Save changes?", wxYES_NO | wxICON_QUESTION)
-			if answer == wxYES:
+			answer = wx.MessageBox(saveString, "Save changes?", wx.YES_NO | wx.ICON_QUESTION)
+			if answer == wx.YES:
 				self.KaraokeMgr.SongDB.SaveSettings()
-		self.Close()
+		self.Destroy()
 
+
+# Popup config window for setting full-screen mode etc
+class ConfigWindow (wx.Frame):
+	def __init__(self,parent,id,title,KaraokeMgr):
+		pos = parent.GetPosition()
+		pos[0] += (MAIN_WINDOW_SIZE[0] / 2) - (CONFIG_WINDOW_SIZE[0] / 2)
+		pos[1] += (MAIN_WINDOW_SIZE[1] / 2) - (CONFIG_WINDOW_SIZE[1] / 2)
+		wx.Frame.__init__(self,parent,wx.ID_ANY, title, size=CONFIG_WINDOW_SIZE, pos=pos,
+							style=wx.DEFAULT_FRAME_STYLE|wx.FRAME_FLOAT_ON_PARENT)
+		self.KaraokeMgr = KaraokeMgr
+		
+		# Add the config options
+		self.FullScreenID = wx.NewId()
+		self.FSCheckBox = wx.CheckBox(self, self.FullScreenID, "Full-screen mode")
+		wx.EVT_CHECKBOX (self, self.FullScreenID, self.OnFSChanged)
+		if self.KaraokeMgr.SongDB.Settings.FullScreen == True:
+			self.FSCheckBox.SetValue(True)
+		else:
+			self.FSCheckBox.SetValue(False)
+
+		# Create a sizer for the settings
+		self.ConfigSizer = wx.BoxSizer (wx.HORIZONTAL)
+		self.ConfigSizer.Add (self.FSCheckBox, 0, wx.ALL)
+
+		# Create the main sizer
+		self.MainSizer = wx.BoxSizer(wx.VERTICAL)
+		self.MainSizer.Add(self.ConfigSizer, 0, wx.ALL, 3)
+		self.SetSizer(self.MainSizer)
+	
+		self.Show()
+
+	# User changed a checkbox, just do them all again
+	def OnFSChanged(self, event):
+		self.KaraokeMgr.SongDB.Settings.FullScreen = self.FSCheckBox.IsChecked()
+		self.KaraokeMgr.SongDB.SaveSettings()
+		
 
 # Generic function for popping up errors
 def ErrorPopup (ErrorString):
-	wxMessageBox(ErrorString, "Error", wxOK | wxICON_ERROR)
+	wx.MessageBox(ErrorString, "Error", wx.OK | wx.ICON_ERROR)
 
 
 # Folder View class subclassed from WxPanel, containing a WxTreeCtrl.
 # There is no built in file browser with WxPython, so this was
 # implemented using just a basic tree control.
-class FileTree (wxPanel):
+class FileTree (wx.Panel):
 	def __init__(self, parent, id, KaraokeMgr, x, y):
-		wxPanel.__init__(self, parent, id)
+		wx.Panel.__init__(self, parent, id)
 		self.KaraokeMgr = KaraokeMgr
 
 		# Create the tree control
-		TreeStyle = wxTR_NO_LINES|wxTR_HAS_BUTTONS|wxSUNKEN_BORDER
-		self.FileTree = wxTreeCtrl(self, -1, wxPoint(x, y), style=TreeStyle)
-		self.FolderOpenIcon = wxBitmap("icons/folder_open_16.png")
-		self.FolderClosedIcon = wxBitmap("icons/folder_close_16.png")
-		self.FileIcon = wxBitmap("icons/audio_16.png")
-		self.ImageList = wxImageList(16, 16)
+		TreeStyle = wx.TR_NO_LINES|wx.TR_HAS_BUTTONS|wx.SUNKEN_BORDER
+		self.FileTree = wx.TreeCtrl(self, -1, wx.Point(x, y), style=TreeStyle)
+		self.FolderOpenIcon = wx.Bitmap("icons/folder_open_16.png")
+		self.FolderClosedIcon = wx.Bitmap("icons/folder_close_16.png")
+		self.FileIcon = wx.Bitmap("icons/audio_16.png")
+		self.ImageList = wx.ImageList(16, 16)
 		self.FolderOpenIconIndex = self.ImageList.Add(self.FolderOpenIcon)
 		self.FolderClosedIconIndex = self.ImageList.Add(self.FolderClosedIcon)
 		self.FileIconIndex = self.ImageList.Add(self.FileIcon)
 		self.FileTree.AssignImageList(self.ImageList)
 		self.CreateTreeRoot()
-		EVT_TREE_ITEM_EXPANDING(self, wxID_ANY, self.OnFileExpand)
-		EVT_TREE_ITEM_COLLAPSING(self, wxID_ANY, self.OnFileCollapse)
-		EVT_TREE_ITEM_ACTIVATED(self, wxID_ANY, self.OnFileSelected)
+		wx.EVT_TREE_ITEM_EXPANDING(self, wx.ID_ANY, self.OnFileExpand)
+		wx.EVT_TREE_ITEM_COLLAPSING(self, wx.ID_ANY, self.OnFileCollapse)
+		wx.EVT_TREE_ITEM_ACTIVATED(self, wx.ID_ANY, self.OnFileSelected)
 
 		# Create the status bar
-		self.StatusBar = wxStatusBar(self, -1)
+		self.StatusBar = wx.StatusBar(self, -1)
 		self.StatusBar.SetStatusText ("File Browser View")
 
 		# Create a sizer for the tree view and status bar
-		self.VertSizer = wxBoxSizer(wxVERTICAL)
-		self.VertSizer.Add(self.FileTree, 1, wxEXPAND, 5)
-		self.VertSizer.Add(self.StatusBar, 0, wxEXPAND, 5)
+		self.VertSizer = wx.BoxSizer(wx.VERTICAL)
+		self.VertSizer.Add(self.FileTree, 1, wx.EXPAND, 5)
+		self.VertSizer.Add(self.StatusBar, 0, wx.EXPAND, 5)
 		self.SetSizer(self.VertSizer)
-		self.Show(true)
+		self.Show(True)
 
 		# Add handlers for right-click in the results box
-		EVT_TREE_ITEM_RIGHT_CLICK(self, wxID_ANY, self.OnRightClick)
+		wx.EVT_TREE_ITEM_RIGHT_CLICK(self, wx.ID_ANY, self.OnRightClick)
 
 		# Create IDs for popup menu
-		self.menuPlayId = wxNewId()
-		self.menuPlaylistAddId = wxNewId()
-		self.menuFileDetailsId = wxNewId()
+		self.menuPlayId = wx.NewId()
+		self.menuPlaylistAddId = wx.NewId()
+		self.menuFileDetailsId = wx.NewId()
 		
 	# Create the top-level filesystem entry. This is just root directory on Linux
 	# but on Windows we have to find out the drive letters and show those as
@@ -638,7 +686,7 @@ class FileTree (wxPanel):
 			self.RootFolder = ""
 			for drive in drives:
 				node = self.FileTree.AppendItem(self.TreeRoot, drive, image=self.FolderClosedIconIndex)
-				self.FileTree.SetItemHasChildren(node, true)
+				self.FileTree.SetItemHasChildren(node, True)
 		else:
 			self.TreeRoot = self.FileTree.AddRoot("/")
 			self.RootFolder = "/"
@@ -684,7 +732,7 @@ class FileTree (wxPanel):
 		# Populate the tree control, directories then files
 		for item in dir_list:
 			node = self.FileTree.AppendItem(root_node, item, image=self.FolderClosedIconIndex)   
-			self.FileTree.SetItemHasChildren(node, true)
+			self.FileTree.SetItemHasChildren(node, True)
 		for item in file_list:
 			node = self.FileTree.AppendItem(root_node, item, image=self.FileIconIndex) 
 			self.FileTree.SetItemBold(node)
@@ -732,13 +780,13 @@ class FileTree (wxPanel):
 		# Only do a popup if it's not a directory (must be a karaoke song then
 		# due to the filtering)
 		if not os.path.isdir(self.PopupFullPath):
-			menu = wxMenu()
+			menu = wx.Menu()
 			menu.Append( self.menuPlayId, "Play song" )
-			EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
+			wx.EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
 			menu.Append( self.menuPlaylistAddId, "Add to playlist" )
-			EVT_MENU( menu, self.menuPlaylistAddId, self.OnMenuSelection )
+			wx.EVT_MENU( menu, self.menuPlaylistAddId, self.OnMenuSelection )
 			menu.Append( self.menuFileDetailsId, "File Details" )
-			EVT_MENU( menu, self.menuFileDetailsId, self.OnMenuSelection )
+			wx.EVT_MENU( menu, self.menuFileDetailsId, self.OnMenuSelection )
 			self.PopupMenu( menu, event.GetPoint() )
 
 	# Handle the popup menu events
@@ -753,55 +801,55 @@ class FileTree (wxPanel):
 			elif event.GetId() == self.menuPlaylistAddId:
 				self.KaraokeMgr.AddToPlaylist(song)
 			elif event.GetId() == self.menuFileDetailsId:
-				wxMessageBox("File: " + self.PopupFullPath, "File details", wxOK)
+				wx.MessageBox("File: " + self.PopupFullPath, "File details", wx.OK)
 
 
 # Implement the Search Results panel and list box
-class SearchResultsPanel (wxPanel):
+class SearchResultsPanel (wx.Panel):
 	def __init__(self, parent, id, KaraokeMgr, x, y):
-		wxPanel.__init__(self, parent, id)
+		wx.Panel.__init__(self, parent, id)
 		self.KaraokeMgr = KaraokeMgr
 
 		self.parent = parent
 
-		self.SearchText = wxTextCtrl(self, -1, style=wxTE_PROCESS_ENTER)
-		self.SearchButton = wxButton(self, -1, "Search")
-		self.SearchSizer = wxBoxSizer(wxHORIZONTAL)
-		self.SearchSizer.Add(self.SearchText, 1, wxEXPAND, 5)
-		self.SearchSizer.Add(self.SearchButton, 0, wxEXPAND, 5)
+		self.SearchText = wx.TextCtrl(self, -1, style=wx.TE_PROCESS_ENTER)
+		self.SearchButton = wx.Button(self, -1, "Search")
+		self.SearchSizer = wx.BoxSizer(wx.HORIZONTAL)
+		self.SearchSizer.Add(self.SearchText, 1, wx.EXPAND, 5)
+		self.SearchSizer.Add(self.SearchButton, 0, wx.EXPAND, 5)
 		
-		self.ListPanel = wxListCtrl(self, -1, style=wxLC_REPORT | wxLC_SINGLE_SEL | wxSUNKEN_BORDER)
+		self.ListPanel = wx.ListCtrl(self, -1, style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.SUNKEN_BORDER)
 		self.ListPanel.Show(True)
 		self.ListPanel.InsertColumn (0, "Search Results", width=500)
 
-		self.StatusBar = wxStatusBar(self, -1)
+		self.StatusBar = wx.StatusBar(self, -1)
 		self.StatusBar.SetStatusText ("No search performed")
 		
-		self.VertSizer = wxBoxSizer(wxVERTICAL)
+		self.VertSizer = wx.BoxSizer(wx.VERTICAL)
 		self.InterGap = 0
-		self.VertSizer.Add(self.SearchSizer, 0, wxEXPAND, self.InterGap)
-		self.VertSizer.Add(self.ListPanel, 1, wxEXPAND, self.InterGap)
-		self.VertSizer.Add(self.StatusBar, 0, wxEXPAND, self.InterGap)
+		self.VertSizer.Add(self.SearchSizer, 0, wx.EXPAND, self.InterGap)
+		self.VertSizer.Add(self.ListPanel, 1, wx.EXPAND, self.InterGap)
+		self.VertSizer.Add(self.StatusBar, 0, wx.EXPAND, self.InterGap)
 		self.SetSizer(self.VertSizer)
-		self.Show(true)
+		self.Show(True)
 
-		EVT_LIST_ITEM_ACTIVATED(self, wxID_ANY, self.OnFileSelected)
-		EVT_BUTTON(self, wxID_ANY, self.OnSearchClicked)
-		EVT_TEXT_ENTER(self, wxID_ANY, self.OnSearchClicked)
+		wx.EVT_LIST_ITEM_ACTIVATED(self, wx.ID_ANY, self.OnFileSelected)
+		wx.EVT_BUTTON(self, wx.ID_ANY, self.OnSearchClicked)
+		wx.EVT_TEXT_ENTER(self, wx.ID_ANY, self.OnSearchClicked)
 
 		# Add handlers for right-click in the results box
 		self.RightClicekedItemIndex = -1
-		EVT_LIST_ITEM_RIGHT_CLICK(self.ListPanel, wxID_ANY, self.OnRightClick)
+		wx.EVT_LIST_ITEM_RIGHT_CLICK(self.ListPanel, wx.ID_ANY, self.OnRightClick)
 
 		# Resize column width to the same as list width (or longest title, whichever bigger)
-		EVT_SIZE(self.ListPanel, self.onResize)
+		wx.EVT_SIZE(self.ListPanel, self.onResize)
 		# Store the width (in pixels not chars) of the longest title
 		self.MaxTitleWidth = 0
  
 		# Create IDs for popup menu
-		self.menuPlayId = wxNewId()
-		self.menuPlaylistAddId = wxNewId()
-		self.menuFileDetailsId = wxNewId()
+		self.menuPlayId = wx.NewId()
+		self.menuPlaylistAddId = wx.NewId()
+		self.menuFileDetailsId = wx.NewId()
 		
 	# Handle a file selected event (double-click). Plays directly (not add to playlist)
 	def OnFileSelected(self, event):
@@ -816,9 +864,9 @@ class SearchResultsPanel (wxPanel):
 		self.StatusBar.SetStatusText ("Please wait... Searching")
 		songList = self.KaraokeMgr.SongDB.SearchDatabase(self.SearchText.GetValue())
 		if self.KaraokeMgr.SongDB.GetDatabaseSize() == 0:
-			setupString = "You have not yet set up your song folders yet. Would you like to do it now?"
-			answer = wxMessageBox(setupString, "Setup database now?", wxYES_NO | wxICON_QUESTION)
-			if answer == wxYES:
+			setupString = "You do not have any songs in your database. Would you like to add folders now?"
+			answer = wx.MessageBox(setupString, "Setup database now?", wx.YES_NO | wx.ICON_QUESTION)
+			if answer == wx.YES:
 				# Open up the database setup dialog
 				self.DBFrame = DatabaseSetupWindow(self.parent, -1, "Database Setup", self.KaraokeMgr)
 				self.StatusBar.SetStatusText ("No search performed")
@@ -849,17 +897,17 @@ class SearchResultsPanel (wxPanel):
 		self.RightClickedItemIndex = event.GetIndex()
 		# Doesn't bring up a popup if no items are in the list
 		if self.ListPanel.GetItemCount() > 0:
-			menu = wxMenu()
+			menu = wx.Menu()
 			menu.Append( self.menuPlayId, "Play song" )
-			EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
+			wx.EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
 			menu.Append( self.menuPlaylistAddId, "Add to playlist" )
-			EVT_MENU( menu, self.menuPlaylistAddId, self.OnMenuSelection )
+			wx.EVT_MENU( menu, self.menuPlaylistAddId, self.OnMenuSelection )
 			menu.Append( self.menuFileDetailsId, "File Details" )
-			EVT_MENU( menu, self.menuFileDetailsId, self.OnMenuSelection )
+			wx.EVT_MENU( menu, self.menuFileDetailsId, self.OnMenuSelection )
 			self.ListPanel.SetItemState(
 					self.RightClickedItemIndex,
-					wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED,
-					wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED)
+					wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED,
+					wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED)
 			self.ListPanel.PopupMenu( menu, event.GetPoint() )
 
 	# Handle popup menu selection events
@@ -874,7 +922,7 @@ class SearchResultsPanel (wxPanel):
 				detailsString = "File: " + song.ZipStoredName + "\nInside ZIP: " + song.Filepath
 			else:
 				detailsString = "File: " + song.Filepath
-			wxMessageBox(detailsString, song.Title, wxOK)
+			wx.MessageBox(detailsString, song.Title, wx.OK)
 
 	def onResize(self, event):
 		self.doResize()
@@ -887,9 +935,9 @@ class SearchResultsPanel (wxPanel):
 		# We're showing the vertical scrollbar -> allow for scrollbar width
 		# NOTE: on GTK, the scrollbar is included in the client size, but on
 		# Windows it is not included
-		if wxPlatform != '__WXMSW__':
+		if wx.Platform != '__WXMSW__':
 			if self.ListPanel.GetItemCount() > self.ListPanel.GetCountPerPage():
-				scrollWidth = wxSystemSettings_GetSystemMetric(wxSYS_VSCROLL_X)
+				scrollWidth = wx.SystemSettings_GetSystemMetric(wx.SYS_VSCROLL_X)
 				listWidth = listWidth - scrollWidth
 
 		# Only one column, set its width to list width, or the longest title if larger
@@ -901,12 +949,12 @@ class SearchResultsPanel (wxPanel):
 
 
 	# Not used yet. Return list of selected items.
-	def GetSelections(self, state =  wxLIST_STATE_SELECTED):
+	def GetSelections(self, state =  wx.LIST_STATE_SELECTED):
 		indices = []
 		found = 1
 		lastFound = -1
 		while found:
-			index = self.ListPanel.GetNextItem(lastFound, wxLIST_NEXT_ALL, state)
+			index = self.ListPanel.GetNextItem(lastFound, wx.LIST_NEXT_ALL, state)
 			if index == -1:
 				break
 			else:
@@ -915,44 +963,44 @@ class SearchResultsPanel (wxPanel):
 		return indices
 
 # Class to manage the playlist panel and list box
-class Playlist (wxPanel):
+class Playlist (wx.Panel):
 	def __init__(self, parent, id, KaraokeMgr, x, y):
-		wxPanel.__init__(self, parent, id)
+		wx.Panel.__init__(self, parent, id)
 		self.KaraokeMgr = KaraokeMgr
 		self.parent = parent
 		
 		# Create the playlist control
-		self.PlaylistId = wxNewId()
-		self.Playlist = wxListCtrl(self, self.PlaylistId, style=wxLC_REPORT | wxLC_SINGLE_SEL | wxSUNKEN_BORDER)
+		self.PlaylistId = wx.NewId()
+		self.Playlist = wx.ListCtrl(self, self.PlaylistId, style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.SUNKEN_BORDER)
 		self.Playlist.InsertColumn (0, "Playlist", width=500)
 		self.Playlist.Show(True)
 
 		# Create the status bar
-		self.StatusBar = wxStatusBar(self, -1)
+		self.StatusBar = wx.StatusBar(self, -1)
 		self.StatusBar.SetStatusText ("Not playing")
 
 		# Create a sizer for the tree view and status bar
 		self.InterGap = 0
-		self.VertSizer = wxBoxSizer(wxVERTICAL)
-		self.VertSizer.Add(self.Playlist, 1, wxEXPAND, self.InterGap)
-		self.VertSizer.Add(self.StatusBar, 0, wxEXPAND, self.InterGap)
+		self.VertSizer = wx.BoxSizer(wx.VERTICAL)
+		self.VertSizer.Add(self.Playlist, 1, wx.EXPAND, self.InterGap)
+		self.VertSizer.Add(self.StatusBar, 0, wx.EXPAND, self.InterGap)
 		self.SetSizer(self.VertSizer)
-		self.Show(true)
+		self.Show(True)
 
 		# Add handlers for right-click in the listbox
-		EVT_LIST_ITEM_ACTIVATED(self, wxID_ANY, self.OnFileSelected)
-		EVT_LIST_ITEM_RIGHT_CLICK(self.Playlist, wxID_ANY, self.OnRightClick)
+		wx.EVT_LIST_ITEM_ACTIVATED(self, wx.ID_ANY, self.OnFileSelected)
+		wx.EVT_LIST_ITEM_RIGHT_CLICK(self.Playlist, wx.ID_ANY, self.OnRightClick)
 		self.RightClickedItemIndex = -1
 
 		# Resize column width to the same as list width (or max title width, which larger)
-		EVT_SIZE(self.Playlist, self.onResize)
+		wx.EVT_SIZE(self.Playlist, self.onResize)
  		# Store the width (in pixels not chars) of the longest title
 		self.MaxTitleWidth = 0
 
 		# Create IDs for popup menu
-		self.menuPlayId = wxNewId()
-		self.menuDeleteId = wxNewId()
-		self.menuClearListId = wxNewId()
+		self.menuPlayId = wx.NewId()
+		self.menuDeleteId = wx.NewId()
+		self.menuClearListId = wx.NewId()
 
 		# Store a local list of song_structs associated by index to playlist items.
 		# (Cannot store stuff like this associated with an item in a listctrl)
@@ -968,17 +1016,17 @@ class Playlist (wxPanel):
 		self.RightClickedItemIndex = event.GetIndex()
 		# Doesn't bring up a popup if no items are in the list
 		if self.Playlist.GetItemCount() > 0:
-			menu = wxMenu()
+			menu = wx.Menu()
 			menu.Append( self.menuPlayId, "Play song" )
-			EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
+			wx.EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
 			menu.Append( self.menuDeleteId, "Delete from playlist" )
-			EVT_MENU( menu, self.menuDeleteId, self.OnMenuSelection )
+			wx.EVT_MENU( menu, self.menuDeleteId, self.OnMenuSelection )
 			menu.Append( self.menuClearListId, "Clear playlist" )
-			EVT_MENU( menu, self.menuClearListId, self.OnMenuSelection )
+			wx.EVT_MENU( menu, self.menuClearListId, self.OnMenuSelection )
 			self.Playlist.SetItemState(
 					self.RightClickedItemIndex,
-					wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED,
-					wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED)
+					wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED,
+					wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED)
 			self.Playlist.PopupMenu( menu, event.GetPoint() )
 
 	# Handle popup menu selection events.
@@ -1003,9 +1051,9 @@ class Playlist (wxPanel):
 		# We're showing the vertical scrollbar -> allow for scrollbar width
 		# NOTE: on GTK, the scrollbar is included in the client size, but on
 		# Windows it is not included
-		if wxPlatform != '__WXMSW__':
+		if wx.Platform != '__WXMSW__':
 			if self.Playlist.GetItemCount() > self.Playlist.GetCountPerPage():
-				scrollWidth = wxSystemSettings_GetSystemMetric(wxSYS_VSCROLL_X)
+				scrollWidth = wx.SystemSettings_GetSystemMetric(wx.SYS_VSCROLL_X)
 				listWidth = listWidth - scrollWidth
 
 		# Only one column, set its width to list width, or the longest title if larger
@@ -1055,16 +1103,16 @@ class Playlist (wxPanel):
 	def SetItemSelected( self, item_index ):
 		self.Playlist.SetItemState(
 				item_index,
-				wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED,
-				wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED)
+				wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED,
+				wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED)
 
 	# Return list of selected items.
-	def GetSelections(self, state =  wxLIST_STATE_SELECTED):
+	def GetSelections(self, state =  wx.LIST_STATE_SELECTED):
 		indices = []
 		found = 1
 		lastFound = -1
 		while found:
-			index = self.Playlist.GetNextItem(lastFound, wxLIST_NEXT_ALL, state)
+			index = self.Playlist.GetNextItem(lastFound, wx.LIST_NEXT_ALL, state)
 			if index == -1:
 				break
 			else:
@@ -1074,39 +1122,44 @@ class Playlist (wxPanel):
 
 
 # Main window
-class PyKaraokeWindow (wxFrame):
+class PyKaraokeWindow (wx.Frame):
 	def __init__(self,parent,id,title,KaraokeMgr):
-		wxFrame.__init__(self,parent,wxID_ANY, title, size = MAIN_WINDOW_SIZE,
-							style=wxDEFAULT_FRAME_STYLE|wxNO_FULL_REPAINT_ON_RESIZE)
+		wx.Frame.__init__(self,parent,wx.ID_ANY, title, size = MAIN_WINDOW_SIZE,
+							style=wx.DEFAULT_FRAME_STYLE|wx.NO_FULL_REPAINT_ON_RESIZE)
 		self.KaraokeMgr = KaraokeMgr
 		
 		# Create left-hand side buttons at the button
 		choices = ["Search View", "Folder View"]
-		self.ViewChoiceID = wxNewId()
-		self.DBButtonID = wxNewId()
-		self.DatabaseButton = wxButton(self, self.DBButtonID, "Add Songs")
-		buttonSize = self.DatabaseButton.GetSize()
-		self.ViewChoice = wxChoice(self, self.ViewChoiceID, (0,0), (-1, buttonSize[1]), choices)
-		self.LeftTopSizer = wxBoxSizer(wxHORIZONTAL)
-		self.LeftTopSizer.Add(self.ViewChoice, 0, wxALIGN_LEFT)
+		self.ViewChoiceID = wx.NewId()
+		self.DBButtonID = wx.NewId()
+		self.ConfigButtonID = wx.NewId()
+		self.DatabaseButton = wx.Button(self, self.DBButtonID, "Add Songs")
+		DBButtonSize = self.DatabaseButton.GetSize()
+		self.ConfigButton = wx.Button(self, self.ConfigButtonID, "Config")
+		ConfigButtonSize = self.ConfigButton.GetSize()
+		self.ViewChoice = wx.Choice(self, self.ViewChoiceID, (0,0), (-1, DBButtonSize[1]), choices)
+		self.LeftTopSizer = wx.BoxSizer(wx.HORIZONTAL)
+		self.LeftTopSizer.Add(self.ViewChoice, 0, wx.ALIGN_LEFT)
 		self.LeftTopSizer.Add((0, 0), 1, 1)
-		self.LeftTopSizer.Add(self.DatabaseButton, 0, wxALIGN_RIGHT)
-		EVT_CHOICE(self, self.ViewChoiceID, self.OnViewChosen)
-		EVT_BUTTON(self, self.DBButtonID, self.OnDBClicked)
+		self.LeftTopSizer.Add(self.ConfigButton, 0, wx.ALIGN_RIGHT)
+		self.LeftTopSizer.Add(self.DatabaseButton, 0, wx.ALIGN_RIGHT)
+		wx.EVT_CHOICE(self, self.ViewChoiceID, self.OnViewChosen)
+		wx.EVT_BUTTON(self, self.ConfigButtonID, self.OnConfigClicked)
+		wx.EVT_BUTTON(self, self.DBButtonID, self.OnDBClicked)
 
 		# Create the view and playlist panels
 		self.TreePanel = FileTree(self, -1, KaraokeMgr, 0, 0)
 		self.SearchPanel = SearchResultsPanel(self, -1, KaraokeMgr, 0, 0)
 		self.PlaylistPanel = Playlist(self, -1, KaraokeMgr, 0, 0)
-		self.LeftSizer = wxBoxSizer(wxVERTICAL)
-		self.LeftSizer.Add(self.LeftTopSizer, 0, wxALL | wxEXPAND, 5)
-		self.LeftSizer.Add(self.TreePanel, 1, wxALL | wxEXPAND, 5)
-		self.LeftSizer.Add(self.SearchPanel, 1, wxALL | wxEXPAND, 5)
-		self.RightSizer = wxBoxSizer(wxVERTICAL)
-		self.RightSizer.Add(self.PlaylistPanel, 1, wxALL | wxEXPAND, 5)
-		self.ViewSizer = wxBoxSizer(wxHORIZONTAL)
-		self.ViewSizer.Add(self.LeftSizer, 1, wxALL | wxEXPAND, 5)
-		self.ViewSizer.Add(self.RightSizer, 1, wxALL | wxEXPAND, 5)
+		self.LeftSizer = wx.BoxSizer(wx.VERTICAL)
+		self.LeftSizer.Add(self.LeftTopSizer, 0, wx.ALL | wx.EXPAND, 5)
+		self.LeftSizer.Add(self.TreePanel, 1, wx.ALL | wx.EXPAND, 5)
+		self.LeftSizer.Add(self.SearchPanel, 1, wx.ALL | wx.EXPAND, 5)
+		self.RightSizer = wx.BoxSizer(wx.VERTICAL)
+		self.RightSizer.Add(self.PlaylistPanel, 1, wx.ALL | wx.EXPAND, 5)
+		self.ViewSizer = wx.BoxSizer(wx.HORIZONTAL)
+		self.ViewSizer.Add(self.LeftSizer, 1, wx.ALL | wx.EXPAND, 5)
+		self.ViewSizer.Add(self.RightSizer, 1, wx.ALL | wx.EXPAND, 5)
 
 		# Default start in Search View
 		self.LeftSizer.Show(self.TreePanel, False)
@@ -1114,17 +1167,17 @@ class PyKaraokeWindow (wxFrame):
 		self.SearchPanel.SearchText.SetFocus()
 
 		# Put the top level buttons and main panels in a sizer
-		self.MainSizer = wxBoxSizer(wxVERTICAL)
+		self.MainSizer = wx.BoxSizer(wx.VERTICAL)
 		# Add a top-level set of buttons across both panels here if desired
-		#self.MainSizer.Add(self.TopSizer, 0, wxALL)
-		self.MainSizer.Add(self.ViewSizer, 1, wxALL | wxEXPAND)
-		self.SetAutoLayout(true)
+		#self.MainSizer.Add(self.TopSizer, 0, wx.ALL)
+		self.MainSizer.Add(self.ViewSizer, 1, wx.ALL | wx.EXPAND)
+		self.SetAutoLayout(True)
 		self.SetSizer(self.MainSizer)
 
 		# Attach on exit handler to clean up temporary files
-		EVT_CLOSE(self, self.OnClose)
+		wx.EVT_CLOSE(self, self.OnClose)
 
-		self.Show(true)
+		self.Show(True)
 
 	# Handle drop-down box (Folder View/Search View)
 	def OnViewChosen(self, event):
@@ -1144,6 +1197,11 @@ class PyKaraokeWindow (wxFrame):
 		# Open up the database setup dialog
 		self.Frame = DatabaseSetupWindow(self, -1, "Database Setup", self.KaraokeMgr)
 
+	# Handle "Config" button clicked
+	def OnConfigClicked(self, event):
+		# Open up the database setup dialog
+		self.Frame = ConfigWindow(self, -1, "Configuration", self.KaraokeMgr)
+
 	# Handle closing pykaraoke (need to delete any temporary files on close)
 	def OnClose(self, event):
 		self.KaraokeMgr.SongDB.CleanupTempFiles()
@@ -1151,9 +1209,9 @@ class PyKaraokeWindow (wxFrame):
 
 
 # Subclass WxPyEvent to add storage for an extra data pointer
-class PyKaraokeEvent(wxPyEvent):
+class PyKaraokeEvent(wx.PyEvent):
     def __init__(self, event_id, data):
-        wxPyEvent.__init__(self)
+        wx.PyEvent.__init__(self)
         self.SetEventType(event_id)
         self.data = data
 
@@ -1171,8 +1229,8 @@ class PyKaraokeManager:
 		self.DisplaySize = (640, 480)
 		# Set up an event so the player threads can call back and perform
 		# GUI operations
-		self.EVT_SONG_FINISHED = wxNewId()
-		self.EVT_ERROR_POPUP = wxNewId()
+		self.EVT_SONG_FINISHED = wx.NewId()
+		self.EVT_ERROR_POPUP = wx.NewId()
 		self.Frame.Connect(-1, -1, self.EVT_SONG_FINISHED, self.SongFinishedEventHandler)
 		self.Frame.Connect(-1, -1, self.EVT_ERROR_POPUP, self.ErrorPopupEventHandler)
 		# Used to tell the song finished callback that a song has been
@@ -1225,7 +1283,7 @@ class PyKaraokeManager:
 	# for the GUI thread, actually handled by SongFinishedEventHandler()
 	def SongFinishedCallback(self):
 		event = PyKaraokeEvent(self.EVT_SONG_FINISHED, None)
-		wxPostEvent (self.Frame, event)
+		wx.PostEvent (self.Frame, event)
 	
 	# Handle the song finished event. This is triggered by the callback but
 	# runs in the GUI thread, instead of the player thread which the callback
@@ -1266,7 +1324,7 @@ class PyKaraokeManager:
 		# We use the extra data storage we got by subclassing WxPyEvent to
 		# pass data to the event handler (the error string).
 		event = PyKaraokeEvent(self.EVT_ERROR_POPUP, ErrorString)
-		wxPostEvent (self.Frame, event)
+		wx.PostEvent (self.Frame, event)
 		
 	# Handle the error popup event, runs in the GUI thread.
 	def ErrorPopupEventHandler(self, event):
@@ -1328,12 +1386,16 @@ class PyKaraokeManager:
 				self.Player = pycdg.cdgPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
 				# Set the display size to the user's current preference (i.e. last song)
 				self.Player.SetDisplaySize (self.DisplaySize)
+				if (self.SongDB.Settings.FullScreen == True):
+					self.Player.SetFullScreen ()
 			elif (ext.lower() == ".kar") or (ext == ".mid"):
 				self.Player = pykar.midPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
 			elif (ext.lower() == ".mpg") or (ext == ".mpeg"):
-				self.Player.SetDisplaySize (self.DisplaySize)
+				self.Player = pympg.mpgPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
 				# Set the display size to the user's current preference (i.e. last song)
 				self.Player.SetDisplaySize (self.DisplaySize)
+				if (self.SongDB.Settings.FullScreen == True):
+					self.Player.SetFullScreen ()
 			# TODO basic mp3/ogg player
 			else:
 				ErrorPopup ("Unsupported file format " + ext)
@@ -1346,7 +1408,7 @@ class PyKaraokeManager:
 		except:
 			ErrorPopup ("Error starting player")
 	
-PyKaraokeApp = wxPySimpleApp()
+PyKaraokeApp = wx.PySimpleApp()
 Mgr = PyKaraokeManager()
 PyKaraokeApp.MainLoop()
 
