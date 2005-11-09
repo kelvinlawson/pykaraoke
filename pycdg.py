@@ -162,26 +162,28 @@
 # one edge.
 #
 # cdgPlayer.cdgDisplaySurface
-# This is the actual surfaced displayed after any resize scaling
+# This is the actual surface displayed after any resize scaling.
 #
 # self.cdgDisplaySize
-# Current actual display size. Starts at 294x204
+# Current actual display size. Defaults to 294x204.
 
-import struct, sys, pygame, os, string
+import sys, Numeric as N, struct, pygame, os, string, pykversion
 from threading import Thread
-import Numeric as N
 
-# Number of screen updates per second (setting this too
-# high can use too much horsepower)
-CDG_SCREEN_UPDATES_PER_SEC = 10
+# Python 2.3 and newer ship with optparse; older Python releases need "Optik"
+# installed (optik.sourceforge.net)
+try:
+	from optparse import OptionParser
+except:
+	import Optik as optparse
 
 # CDG Command Code
-CDG_COMMAND 				= 0x09
+CDG_COMMAND 			= 0x09
 
 # CDG Instruction Codes
 CDG_INST_MEMORY_PRESET		= 1
 CDG_INST_BORDER_PRESET		= 2
-CDG_INST_TILE_BLOCK			= 6
+CDG_INST_TILE_BLOCK		= 6
 CDG_INST_SCROLL_PRESET		= 20
 CDG_INST_SCROLL_COPY		= 24
 CDG_INST_DEF_TRANSP_COL		= 28
@@ -190,25 +192,32 @@ CDG_INST_LOAD_COL_TBL_8_15	= 31
 CDG_INST_TILE_BLOCK_XOR		= 38
 
 # Bitmask for all CDG fields
-CDG_MASK 					= 0x3F
+CDG_MASK 			= 0x3F
 
 # States
 STATE_INIT			= 1
-STATE_INIT_DONE		= 2
-STATE_PLAYING		= 3
-STATE_PAUSED		= 4
-STATE_NOT_PLAYING	= 5
-STATE_CLOSING		= 6
+STATE_INIT_DONE			= 2
+STATE_PLAYING			= 3
+STATE_PAUSED			= 4
+STATE_NOT_PLAYING		= 5
+STATE_CLOSING			= 6
 
 # Display depth (bits)
-DISPLAY_DEPTH       = 32 
+DISPLAY_DEPTH       		= 32 
 
 # cdgPlayer Class
 class cdgPlayer(Thread):
 	# Initialise the player instace
-	def __init__(self, cdgFileName, errorNotifyCallback=None, doneCallback=None):
+	def __init__(self, FileName, options, errorNotifyCallback=None, doneCallback=None):
 		Thread.__init__(self)
-		self.FileName = cdgFileName 
+		self.FileName = FileName 
+
+		# Get the passed options or create a new object with defaults if none passed
+		if options == None:
+			parser = setupOptions()
+			(self.options, args) = parser.parse_args()
+		else:
+			self.options = options
 
 		# Caller can register a callback by which we
 		# print out error information, use stdout if none registered
@@ -232,15 +241,21 @@ class cdgPlayer(Thread):
 			return
 
 		# Check there is a matching mp3 or ogg file
-		if (os.path.isfile(self.FileName[:-3] + "mp3")):
-			self.SoundFileName = self.FileName[:-3] + "mp3"
-		elif (os.path.isfile(self.FileName[:-3] + "MP3")):
-			self.SoundFileName = self.FileName[:-3] + "MP3"
-		elif (os.path.isfile(self.FileName[:-3] + "ogg")):
-			self.SoundFileName = self.FileName[:-3] + "ogg"
-		elif (os.path.isfile(self.FileName[:-3] + "OGG")):
-			self.SoundFileName = self.FileName[:-3] + "OGG"
-		else:
+		validexts = [
+			'wav', 'wAv', 'waV', 'wAV',
+			'Wav', 'WAv', 'WaV', 'WAV',
+			'mp3', 'mP3', 'Mp3', 'MP3', 
+			'ogg', 'oGg', 'ogG', 'oGG',
+			'Ogg', 'OGg', 'OgG', 'OGG'
+		]
+
+		matched = 0
+		for ext in validexts:
+			if (os.path.isfile(self.FileName[:-3] + ext)):
+				self.SoundFileName = self.FileName[:-3] + ext
+				matched = 1
+
+		if not matched:
 			ErrorString = "There is no mp3 or ogg file to match " + self.FileName
 			self.ErrorNotifyCallback (ErrorString)
 			raise NoSoundFile
@@ -257,7 +272,7 @@ class cdgPlayer(Thread):
 		self.cdgTransparentColour = -1
 		
 		# Initialise the display
-		self.cdgDisplaySize = (294,204)
+		self.cdgDisplaySize = (294, 204)
 			
 		# Build a 300x216 array for the pixel indeces, including border area
 		self.cdgPixelColours = N.zeros((300,216))
@@ -280,11 +295,13 @@ class cdgPlayer(Thread):
 		# is required. This can then be modified by any thread calling
 		# SetDisplaySize()
 		self.ResizeTuple = None
-		self.ResizeFullScreen = False
+		self.ResizeFullScreen = self.options.fullscreen
 
 		# Initialise pygame
 		if os.name == "posix":
 			self.pygame_init()
+
+		self.SetDisplaySize((self.options.size_x, self.options.size_y))
 
 		# Automatically start the thread which handles pygame events
 		# Doesn't actually start playing until Play() is called.
@@ -306,9 +323,10 @@ class cdgPlayer(Thread):
 		if os.name == "posix":
 			(uname, host, release, version, machine) = os.uname()
 		if (os.name != "posix") or (string.lower(uname)[:5] == "linux"):
-			os.environ['SDL_VIDEO_WINDOW_POS'] = "30,30"
+			os.environ['SDL_VIDEO_WINDOW_POS'] = '%d,%d' % (self.options.pos_x, self.options.pos_y)
 		pygame.init()
 		pygame.display.set_caption(self.FileName)
+		pygame.mouse.set_visible(False)
 		self.cdgUnscaledSurface = pygame.Surface(self.cdgDisplaySize)
 		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
 		self.cdgScreenUpdateRequired = 0
@@ -423,9 +441,9 @@ class cdgPlayer(Thread):
 			# Check whether the songfile has moved on, if so
 			# get the relevant CDG data and update the screen.
 			if self.State == STATE_PLAYING:
+				curr_pos = self.GetPos() - self.TotalOffsetTime
 				if self.cdgPacketsDue <= self.cdgReadPackets:
 					# Check again if any display packets are due
-					curr_pos = self.GetPos() - self.TotalOffsetTime
 					self.cdgPacketsDue = (curr_pos / 1000.0) * 300
 					pygame.time.delay(50)
 				else:
@@ -440,10 +458,10 @@ class cdgPlayer(Thread):
 						self.cdgReadPackets = self.cdgReadPackets + 1
 					else:
 						# Couldn't get another packet, finish
-						self.State = STATE_CLOSING
+						self.Close()
 
 			# Check if any screen updates are now due
-			if ((curr_pos - self.LastPos) / 1000.0) > (1.0 / CDG_SCREEN_UPDATES_PER_SEC):
+			if ((curr_pos - self.LastPos) / 1000.0) > (1.0 / self.options.fps):
 				self.cdgDisplayUpdate()
 				self.LastPos = curr_pos
 
@@ -471,7 +489,7 @@ class cdgPlayer(Thread):
 				if event.type == pygame.VIDEORESIZE and self.GetPos() > 250:
 					self.cdgDisplaySize = event.size
 					pygame.display.set_mode (event.size, self.cdgDisplayMode, DISPLAY_DEPTH)
-				elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+				elif event.type == pygame.KEYDOWN and ((event.key == pygame.K_ESCAPE) or (event.key == pygame.K_q)):
 					self.State = STATE_CLOSING
 				elif event.type == pygame.QUIT:
 					self.State = STATE_CLOSING
@@ -771,17 +789,38 @@ class cdgPlayer(Thread):
 def defaultErrorPrint(ErrorString):
 	print (ErrorString)
 
-# Print out some instructions on error
-def usage():
-    print "Usage:  %s <CDG filename>" % os.path.basename(sys.argv[0])
+# Initialise an optparse options object
+def setupOptions():
+	usage = "usage: %prog [options] <CDG file>"
+	version = "%prog " + pykversion.PYKARAOKE_VERSION_STRING
+	parser = OptionParser(usage = usage, version = version, conflict_handler = "resolve")
+	parser.add_option('-x', '--window-x', dest = 'pos_x', type = 'int', metavar='X',
+		help = 'position CD+G window X pixels from the left edge of the screen', default = 0)
+	parser.add_option('-y', '--window-y', dest = 'pos_y', type = 'int', metavar='Y',
+		help = 'position CD+G window Y pixels from the top edge of the screen', default = 0)
+	parser.add_option('-w', '--width', dest = 'size_x', type = 'int', metavar='X',
+		help = 'draw CD+G window X pixels wide', default = 294)
+	parser.add_option('-h', '--height', dest = 'size_y', type = 'int', metavar='Y',
+		help = 'draw CD+G window Y pixels high', default = 204)
+	parser.add_option('-f', '--fullscreen', dest = 'fullscreen', action = 'store_true', 
+		help = 'draw CD+G window fullscreen', default = False)
+	parser.add_option('-s', '--fps', dest = 'fps', metavar='N', type = 'int',
+		help = 'draw updates at up to N frames per second (be careful; setting this value too high can consume excessive CPU time)', 
+		default = 60)
+	return parser
 
 # Can be called from the command line with the CDG filepath as parameter
 def main():
-	args = sys.argv[1:]
-	if (len(sys.argv) != 2) or ("-h" in args) or ("--help" in args):
-		usage()
+
+	# Parse the command-line options
+	parser = setupOptions()
+	(options, args) = parser.parse_args()
+	if (not len(args)):
+		parser.print_help()
 		sys.exit(2)
-	player = cdgPlayer(sys.argv[1])
+
+	cdgFileName = args[0]
+	player = cdgPlayer(cdgFileName, options)
 	player.Play()
 
 if __name__ == "__main__":

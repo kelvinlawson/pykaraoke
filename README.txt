@@ -1,11 +1,13 @@
 
 ---------------------------------------------------------------------------
 
-Release:    pykaraoke v0.3.1
-Date:       21/10/2005
+Release:    pykaraoke v0.4
+Date:       29/10/2005
 Author:     Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:    LGPL
 Website:    http://www.kibosh.org/pykaraoke/
+
+Additional contributions from William Ferrell <willfe@gmail.com>
 
 ---------------------------------------------------------------------------
 
@@ -23,8 +25,24 @@ needed to play your own karaoke song files.
 
 ---------------------------------------------------------------------------
 
-WHATS NEW
+WHAT'S NEW
 
+v0.4
+--------
+This release introduces several small changes and improvements. pycdg.py now
+accepts several command-line options; run "pycdg.py --help" to see a full list.
+You can now specify the width and height of the output window, and specify its
+position on the screen. You can now also start the output window in fullscreen
+mode. Finally, the desired maximum frames per second can be specified on the
+command line.
+
+Other cosmetic changes include adding a key binding, [Q], to quit the player
+immediately (the [ESC] key binding for this remains as well), and hiding the
+mouse cursor when it's inside the player window (or entirely when the player is
+full screen).
+
+v0.3.1
+--------
 Due to popular demand, this release now supports full-screen borderless 
 player windows (CDG and MPG only).
 
@@ -46,6 +64,8 @@ PyKaraoke requires the following libraries to be installed:
  * Pygame (www.pygame.org)
  * WxPython (www.wxpython.org)
  * Numeric python module (numpy.sourceforge.net)
+ * Optik (optik.sourceforge.net, *only* for Python 2.2 and older;
+   it is shipped as "optparse" in Python 2.3 and newer by default)
 
 If these libraries are not already installed on your system, you can
 download them from the websites listed.
@@ -57,10 +77,10 @@ Gentoo users can install all prerequisites using:
 	# emerge python pygame wxGTK numeric
 
 Debian users can install all prerequisites using:
-    # apt-get install python python-pygame libwxgtk-python python-numeric
+	# apt-get install python python-pygame libwxgtk-python python-numeric
 
-There is currently no installer for pykaraoke. Unzip the release
-and you can start the player from the unzip location.
+There is currently no installer for pykaraoke. Unzip the release and you can
+start the player from the unzip location.
 
 ---------------------------------------------------------------------------
 
@@ -138,6 +158,9 @@ the command-line (or by associating file-types in your operating system).
 You can play MP3+G or OGG+G files using:
 	# python pycdg.py songfilename.cdg
 
+For a list of command-line options for pycdg.py, run:
+	# python pycdg.py --help
+
 KAR/MID files can be played using:
 	# python pykar.py karfilename.mid
 
@@ -177,7 +200,48 @@ provided by a PyKaraoke user:
     # ./configure --prefix=/usr --enable-music-mp3
     # make; make install
 
+If you are running on the AMD64 platform (and possibly others) you may see
+this error on startup:
+
+Exception in thread Thread-1:
+Traceback (most recent call last):
+	...
+ValueError: unsupported datatype for array
+
+If this occurs, you need to download and install the latest development
+release of pygame. Follow the instructions at http://pygame.org/cvs.html to obtain the latest development release, then:
+
+1. Build the new release by running:
+   # python makeref.py
+   # python setup.py install --prefix=/path/to/temporary/spot
+2. Find the directory named "pygame" within /path/to/temporary/spot/lib (on a
+   development machine, the path was lib/python2.4/site-packages/pygame) and
+   copy or move it (all of it, including the directory itself) into the
+   folder containing pycdg.py and the rest of the PyKaraoke files.
+
+The CDG player should then work properly.
 ---------------------------------------------------------------------------
+
+CHANGELOG (v0.4, patch submitted by William Ferrell):
+- Change order of import statements so local versions of pygame, Numeric can be
+  picked up if present.
+- Check for all mixed-case cases of matching audio files (mp3, ogg)
+- Misc. tab/spacing fixes in "constant" definitions
+- Use optparse to support additional command-line options (optparse is included
+  in Python 2.3 and newer, on all standard Python-supporting platforms); run
+"pycdg.py --help" to see a full list of supported options
+- Permit user to specify window's starting X and Y positions
+- Permit user to specify window's starting X and Y sizes
+- Permit user to start the player in fullscreen mode
+- Permit user to specify FPS on command line, defaults to 60
+- Pass cdgPlayer.__init__() an "options" object now instead of a filename;
+  contains size_x, size_y, pos_x, pos_y, fullscreen, cdgFileName
+- cdgPlayer.run(): it's pedantic, but use self.Close() instead of setting
+  self.State manually
+- Add key binding "q" to exit ([ESC] still works)
+- Hide the mouse cursor (both in fullscreen and in windowed mode)
+- Fix "Frames Per Second" so it's honored (previously it was ignored because
+  curr_pos wasn't always updated as often as needed)
 
 CHANGELOG (v0.3.1)
 

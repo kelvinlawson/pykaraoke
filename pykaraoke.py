@@ -124,9 +124,7 @@
 
 
 import os, string, zipfile, pickle, wx
-import pycdg, pympg, pykar
-
-PYKARAOKE_VERSION_STRING = "0.3.1"
+import pycdg, pympg, pykar, pykversion
 
 # Size of the main window
 MAIN_WINDOW_SIZE = (604,480)
@@ -153,7 +151,7 @@ class SongStruct:
 # can be pickled to save all user's settings.
 class SettingsStruct:
 	def __init__(self, FolderList, FileExtensions, LookInsideZips, FullScreen):
-		self.Version = PYKARAOKE_VERSION_STRING
+		self.Version = pykversion.PYKARAOKE_VERSION_STRING
 		self.FolderList = FolderList			# List of song folders
 		self.FileExtensions = FileExtensions	# List of extensions (.cdg etc)
 		self.LookInsideZips = LookInsideZips	# Whether to look inside zips
@@ -198,7 +196,7 @@ class SongDB:
 			loadsettings = pickle.load (file)
 			try:
 				# Check settings are for the current version
-				if (loadsettings.Version == PYKARAOKE_VERSION_STRING):
+				if (loadsettings.Version == pykversion.PYKARAOKE_VERSION_STRING):
 					self.Settings = loadsettings
 			except:
 				ErrorPopup ("New version of PyKaraoke, clearing settings")
@@ -1224,7 +1222,7 @@ class PyKaraokeManager:
 		# Set up and store the song database instance
 		self.SongDB = SongDB(self)
 		# Set up the WX windows
-		self.Frame = PyKaraokeWindow(None, -1, "PyKaraoke " + PYKARAOKE_VERSION_STRING, self)
+		self.Frame = PyKaraokeWindow(None, -1, "PyKaraoke " + pykversion.PYKARAOKE_VERSION_STRING, self)
 		# Set the default display size
 		self.DisplaySize = (640, 480)
 		# Set up an event so the player threads can call back and perform
@@ -1383,7 +1381,7 @@ class PyKaraokeManager:
 		try:
 			root, ext = os.path.splitext(self.FilePath)
 			if ext.lower() == ".cdg":
-				self.Player = pycdg.cdgPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
+				self.Player = pycdg.cdgPlayer(self.FilePath, None, self.ErrorPopupCallback, self.SongFinishedCallback)
 				# Set the display size to the user's current preference (i.e. last song)
 				self.Player.SetDisplaySize (self.DisplaySize)
 				if (self.SongDB.Settings.FullScreen == True):
