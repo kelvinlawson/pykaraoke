@@ -533,7 +533,7 @@ class cdgPlayer(Thread):
 				self.cdgTileBlockCommon (packd, xor = 1)
 			else:
 				# Don't use the error popup, ignore the unsupported command
-				ErrorString = "CDG file may be corrupt, cmd :" + str(inst_code)
+				ErrorString = "CDG file may be corrupt, cmd: " + str(inst_code)
 				print (ErrorString)
 
 	# Read the next CDG command from the file (24 bytes each)
