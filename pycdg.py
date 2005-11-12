@@ -288,7 +288,7 @@ class cdgPlayer(Thread):
 		self.TotalOffsetTime = 0
 
 		# Default display-mode resizable
-		self.cdgDisplayMode = pygame.RESIZABLE
+		self.cdgDisplayMode = pygame.RESIZABLE | pygame.HWSURFACE | pygame.DOUBLEBUF
 
 		# Can only do the set_mode() on Windows in the pygame thread.
 		# Therefore use a variable to tell the thread when a resize
@@ -325,7 +325,10 @@ class cdgPlayer(Thread):
 		if (os.name != "posix") or (string.lower(uname)[:5] == "linux"):
 			os.environ['SDL_VIDEO_WINDOW_POS'] = '%d,%d' % (self.options.pos_x, self.options.pos_y)
 		pygame.init()
-		pygame.display.set_caption(self.FileName)
+		if self.options.title:
+			pygame.display.set_caption(self.options.title, 'pykaraoke')
+		else:
+			pygame.display.set_caption(self.FileName, 'pykaraoke')
 		pygame.mouse.set_visible(False)
 		self.cdgUnscaledSurface = pygame.Surface(self.cdgDisplaySize)
 		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
@@ -476,7 +479,7 @@ class cdgPlayer(Thread):
             # Handle full-screen in pygame thread context
 			if self.ResizeFullScreen == True:
 				self.cdgDisplaySize = pygame.display.list_modes(DISPLAY_DEPTH, pygame.FULLSCREEN)[0]
-				self.cdgDisplayMode = pygame.FULLSCREEN
+				self.cdgDisplayMode = pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.HWSURFACE
 				pygame.display.set_mode (self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
 				self.ResizeFullScreen = False
 
@@ -802,6 +805,8 @@ def setupOptions():
 		help = 'draw CD+G window X pixels wide', default = 294)
 	parser.add_option('-h', '--height', dest = 'size_y', type = 'int', metavar='Y',
 		help = 'draw CD+G window Y pixels high', default = 204)
+	parser.add_option('-t', '--title', dest = 'title', type = 'str', metavar='TITLE',
+		help = 'set window title to TITLE', default = '')
 	parser.add_option('-f', '--fullscreen', dest = 'fullscreen', action = 'store_true', 
 		help = 'draw CD+G window fullscreen', default = False)
 	parser.add_option('-s', '--fps', dest = 'fps', metavar='N', type = 'int',

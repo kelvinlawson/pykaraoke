@@ -1,0 +1,10 @@
+v0.5:
+	* Request hardware-accelerated and double-buffered displays from SDL
+	when available (wwf)
+
+	* Fix typo in "CDG file may be corrupt" warning (wwf)
+
+	* Add -t/--title option to set the window title to something specific
+	(useful for window managers that can remember window settings like
+	sticky, size, location, stacking, desktop, etc., based on window
+	title/name/class attributes, like Enlightenment does) (wwf)
