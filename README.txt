@@ -1,13 +1,12 @@
 
 ---------------------------------------------------------------------------
 
-Release:    pykaraoke v0.4
-Date:       29/10/2005
-Author:     Kelvin Lawson <kelvinl@users.sourceforge.net>
-License:    LGPL
-Website:    http://www.kibosh.org/pykaraoke/
-
-Additional contributions from William Ferrell <willfe@gmail.com>
+Release:      pykaraoke v0.4
+Date:         12/11/2005
+Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
+License:      LGPL
+Website:      http://www.kibosh.org/pykaraoke/
+Contributors: William Ferrell <willfe@gmail.com>
 
 ---------------------------------------------------------------------------
 
@@ -27,32 +26,19 @@ needed to play your own karaoke song files.
 
 WHAT'S NEW
 
-v0.4
---------
-This release introduces several small changes and improvements. pycdg.py now
-accepts several command-line options; run "pycdg.py --help" to see a full list.
-You can now specify the width and height of the output window, and specify its
-position on the screen. You can now also start the output window in fullscreen
-mode. Finally, the desired maximum frames per second can be specified on the
-command line.
+All modifications for v0.4 have been kindly contributed by Will Ferrell.
 
-Other cosmetic changes include adding a key binding, [Q], to quit the player
-immediately (the [ESC] key binding for this remains as well), and hiding the
-mouse cursor when it's inside the player window (or entirely when the player is
-full screen).
+This release introduces several small changes and improvements. pycdg.py 
+now accepts several command-line options; run "pycdg.py --help" to see a
+full list. You can now specify the width and height of the output window,
+and specify its position on the screen. You can now also start the output
+window in fullscreen mode. Finally, the desired maximum frames per second
+can be specified on the command line.
 
-v0.3.1
---------
-Due to popular demand, this release now supports full-screen borderless 
-player windows (CDG and MPG only).
-
-We have modified the GUI to support the latest WxPython (v2.6). CPU usage
-has also been improved, as earlier versions didn't yield the CPU when not
-doing work.
-
-Finally, to handle situations where the zip filename contains the songname
-but the internal song file does not, we now display both the zip and song
-filename in the playlist.
+Other cosmetic changes include adding a key binding, [Q], to quit the 
+player immediately (the [ESC] key binding for this remains as well), and 
+hiding the mouse cursor when it's inside the player window (or entirely 
+when the player is full screen).
 
 ---------------------------------------------------------------------------
 
@@ -171,6 +157,8 @@ MPEG files can be played using:
 
 COMMON INSTALLATION ISSUES
 
+LINUX DISTROS WITHOUT MP3 SUPPORT
+
 Due to MP3 licensing issues, some distros such as Fedora Core and SUSE may
 not include MP3 support in the SDL_mixer library. If this is the case you
 will see the following message when attempting to play an MP3+G track:
@@ -200,6 +188,9 @@ provided by a PyKaraoke user:
     # ./configure --prefix=/usr --enable-music-mp3
     # make; make install
 
+
+AMD64 INSTALLATIONS
+
 If you are running on the AMD64 platform (and possibly others) you may see
 this error on startup:
 
@@ -220,37 +211,42 @@ release of pygame. Follow the instructions at http://pygame.org/cvs.html to obta
    folder containing pycdg.py and the rest of the PyKaraoke files.
 
 The CDG player should then work properly.
+
 ---------------------------------------------------------------------------
 
-CHANGELOG (v0.4, patch submitted by William Ferrell):
-- Change order of import statements so local versions of pygame, Numeric can be
-  picked up if present.
-- Check for all mixed-case cases of matching audio files (mp3, ogg)
-- Misc. tab/spacing fixes in "constant" definitions
-- Use optparse to support additional command-line options (optparse is included
-  in Python 2.3 and newer, on all standard Python-supporting platforms); run
-"pycdg.py --help" to see a full list of supported options
-- Permit user to specify window's starting X and Y positions
-- Permit user to specify window's starting X and Y sizes
-- Permit user to start the player in fullscreen mode
-- Permit user to specify FPS on command line, defaults to 60
-- Pass cdgPlayer.__init__() an "options" object now instead of a filename;
-  contains size_x, size_y, pos_x, pos_y, fullscreen, cdgFileName
-- cdgPlayer.run(): it's pedantic, but use self.Close() instead of setting
-  self.State manually
-- Add key binding "q" to exit ([ESC] still works)
-- Hide the mouse cursor (both in fullscreen and in windowed mode)
-- Fix "Frames Per Second" so it's honored (previously it was ignored because
-  curr_pos wasn't always updated as often as needed)
+CHANGELOG (v0.4)
 
-CHANGELOG (v0.3.1)
+Changes in v0.4 (All modifications submitted by William Ferrell):
+
+* Use optparse to support additional command-line options (optparse is 
+  included in Python 2.3 and newer, on all standard Python-supporting 
+  platforms); run "pycdg.py --help" to see a full list of supported 
+  options.
+* Permit user to specify window's starting X and Y positions
+* Permit user to specify window's starting X and Y sizes
+* Permit user to start the player in fullscreen mode
+* Permit user to specify FPS on command line, defaults to 60
+* Pass cdgPlayer.__init__() an "options" object now instead of a filename;
+  contains size_x, size_y, pos_x, pos_y, fullscreen, cdgFileName
+* cdgPlayer.run(): it's pedantic, but use self.Close() instead of setting
+  self.State manually
+* Add key binding "q" to exit ([ESC] still works)
+* Hide the mouse cursor (both in fullscreen and in windowed mode)
+* Fix "Frames Per Second" so it's honored (previously it was ignored because
+  curr_pos wasn't always updated as often as needed)
+* Change order of import statements so local versions of pygame, Numeric can be
+  picked up if present.
+* Check for all mixed-case cases of matching audio files (mp3, ogg)
+* Misc. tab/spacing fixes in "constant" definitions
+
+Changes in v0.3.1:
 
 * Added full-screen player mode (CDG and MPG)
 * Supports the latest WxPython (v2.6)
 * Improved CPU usage
 * Displays ZIP filename together with the internal song filename
 
-Changes since v0.3:
+Changes in v0.3:
 
  * Added MIDI/KAR file support
  * CDG player now uses psyco for faster playback on low-end machines 
@@ -258,7 +254,7 @@ Changes since v0.3:
  * Minor changes to make it more OSX-friendly
  * Added facility for cancelling song database builds in PyKaraoke GUI
 
-Changes since v0.2:
+Changes in v0.2.1:
 
  * Fixed colour cycling in the CDG player
  * Fixed transparent colours used in CDG files
@@ -268,7 +264,7 @@ Changes since v0.2:
  * Fixed tree root issue on some Linux systems
  * Added more status messages to the status bars
 
-Changes since v0.1:
+Changes in v0.2:
 
  * PyKaraoke can now be used on Windows (98/XP/2000)
  * Modified the playlist logic
