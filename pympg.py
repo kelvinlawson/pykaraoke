@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/env python 
 
 # pympg - MPEG Karaoke Player
 #

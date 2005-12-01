@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # pycdg - CDG/MP3+G Karaoke Player
 

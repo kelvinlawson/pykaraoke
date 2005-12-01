@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # pykaraoke - Karaoke Player Frontend
 #
@@ -123,7 +123,7 @@
 # continue adding to the playlist etc.
 
 
-import os, string, zipfile, pickle, wx
+import os, string, zipfile, pickle, wx, sys
 import pycdg, pympg, pykar, pykversion
 
 # Size of the main window
@@ -639,9 +639,16 @@ class FileTree (wx.Panel):
 		# Create the tree control
 		TreeStyle = wx.TR_NO_LINES|wx.TR_HAS_BUTTONS|wx.SUNKEN_BORDER
 		self.FileTree = wx.TreeCtrl(self, -1, wx.Point(x, y), style=TreeStyle)
-		self.FolderOpenIcon = wx.Bitmap("icons/folder_open_16.png")
-		self.FolderClosedIcon = wx.Bitmap("icons/folder_close_16.png")
-		self.FileIcon = wx.Bitmap("icons/audio_16.png")
+		# Find the correct icons path. If fully installed on Linux this will
+		# be sys.prefix/share/pykaraoke/icons. Otherwise look for it in the
+		# current directory.
+		if (os.path.isfile("icons/folder_open_16.png")):
+			iconspath = "icons"
+		else:
+			iconspath = os.path.join(sys.prefix, "share/pykaraoke/icons")
+		self.FolderOpenIcon = wx.Bitmap(os.path.join(iconspath, "folder_open_16.png"))
+		self.FolderClosedIcon = wx.Bitmap(os.path.join(iconspath, "folder_close_16.png"))
+		self.FileIcon = wx.Bitmap(os.path.join(iconspath, "audio_16.png"))
 		self.ImageList = wx.ImageList(16, 16)
 		self.FolderOpenIconIndex = self.ImageList.Add(self.FolderOpenIcon)
 		self.FolderClosedIconIndex = self.ImageList.Add(self.FolderClosedIcon)
@@ -1336,10 +1343,10 @@ class PyKaraokeManager:
 		if ext.lower() == ".zip":
 			# It's in a ZIP file, unpack it
 			zip = zipfile.ZipFile(song_struct.Filepath)
+			tmpfile_prefix = self.SongDB.CreateTempFileNamePrefix()
 			root, stored_ext = os.path.splitext(song_struct.ZipStoredName)
 			# Need to get the MP3 out for a CDG as well
 			if stored_ext.lower() == ".cdg":
-				tmpfile_prefix = self.SongDB.CreateTempFileNamePrefix()
 				# Create a local CDG file using the filename in the zip file.
 				# (slicing off any path info first in case its in a subdir in the zip).
 				lose, cdgpath = os.path.split(song_struct.ZipStoredName)
@@ -1371,7 +1378,7 @@ class PyKaraokeManager:
 				unzipped_file = open (tmpfile_prefix + local_file, "wb")
 				unzipped_data = zip.read(song_struct.ZipStoredName)
 				unzipped_file.write(unzipped_data)
-				unziped_file.close()
+				unzipped_file.close()
 				zip.close()
 				self.FilePath = tmpfile_prefix + local_file
 		else:
@@ -1386,9 +1393,9 @@ class PyKaraokeManager:
 				self.Player.SetDisplaySize (self.DisplaySize)
 				if (self.SongDB.Settings.FullScreen == True):
 					self.Player.SetFullScreen ()
-			elif (ext.lower() == ".kar") or (ext == ".mid"):
+			elif (ext.lower() == ".kar") or (ext.lower() == ".mid"):
 				self.Player = pykar.midPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
-			elif (ext.lower() == ".mpg") or (ext == ".mpeg"):
+			elif (ext.lower() == ".mpg") or (ext.lower() == ".mpeg"):
 				self.Player = pympg.mpgPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
 				# Set the display size to the user's current preference (i.e. last song)
 				self.Player.SetDisplaySize (self.DisplaySize)
@@ -1405,8 +1412,11 @@ class PyKaraokeManager:
 			self.Player.Play()
 		except:
 			ErrorPopup ("Error starting player")
-	
-PyKaraokeApp = wx.PySimpleApp()
-Mgr = PyKaraokeManager()
-PyKaraokeApp.MainLoop()
 
+def main():
+	PyKaraokeApp = wx.PySimpleApp()
+	Mgr = PyKaraokeManager()
+	PyKaraokeApp.MainLoop()
+
+if __name__ == "__main__":
+    sys.exit(main())

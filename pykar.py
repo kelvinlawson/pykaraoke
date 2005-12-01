@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # pykar - KAR/MID Karaoke Player
 #
@@ -663,7 +663,14 @@ class midPlayer(Thread):
 		pygame.display.set_caption(self.FileName)
 		self.unscaledSurface = pygame.Surface(self.displaySize)
 		self.displaySurface = pygame.display.set_mode(self.displaySize, pygame.RESIZABLE, 16)
-		self.font=pygame.font.Font("fonts/vera.ttf", FONT_SIZE)
+		# Find the correct font path. If fully installed on Linux this
+		# will be sys.prefix/share/pykaraoke/fonts. Otherwise look for
+		# it in the current directory.
+		if (os.path.isfile("fonts/vera.ttf")):
+			fontspath = "fonts"
+		else:
+			fontspath = os.path.join(sys.prefix, "share/pykaraoke/fonts")
+		self.font=pygame.font.Font(os.path.join(fontspath, "vera.ttf"), FONT_SIZE)
 
 	def resetPlayingState(self):
 	
