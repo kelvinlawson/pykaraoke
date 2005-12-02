@@ -811,7 +811,7 @@ def setupOptions():
 		help = 'draw CD+G window fullscreen', default = False)
 	parser.add_option('-s', '--fps', dest = 'fps', metavar='N', type = 'int',
 		help = 'draw updates at up to N frames per second (be careful; setting this value too high can consume excessive CPU time)', 
-		default = 60)
+		default = 10)
 	return parser
 
 # Can be called from the command line with the CDG filepath as parameter
