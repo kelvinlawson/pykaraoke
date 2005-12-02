@@ -3,7 +3,7 @@ import pykversion
 
 setup(name="pykaraoke",
       version=pykversion.PYKARAOKE_VERSION_STRING,
-      description = 'PyKaraoke',
+      description = 'PyKaraoke = CD+G/MPEG/KAR Karaoke Player',
       maintainer = 'Kelvin Lawson',
       maintainer_email = 'kelvin@kibosh.org',
       url = 'http://www.kibosh.org/pykaraoke',
