@@ -942,7 +942,7 @@ class SearchResultsPanel (wx.Panel):
 		# Windows it is not included
 		if wx.Platform != '__WXMSW__':
 			if self.ListPanel.GetItemCount() > self.ListPanel.GetCountPerPage():
-				scrollWidth = wx.SystemSettings_GetSystemMetric(wx.SYS_VSCROLL_X)
+				scrollWidth = wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
 				listWidth = listWidth - scrollWidth
 
 		# Only one column, set its width to list width, or the longest title if larger
@@ -1058,7 +1058,7 @@ class Playlist (wx.Panel):
 		# Windows it is not included
 		if wx.Platform != '__WXMSW__':
 			if self.Playlist.GetItemCount() > self.Playlist.GetCountPerPage():
-				scrollWidth = wx.SystemSettings_GetSystemMetric(wx.SYS_VSCROLL_X)
+				scrollWidth = wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
 				listWidth = listWidth - scrollWidth
 
 		# Only one column, set its width to list width, or the longest title if larger
