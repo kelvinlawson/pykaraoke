@@ -203,7 +203,7 @@ STATE_NOT_PLAYING		= 5
 STATE_CLOSING			= 6
 
 # Display depth (bits)
-DISPLAY_DEPTH       		= 32 
+DISPLAY_DEPTH       		= 32
 
 # cdgPlayer Class
 class cdgPlayer(Thread):
@@ -681,13 +681,13 @@ class cdgPlayer(Thread):
 				self.cdgSurfarray = N.concatenate((copyBlockActualColour, self.cdgSurfarray[:,:-vScrollDownPixels]), 1)
 				self.cdgPixelColours = N.concatenate((copyBlockColourIndex, self.cdgPixelColours[:,:-vScrollDownPixels]), 1)
 			elif (hScrollLeftPixels > 0):
-				copyBlockActualColour = N.zeros([vScrollLeftPixels, 216]) + self.cdgColourTable[colour]
-				copyBlockColourIndex = N.zeros([vScrollLeftPixels, 216]) + colour
+				copyBlockActualColour = N.zeros([hScrollLeftPixels, 216]) + self.cdgColourTable[colour]
+				copyBlockColourIndex = N.zeros([hScrollLeftPixels, 216]) + colour
 				self.cdgSurfarray = N.concatenate((self.cdgSurfarray[hScrollLeftPixels:,:], copyBlockActualColour), 0)
 				self.cdgPixelColours = N.concatenate((self.cdgPixelColours[hScrollLeftPixels:,:], copyBlockColourIndex), 0)
 			elif (hScrollRightPixels > 0):
-				copyBlockActualColour = N.zeros([vScrollLeftPixels, 216]) + self.cdgColourTable[colour]
-				copyBlockColourIndex = N.zeros([vScrollLeftPixels, 216]) + colour
+				copyBlockActualColour = N.zeros([hScrollRightPixels, 216]) + self.cdgColourTable[colour]
+				copyBlockColourIndex = N.zeros([hScrollRightPixels, 216]) + colour
 				self.cdgSurfarray = N.concatenate((copyBlockActualColour, self.cdgSurfarray[:-hScrollRightPixels,:]), 0)
 				self.cdgPixelColours = N.concatenate((copyBlockColourIndex, self.cdgPixelColours[:-hScrollRightPixels,:]), 0)
 		
