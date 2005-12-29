@@ -103,10 +103,17 @@
 # the CDG commands stored there. If the CDG command requires
 # a screen update, a local array of pixels is updated to
 # reflect the new graphic information. Rather than update
-# directly to the screen for every command, this local array
-# is output to the screen ten times per second (configurable).
-# Doing an actual screen refresh for every command consumes
-# a lot of CPU horsepower.
+# directly to the screen for every command, updates are
+# cached and output to the screen ten times per second 
+# (configurable). Performing the scaling and blitting
+# required for screen updates consumes a lot of CPU
+# horsepower, so we reduce the load further by dividing
+# the screen into 24 segments. Only those segments that
+# have changed are scaled and blitted. If the user resizes
+# the window or we get a full-screen modification, the
+# entire screen is updated, bur during normal CD+G
+# operation only a small number of segments are likely to
+# be changed at update time.
 #
 # NOTE: Pygame does not currently support querying the length
 # of an MP3 track, therefore the GetLength() method is not
@@ -146,8 +153,13 @@
 # cdgPlayer.cdgPresetColourIndex 
 # Border Colour (index into colour table)
 #
-# cdgPlayer.cdgScreenUpdateRequired
-# Track whether a screen update is required
+# cdgPlayer.UpdatedTiles
+# Bitmask to mark which screen segments have been updated.
+# This is used to reduce the amount of effort required in
+# scaling the output video. This is an expensive operation
+# which must be done for every screen update so we divide
+# the screen into 24 segments and only update those segments
+# which have actually been updated.
 #
 # cdgPlayer.UnscaledSurface
 # All drawing is done on the unscaled surface, at 
@@ -203,7 +215,24 @@ STATE_NOT_PLAYING		= 5
 STATE_CLOSING			= 6
 
 # Display depth (bits)
-DISPLAY_DEPTH       		= 32
+DISPLAY_DEPTH       		= 0
+
+# Delay when no CD+G packets are due (ms)
+MS_DELAY			= 25
+
+# Screen tile positions
+# The viewable area of the screen (294x204) is divided into
+# 24 tiles (6x4 of 49x51 each). This is used to only update
+# those tiles which have changed on every screen update,
+# thus reducing the CPU load of screen updates. A bitmask of
+# tiles requiring update is held in cdgPlayer.UpdatedTiles.
+# This stores each of the 4 columns in separate bytes, with 6 bits used
+# to represent the 6 rows.
+TILES_PER_ROW			= 6
+TILES_PER_COL			= 4
+TILE_WIDTH			= 294 / TILES_PER_ROW
+TILE_HEIGHT			= 204 / TILES_PER_COL
+
 
 # cdgPlayer Class
 class cdgPlayer(Thread):
@@ -277,6 +306,17 @@ class cdgPlayer(Thread):
 		# Build a 300x216 array for the pixel indeces, including border area
 		self.cdgPixelColours = N.zeros((300,216))
 
+		# Unscaled surface tiles
+		self.unscaled_tiles = []
+		for col in range(TILES_PER_COL):
+			tilerow = []
+			for row in range(TILES_PER_ROW):
+				tilerow.append(pygame.Surface((TILE_WIDTH, TILE_HEIGHT)))
+			self.unscaled_tiles.append(tilerow)
+
+		# Start with all tiles requiring update
+		self.UpdatedTiles = 0xFFFFFFFF
+
 		# Build a 300x216 array for the actual RGB values. This will
 		# be changed by the various commands, and blitted to the
 		# screen now and again. But the border area will not be
@@ -288,7 +328,7 @@ class cdgPlayer(Thread):
 		self.TotalOffsetTime = 0
 
 		# Default display-mode resizable
-		self.cdgDisplayMode = pygame.RESIZABLE | pygame.HWSURFACE | pygame.DOUBLEBUF
+		self.cdgDisplayMode = pygame.RESIZABLE | pygame.DOUBLEBUF
 
 		# Can only do the set_mode() on Windows in the pygame thread.
 		# Therefore use a variable to tell the thread when a resize
@@ -332,7 +372,6 @@ class cdgPlayer(Thread):
 		pygame.mouse.set_visible(False)
 		self.cdgUnscaledSurface = pygame.Surface(self.cdgDisplaySize)
 		self.cdgDisplaySurface = pygame.display.set_mode(self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
-		self.cdgScreenUpdateRequired = 0
 
 	# Start the thread running. Blocks until the thread is started and
 	# has finished initialising pygame.
@@ -426,7 +465,7 @@ class cdgPlayer(Thread):
 		# Set the CDG file at the beginning
 		self.cdgReadPackets = 0
 		self.cdgPacketsDue = 0
-		self.LastPos = curr_pos = 0
+		self.LastPos = self.curr_pos = 0
 
 		# Use psyco if possible
 		try:
@@ -438,79 +477,93 @@ class cdgPlayer(Thread):
 			psyco.bind(cdgDisplayUpdate)
 		except:
 			pass
-	
+
 		# Main thread processing loop
-		while 1:
-			# Check whether the songfile has moved on, if so
-			# get the relevant CDG data and update the screen.
-			if self.State == STATE_PLAYING:
-				curr_pos = self.GetPos() - self.TotalOffsetTime
-				if self.cdgPacketsDue <= self.cdgReadPackets:
-					# Check again if any display packets are due
-					self.cdgPacketsDue = (curr_pos / 1000.0) * 300
-					pygame.time.delay(50)
+		finished = False
+		while (finished == False):
+			finished = self.main_loop()
+
+	def main_loop(self):
+		# Check whether the songfile has moved on, if so
+		# get the relevant CDG data and update the screen.
+		if self.State == STATE_PLAYING:
+			self.curr_pos = self.GetPos() - self.TotalOffsetTime
+			if self.cdgPacketsDue <= self.cdgReadPackets:
+				# Check again if any display packets are due
+				self.cdgPacketsDue = (self.curr_pos / 1000.0) * 300
+				pygame.time.delay(MS_DELAY)
+			else:
+				# A packet needs to be displayed
+				packd = self.cdgGetNextPacket()
+				if (packd):
+					# Protect against possible corrupt rips
+					try:
+						self.cdgPacketProcess (packd)
+					except:
+						pass
+					self.cdgReadPackets = self.cdgReadPackets + 1
 				else:
-					# A packet needs to be displayed
-					packd = self.cdgGetNextPacket()
-					if (packd):
-						# Protect against possible corrupt rips
-						try:
-							self.cdgPacketProcess (packd)
-						except:
-							pass
-						self.cdgReadPackets = self.cdgReadPackets + 1
-					else:
-						# Couldn't get another packet, finish
-						self.Close()
+					# Couldn't get another packet, finish
+					self.Close()
 
-			# Check if any screen updates are now due
-			if ((curr_pos - self.LastPos) / 1000.0) > (1.0 / self.options.fps):
+		# Check if any screen updates are now due.
+		if ((self.curr_pos - self.LastPos) / 1000.0) > (1.0 / self.options.fps):
+			# If we fall 1/4 second behind due to high CPU activity,
+			# we block any screen updates until we catch up, allowing
+			# us to catch up quicker.
+			if ((self.cdgPacketsDue - self.cdgReadPackets) < 75):
 				self.cdgDisplayUpdate()
-				self.LastPos = curr_pos
+				self.LastPos = self.curr_pos
 
-			# Resizes have to be done in the pygame thread context on
-			# MS Windows, so other threads can set ResizeTuple to 
-			# request a resize (This is wrappered by SetDisplaySize()).
-			if self.ResizeTuple != None and self.GetPos() > 250:
-				self.cdgDisplaySize = self.ResizeTuple
-				pygame.display.set_mode (self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
-				self.ResizeTuple = None
+		# Resizes have to be done in the pygame thread context on
+		# MS Windows, so other threads can set ResizeTuple to 
+		# request a resize (This is wrappered by SetDisplaySize()).
+		if self.ResizeTuple != None and self.GetPos() > 250:
+			self.cdgDisplaySize = self.ResizeTuple
+			pygame.display.set_mode (self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
+			self.ResizeTuple = None
+			self.UpdatedTiles = 0xFFFFFFFF
+	
+	        # Handle full-screen in pygame thread context
+		if self.ResizeFullScreen == True:
+			self.cdgDisplaySize = pygame.display.list_modes(DISPLAY_DEPTH, pygame.FULLSCREEN)[0]
+			self.cdgDisplayMode = pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.HWSURFACE
+			pygame.display.set_mode (self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
+			self.ResizeFullScreen = False
+			self.UpdatedTiles = 0xFFFFFFFF
 
-            # Handle full-screen in pygame thread context
-			if self.ResizeFullScreen == True:
-				self.cdgDisplaySize = pygame.display.list_modes(DISPLAY_DEPTH, pygame.FULLSCREEN)[0]
-				self.cdgDisplayMode = pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.HWSURFACE
-				pygame.display.set_mode (self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
-				self.ResizeFullScreen = False
-
-			# Check for and handle pygame events and close requests
-			for event in pygame.event.get():
-				# Only handle resize events 250ms into song. This is to handle the
-				# bizarre problem of SDL making the window small automatically if
-				# you set SDL_VIDEO_WINDOW_POS and move the mouse around while the
-				# window is opening. Give it some time to settle.
-				if event.type == pygame.VIDEORESIZE and self.GetPos() > 250:
-					self.cdgDisplaySize = event.size
-					pygame.display.set_mode (event.size, self.cdgDisplayMode, DISPLAY_DEPTH)
-				elif event.type == pygame.KEYDOWN and ((event.key == pygame.K_ESCAPE) or (event.key == pygame.K_q)):
-					self.State = STATE_CLOSING
-				elif event.type == pygame.QUIT:
-					self.State = STATE_CLOSING
-				# Use keypad -/= to offset the current graphics time by 1/4 sec
-				elif event.type == pygame.KEYDOWN and event.key == pygame.K_MINUS:
-					self.TotalOffsetTime += 250
-				elif event.type == pygame.KEYDOWN and event.key == pygame.K_EQUALS:
-					self.TotalOffsetTime -= 250
-					
-			# Common handling code for a close request or if the
-			# pygame window was quit
-			if self.State == STATE_CLOSING:
-					self.cdgFile.close()
-					pygame.quit()
-					# If the caller gave us a callback, let them know we're finished
-					if self.SongFinishedCallback != None:
-						self.SongFinishedCallback()
-					return
+		# Check for and handle pygame events and close requests
+		for event in pygame.event.get():
+			# Only handle resize events 250ms into song. This is to handle the
+			# bizarre problem of SDL making the window small automatically if
+			# you set SDL_VIDEO_WINDOW_POS and move the mouse around while the
+			# window is opening. Give it some time to settle.
+			if event.type == pygame.VIDEORESIZE and self.GetPos() > 250:
+				self.cdgDisplaySize = event.size
+				pygame.display.set_mode (event.size, self.cdgDisplayMode, DISPLAY_DEPTH)
+				self.UpdatedTiles = 0xFFFFFFFF
+			elif event.type == pygame.KEYDOWN and ((event.key == pygame.K_ESCAPE) or (event.key == pygame.K_q)):
+				self.State = STATE_CLOSING
+			elif event.type == pygame.QUIT:
+				self.State = STATE_CLOSING
+			# Use keypad -/= to offset the current graphics time by 1/4 sec
+			elif event.type == pygame.KEYDOWN and event.key == pygame.K_MINUS:
+				self.TotalOffsetTime += 250
+			elif event.type == pygame.KEYDOWN and event.key == pygame.K_EQUALS:
+				self.TotalOffsetTime -= 250
+				
+		# Common handling code for a close request or if the
+		# pygame window was quit
+		if self.State == STATE_CLOSING:
+			self.cdgFile.close()
+			pygame.quit()
+			# If the caller gave us a callback, let them know we're finished
+			if self.SongFinishedCallback != None:
+				self.SongFinishedCallback()
+			return True
+		
+		# Not finished
+		return False
 
 	# Decode the CDG commands read from the CDG file
 	def cdgPacketProcess (self, packd):
@@ -601,7 +654,7 @@ class cdgPlayer(Thread):
 		self.cdgSurfarray[:6,12:] = self.cdgSurfarray[:6,12:] + self.cdgColourTable[self.cdgBorderColourIndex]
 		self.cdgSurfarray[6:,12:] = self.cdgSurfarray[6:,12:] + self.cdgColourTable[self.cdgPresetColourIndex]
 
-		self.cdgScreenUpdateRequired = 1
+		self.UpdatedTiles = 0xFFFFFFFF
 
 	# CDG Scroll Command - Set the scrolled in area with a fresh colour
 	def cdgScrollPreset (self, packd):
@@ -693,7 +746,7 @@ class cdgPlayer(Thread):
 		
 		# We have modified our local cdgSurfarray. This will be blitted to
 		# the screen by cdgDisplayUpdate()
-		self.cdgScreenUpdateRequired = 1 
+		self.UpdatedTiles = 0xFFFFFFFF
 	
 	# Set the colours for a 12x6 tile. The main CDG command for display data
 	def cdgTileBlockCommon (self, packd, xor):
@@ -703,7 +756,24 @@ class cdgPlayer(Thread):
 		colour1 = data_block[1] & 0x0F
 		column_index = ((data_block[2] & 0x1F) * 12)
 		row_index = ((data_block[3] & 0x3F) * 6)
-		
+	
+		# Set the tile update bitmasks.
+		# Note that the screen update area only covers the non-border area
+		# excluding the left 6 columns, and top 12 rows. Therefore when
+		# calculating whether this block fits into a particular tile, we
+		# add 6 or 12 to the x,y positions. Note also that each tile is 6
+		# wide and 12 high, so if a block starts less than 6 columns to the
+		# left of a block, it will incorporate the adjacent block. Similarly
+		# any update starting less than 12 rows above a block, will also
+		# incorporate the block below.
+		for col in range(TILES_PER_COL):
+			for row in range(TILES_PER_ROW):
+				if ((row_index >= (TILE_WIDTH * row)) \
+					and (row_index <= 6 + (TILE_WIDTH * (row + 1))) \
+					and (column_index >= (TILE_HEIGHT * col)) \
+					and (column_index <= 12 + (TILE_HEIGHT * (col + 1)))):
+					self.UpdatedTiles |= ((1 << row) << (col * 8))
+	
 		# Set the pixel array for each of the pixels in the 12x6 tile.
 		# Normal = Set the colour to either colour0 or colour1 depending
 		#          on whether the pixel value is 0 or 1.
@@ -733,7 +803,6 @@ class cdgPlayer(Thread):
 				self.cdgSurfarray[(row_index + j), (column_index + i)] = self.cdgColourTable[new_col]
 				self.cdgPixelColours[(row_index + j), (column_index + i)] = new_col
 		# The changes to cdgSurfarray will be blitted on the next screen update
-		self.cdgScreenUpdateRequired = 1
 		return
 
 	# Set one of the colour indeces as transparent. Don't actually do anything with this
@@ -746,6 +815,12 @@ class cdgPlayer(Thread):
 
 	# Load the RGB value for colours 0..7 or 8..15 in the lookup table
 	def cdgLoadColourTableCommon (self, packd, table):
+
+		# Need to do this so that cdgUnscaledSurface is ready now that we don't
+		# update it in the screen update. Should use the segment surfarrays instead though,
+		# to save this call.
+		pygame.surfarray.blit_array(self.cdgUnscaledSurface, self.cdgSurfarray[6:,12:])
+
 		if table == 0:
 			colourTableStart = 0
 		else:
@@ -775,19 +850,50 @@ class cdgPlayer(Thread):
 		#self.cdgSurfarray.flat[:] =  map(self.cdgColourTable.__getitem__, self.cdgPixelColours.flat)
 
 		# Update the screen for any colour changes
-		self.cdgScreenUpdateRequired = 1
+		self.UpdatedTiles = 0xFFFFFFFF
 		return
 
 	# Actually update/refresh the video output
 	def cdgDisplayUpdate(self):
-		if self.cdgScreenUpdateRequired == 1:
-			# Blit the non-border area to the unscaled 294x204 surface.
-			# Then scale it and blit to the actual display surface.
-			pygame.surfarray.blit_array(self.cdgUnscaledSurface, self.cdgSurfarray[6:,12:])
-			transformed = pygame.transform.scale(self.cdgUnscaledSurface, self.cdgDisplaySize)
-			self.cdgDisplaySurface.blit (transformed, (0,0))
-			pygame.display.flip()
-			self.screenUpdateRequired = 0
+		# This routine is responsible for taking the unscaled
+		# output pixel data from self.cdgSurfarray, scaling it
+		# and blitting it to the actual display surface. The
+		# viewable area of the unscaled surface is 294x204 pixels.
+		# Because scaling and blitting are heavy operations, we
+		# divide the screen into 24 tiles, and only scale and blit
+		# those tiles which have been updated recently. Any
+		# routines which wish to modify the display set the
+		# relevant bitmask in self.UpdatedTiles to notify us which
+		# tiles need to be updated to the screen.
+
+		# List of update rectangles (in scaled output window)
+		rect_list = []
+
+		# Calculate the scaled width and height for each tile
+		scaled_width = self.cdgDisplaySize[0] / TILES_PER_ROW
+		scaled_height = self.cdgDisplaySize[1] / TILES_PER_COL
+
+		# Scale and blit only those tiles which have been updated	
+		for col in range(TILES_PER_COL):
+			for row in range(TILES_PER_ROW):
+				if (self.UpdatedTiles & ((1 << row) << (col * 8))):
+					# Calculate the row & column starts/ends
+					row_start = 6 + (row * TILE_WIDTH)
+					row_end = 6 + ((row + 1) * TILE_WIDTH)
+					col_start = 12 + (col * TILE_HEIGHT)
+					col_end = 12 + ((col + 1) * TILE_HEIGHT)
+					pygame.surfarray.blit_array( \
+						self.unscaled_tiles[col][row], \
+						self.cdgSurfarray[row_start:row_end,col_start:col_end]) 
+					scaled = pygame.transform.scale(self.unscaled_tiles[col][row], (scaled_width,scaled_height))
+					self.cdgDisplaySurface.blit (scaled, (scaled_width * row, scaled_height * col))
+					rect_list.append(pygame.Rect(scaled_width * row, scaled_height * col, scaled_width, scaled_height))
+					
+		# No tiles need updating now
+		self.UpdatedTiles = 0
+
+		# Only update those areas which have changed
+		pygame.display.update(rect_list)
 
 def defaultErrorPrint(ErrorString):
 	print (ErrorString)
