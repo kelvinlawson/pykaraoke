@@ -1,8 +1,8 @@
 
 ---------------------------------------------------------------------------
 
-Release:      pykaraoke v0.4
-Date:         12/11/2005
+Release:      pykaraoke v0.4.1
+Date:         29/12/2005
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
@@ -26,23 +26,29 @@ needed to play your own karaoke song files.
 
 WHAT'S NEW
 
-All modifications for v0.4 have been kindly contributed by Will Ferrell.
+We have made major performance improvements in the CDG player for this
+release. It should now be possible to play back CDGs on much slower
+machines than were previously supported.
 
-This release introduces several small changes and improvements. pycdg.py 
-now accepts several command-line options; run "pycdg.py --help" to see a
-full list. You can now specify the width and height of the output window,
-and specify its position on the screen. You can now also start the output
-window in fullscreen mode. Finally, the desired maximum frames per second
-can be specified on the command line.
+Also new in this release is an install script for Linux/Unix systems.
+You can now install by running "python setup.py install" as root, and 
+can then start PyKaraoke from anywhere by running "pykaraoke".
 
-Other cosmetic changes include adding a key binding, [Q], to quit the 
-player immediately (the [ESC] key binding for this remains as well), and 
-hiding the mouse cursor when it's inside the player window (or entirely 
-when the player is full screen).
+The PyKaraoke GUI can also now be used to play back MIDI files
+contained within ZIP files.
 
 ---------------------------------------------------------------------------
 
-INSTALLATION
+INSTALLATION (WINDOWS)
+
+Windows users can install PyKaraoke by simply downloading and running the
+installer executable. This installs all prerequisite libraries, and adds
+icons in your start menu to run PyKaraoke.
+
+---------------------------------------------------------------------------
+
+
+INSTALLATION (LINUX, SOURCE INSTALLS)
 
 PyKaraoke requires the following libraries to be installed:
 
@@ -50,8 +56,6 @@ PyKaraoke requires the following libraries to be installed:
  * Pygame (www.pygame.org)
  * WxPython (www.wxpython.org)
  * Numeric python module (numpy.sourceforge.net)
- * Optik (optik.sourceforge.net, *only* for Python 2.2 and older;
-   it is shipped as "optparse" in Python 2.3 and newer by default)
 
 If these libraries are not already installed on your system, you can
 download them from the websites listed.
@@ -60,13 +64,21 @@ Linux users may find these packages are available directly from their
 distro's package manager.
 
 Gentoo users can install all prerequisites using:
-	# emerge python pygame wxGTK numeric
+	# emerge python pygame wxGTK wxpython numeric
 
 Debian users can install all prerequisites using:
 	# apt-get install python python-pygame libwxgtk-python python-numeric
 
-There is currently no installer for pykaraoke. Unzip the release and you can
-start the player from the unzip location.
+With the prerequisites installed, unzip the release and run the following
+as root:
+
+# python setup.py install
+
+This installs the executables into /usr/bin, and you can then run
+PyKaraoke from anywhere using "pykaraoke".
+
+Alternatively you can run PyKaraoke without installing by simply
+unzipping and running "python pykaraoke.py" from the unzip location.
 
 ---------------------------------------------------------------------------
 
@@ -91,8 +103,12 @@ To install Timidity++ on Gentoo together with Eric Welsh's patches use:
 
 INSTRUCTIONS
 
-Start the player using:
-	# python pykaraoke.py
+If you used the install script you can start the player using:
+
+	$ pykaraoke
+
+Otherwise, start the player using:
+	$ python pykaraoke.py
 
 Once started, you will be presented with the Search View. From here you
 can search through the karaoke songs in your database. You must first set
@@ -153,6 +169,9 @@ KAR/MID files can be played using:
 MPEG files can be played using:
 	# python pympg.py mpegfilename.mpg
 
+Note that if you used the install script, the above scripts can be started
+using "pycdg", "pykar" or "pympg" from anywhere.
+
 ---------------------------------------------------------------------------
 
 COMMON INSTALLATION ISSUES
@@ -188,6 +207,8 @@ provided by a PyKaraoke user:
     # ./configure --prefix=/usr --enable-music-mp3
     # make; make install
 
+SuSE users may also need to install the slang-devel package.
+
 
 AMD64 INSTALLATIONS
 
@@ -214,7 +235,30 @@ The CDG player should then work properly.
 
 ---------------------------------------------------------------------------
 
-CHANGELOG (v0.4)
+CHANGELOG (v0.4.1)
+
+Changes in v0.4.1:
+
+* Add install script and /usr/bin links in install directory.
+* Get icons and fonts from current directory or /usr/share/pykaraoke.
+* Use /usr/bin/env for shebang.
+* pycdg.py: Fix typo in "CDG file may be corrupt" warning (wwf)
+* pycdg.py: Add -t/--title option to set the window title to 
+  something specific (useful for window managers that can remember
+  window settings like sticky, size, location, stacking, desktop,
+  etc., based on window title/name/class attributes, like 
+  Enlightenment does) (wwf)
+* pykaraoke.py: Add KAR inside ZIP fix from Andrei Gavrila.
+* pykaraoke.py: Add mid/mpg extension fix from Andrei Gavrila.
+* pycdg.py: Default to 10 frames per second.
+* pycdg.py: Fix scrolling variable names
+* pykaraoke.py: Fix wx 2.6 API change.
+* pycdg.py: Split the screen into 24 tiles for better screen 
+  update performance.
+* pycdg.py: Lower delay time when no packets are due.
+* pycdg.py: Don't update the screen if 1/4 second out of sync.
+* pycdg.py: Don't specify the display depth, pygame will use the
+  most appropriate.
 
 Changes in v0.4 (All modifications submitted by William Ferrell):
 

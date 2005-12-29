@@ -1,10 +1,37 @@
-v0.5:
-	* Request hardware-accelerated and double-buffered displays from SDL
-	when available (wwf)
+v0.4.1:
 
-	* Fix typo in "CDG file may be corrupt" warning (wwf)
+	* pycdg.py: Fix typo in "CDG file may be corrupt" warning (wwf)
 
-	* Add -t/--title option to set the window title to something specific
-	(useful for window managers that can remember window settings like
-	sticky, size, location, stacking, desktop, etc., based on window
-	title/name/class attributes, like Enlightenment does) (wwf)
+	* pycdg.py: Add -t/--title option to set the window title to 
+	something specific (useful for window managers that can remember
+	window settings like sticky, size, location, stacking, desktop,
+	etc., based on window title/name/class attributes, like 
+	Enlightenment does) (wwf)
+
+	* Add install script and /usr/bin links in install directory.
+	
+	* Get icons and fonts from current directory or /usr/share/pykaraoke.
+
+	* Use /usr/bin/env for shebang.
+	
+	* pykaraoke.py: Add KAR inside ZIP fix from Andrei Gavrila.
+	
+	* pykaraoke.py: Add mid/mpg extension fix from Andrei Gavrila.
+
+	* pycdg.py: Default to 10 frames per second.
+
+	* pycdg.py: Fix scrolling variable names
+
+	* pykaraoke.py: Fix wx 2.6 API change.
+
+	* pycdg.py: Split the screen into 24 tiles for better screen 
+	update performance.
+	
+	* pycdg.py: Lower delay time when no packets are due.
+	
+	* pycdg.py: Don't update the screen if 1/4 second out of sync.
+	
+	* pycdg.py: Don't specify the display depth, pygame will use the
+	most appropriate.
+
+
