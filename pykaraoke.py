@@ -677,7 +677,10 @@ class FileTree (wx.Panel):
 		self.menuPlayId = wx.NewId()
 		self.menuPlaylistAddId = wx.NewId()
 		self.menuFileDetailsId = wx.NewId()
-		
+	
+		# Set up drag into the playlist
+		self.FileTree.Bind(wx.EVT_TREE_BEGIN_DRAG, self.OnBeginDrag)
+	
 	# Create the top-level filesystem entry. This is just root directory on Linux
 	# but on Windows we have to find out the drive letters and show those as
 	# multiple roots. There doesn't seem to be a portable way to do this with
@@ -807,6 +810,33 @@ class FileTree (wx.Panel):
 				self.KaraokeMgr.AddToPlaylist(song)
 			elif event.GetId() == self.menuFileDetailsId:
 				wx.MessageBox("File: " + self.PopupFullPath, "File details", wx.OK)
+
+	# Start drag handler. Code from WxPython Wiki
+	def OnBeginDrag(self, event):
+		item = event.GetItem()
+		tree = event.GetEventObject()
+
+		if item != tree.GetRootItem(): # prevent dragging root item
+			def DoDragDrop():
+				txt = tree.GetItemText(item)
+				
+				# Convert the song_struct to a string. Regular
+				# pickle didn't translate through SetData(),
+				# GetData() so we made our own.
+				filename = self.FileTree.GetItemText(item)
+				full_path = self.GetFullPathForNode(item)
+				song_struct = SongStruct (full_path, filename)
+				song_struct_string = SongStructPickle(song_struct)
+				data = wx.PyTextDataObject()
+				data.SetText(song_struct_string)
+
+				# Create drop source and begin drag-and-drop.
+				dropSource = wx.DropSource(self.FileTree)
+				dropSource.SetData(data)
+				res = dropSource.DoDragDrop(flags=wx.Drag_CopyOnly)
+
+			# Can't call dropSource.DoDragDrop here..
+			wx.CallAfter(DoDragDrop)
 
 
 # Drag-and-drop target for lists. Code from WxPython Wiki
