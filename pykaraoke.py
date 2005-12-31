@@ -809,6 +809,54 @@ class FileTree (wx.Panel):
 				wx.MessageBox("File: " + self.PopupFullPath, "File details", wx.OK)
 
 
+# Drag-and-drop target for lists. Code from WxPython Wiki
+class ListDrop(wx.PyDropTarget):
+
+	def __init__(self, setFn):
+		wx.PyDropTarget.__init__(self)
+		self.setFn = setFn
+
+		# specify the type of data we will accept
+		self.data = wx.PyTextDataObject()
+		self.SetDataObject(self.data)
+
+	# Called when OnDrop returns True.  We need to get the data and
+	# do something with it.
+	def OnData(self, x, y, d):
+		# copy the data from the drag source to our data object
+		if self.GetData():
+			self.setFn(x, y, self.data.GetText())
+
+		# what is returned signals the source what to do
+		# with the original data (move, copy, etc.)  In this
+		# case we just return the suggested value given to us.
+		return d
+
+
+# Pickled song_structs seem to get mangled by drag-and-drop, so use our own
+# pickling, using ~ as a delimiter (assuming that is an invalid filename char)
+def SongStructPickle(song_struct):
+	# Handle None-type for StoredZipName
+	if (song_struct.ZipStoredName == None):
+		return (song_struct.Filepath + "~" + song_struct.Title + "~" + "~")
+	else:
+		return (song_struct.Filepath + "~" + song_struct.Title + "~" + song_struct.ZipStoredName + "~")
+
+
+def SongStructUnpickle(song_struct_pickled):
+	fp_end = song_struct_pickled.find("~", 0)
+	Filepath = song_struct_pickled[:fp_end]
+	title_end = song_struct_pickled.find("~", fp_end+1)
+	Title = song_struct_pickled[fp_end+1:title_end]
+	zsn_end = song_struct_pickled.find("~", title_end+1)
+	# Check there was anything stored for ZipStoredName
+	if (zsn_end == (title_end+1)): 
+		ZipStoredName = None
+	else:
+		ZipStoredName = song_struct_pickled[title_end+1:zsn_end]
+	return (SongStruct (Filepath, Title, ZipStoredName))
+
+
 # Implement the Search Results panel and list box
 class SearchResultsPanel (wx.Panel):
 	def __init__(self, parent, id, KaraokeMgr, x, y):
@@ -855,7 +903,10 @@ class SearchResultsPanel (wx.Panel):
 		self.menuPlayId = wx.NewId()
 		self.menuPlaylistAddId = wx.NewId()
 		self.menuFileDetailsId = wx.NewId()
-		
+	
+		# Set up drag and drop
+		self.Bind(wx.EVT_LIST_BEGIN_DRAG, self._startDrag)
+	
 	# Handle a file selected event (double-click). Plays directly (not add to playlist)
 	def OnFileSelected(self, event):
 		# The SongStruct is stored as data - get it and pass to karaoke mgr
@@ -967,6 +1018,36 @@ class SearchResultsPanel (wx.Panel):
 				indices.append( index )
 		return indices
 
+	# Get the song from the requested index in the song struct list
+	def GetSongStruct (self, index):
+		return self.SongStructList[index]
+
+	# Put together a data object for drag-and-drop _from_ this list
+	# Code from WxPython Wiki
+	def _startDrag(self, e):
+
+		# Convert the song_struct to a string. Regular pickle didn't
+		# translate through SetData(), GetData() so we made our own.
+		song_struct_string = SongStructPickle(self.SongStructList[e.GetIndex()])
+		data = wx.PyTextDataObject()
+		data.SetText(song_struct_string)
+
+		# Create drop source and begin drag-and-drop.
+		dropSource = wx.DropSource(self.ListPanel)
+		dropSource.SetData(data)
+		res = dropSource.DoDragDrop(flags=wx.Drag_CopyOnly)
+
+		# If move, we want to remove the item from this list.
+		if res == wx.DragMove:
+			# It's possible we are dragging/dropping from this 
+			# list to this list. In which case, the index we are
+			# removing may have changed...
+
+			# Find correct position.
+			pos = self.ListPanel.FindItem(idx, text)
+			self.ListPanel.DeleteItem(pos)
+
+
 # Class to manage the playlist panel and list box
 class Playlist (wx.Panel):
 	def __init__(self, parent, id, KaraokeMgr, x, y):
@@ -1010,6 +1091,11 @@ class Playlist (wx.Panel):
 		# Store a local list of song_structs associated by index to playlist items.
 		# (Cannot store stuff like this associated with an item in a listctrl)
 		self.PlaylistSongStructList = []
+
+		# Set up drag and drop
+		self.Bind(wx.EVT_LIST_BEGIN_DRAG, self._startDrag)
+		dt = ListDrop(self._insert)
+		self.Playlist.SetDropTarget(dt)
 
 	# Handle item selected (double-click). Starts the selected track.
 	def OnFileSelected(self, event):
@@ -1068,15 +1154,19 @@ class Playlist (wx.Panel):
 			width = listWidth
 		self.Playlist.SetColumnWidth(0, width)
 
+	# Add item to specific index in playlist
+	def AddItemAtIndex ( self, index, song_struct ):
+		self.Playlist.InsertStringItem (index, song_struct.Title)
+		self.PlaylistSongStructList.insert(index, song_struct)
 
-	# Add item to playlist
-	def AddItem( self, song_struct ):
-		self.Playlist.InsertStringItem(self.Playlist.GetItemCount(), song_struct.Title)
-		self.PlaylistSongStructList.append(song_struct)
 		# Update the max title width for column sizing, in case this is the largest one yet
 		if ((len(song_struct.Title) * self.GetCharWidth()) > self.MaxTitleWidth):
 			self.MaxTitleWidth = len(song_struct.Title) * self.GetCharWidth()
 			self.doResize()
+
+	# Add item to end of playlist
+	def AddItem( self, song_struct ):
+		self.AddItemAtIndex (self.Playlist.GetItemCount(), song_struct)
 	
 	# Delete item from playlist
 	def DelItem( self, item_index ):
@@ -1124,6 +1214,58 @@ class Playlist (wx.Panel):
 				lastFound = index
 				indices.append( index )
 		return indices
+
+	# Put together a data object for drag-and-drop _from_ this list
+	# Code from WxPython Wiki
+	def _startDrag(self, e):
+
+		# Convert the song_struct to a string. Regular pickle didn't
+		# translate through SetData(), GetData() so we made our own.
+		song_struct_string = SongStructPickle(self.PlaylistSongStructList[e.GetIndex()])
+		data = wx.PyTextDataObject()
+		data.SetText(song_struct_string)
+
+		# Create drop source and begin drag-and-drop.
+		dropSource = wx.DropSource(self.Playlist)
+		dropSource.SetData(data)
+		res = dropSource.DoDragDrop(flags=wx.Drag_DefaultMove)
+
+		# If move, we want to remove the item from this list.
+		if res == wx.DragMove:
+			# It's possible we are dragging/dropping from this 
+			# list to this list. In which case, the index we are
+			# removing may have changed...
+
+			# Find correct position.
+			idx = e.GetIndex()
+			text = self.Playlist.GetItem(idx).GetText()
+			pos = self.Playlist.FindItem(idx, text)
+			self.DelItem(pos+1)
+
+	# Insert song from drag_index in search results, at given x,y coordinates,
+	# used with drag-and-drop. Code from WxPython Wiki
+	def _insert(self, x, y, song_struct_pickled):
+		
+		# Get the song struct out of its pickled string
+		song_struct = SongStructUnpickle(song_struct_pickled)
+
+		# Find insertion point.
+		index, flags = self.Playlist.HitTest((x, y))
+		if index == wx.NOT_FOUND:
+			# Note: should only insert if flags & wx.LIST_HITTEST_NOWHERE
+			# but for some reason always get flags = 0 even if out of area...
+			index = self.Playlist.GetItemCount()
+
+		# Get bounding rectangle for the item the user is dropping over.
+		rect = self.Playlist.GetItemRect(index)
+
+		# If the user is dropping into the lower half of the rect, we want to insert
+		# _after_ this item.
+		if y > (rect.y + rect.height/2):
+			index = index + 1
+
+		# Add it to the list
+		self.AddItemAtIndex(index, song_struct)
 
 
 # Main window
