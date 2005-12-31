@@ -261,7 +261,12 @@ class cdgPlayer(Thread):
 			self.SongFinishedCallback = doneCallback
 		else:
 			self.SongFinishedCallback = None
-					
+				
+		# Allow for calls through tab-completion, where we will
+		# get just a '.' and not the '.cdg' extension
+		if self.FileName[len(self.FileName)-1] == '.':
+			self.FileName = self.FileName + 'cdg'
+	
 		# Check the CDG file exists
 		if not os.path.isfile(self.FileName):
 			ErrorString = "No such file: " + self.FileName
