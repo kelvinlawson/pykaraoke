@@ -282,18 +282,20 @@ class cdgPlayer(Thread):
 			'ogg', 'oGg', 'ogG', 'oGG',
 			'Ogg', 'OGg', 'OgG', 'OGG'
 		]
-
-		matched = 0
-		for ext in validexts:
-			if (os.path.isfile(self.FileName[:-3] + ext)):
-				self.SoundFileName = self.FileName[:-3] + ext
-				matched = 1
-
-		if not matched:
-			ErrorString = "There is no mp3 or ogg file to match " + self.FileName
-			self.ErrorNotifyCallback (ErrorString)
-			raise NoSoundFile
-			return
+		# With the nomusic option no music will be played.
+		# Note that Pause, Rewind etc do not work in this mode.
+		if self.options.nomusic == False:
+			matched = 0
+			for ext in validexts:
+				if (os.path.isfile(self.FileName[:-3] + ext)):
+					self.SoundFileName = self.FileName[:-3] + ext
+					matched = 1
+	
+			if not matched:
+				ErrorString = "There is no mp3 or ogg file to match " + self.FileName
+				self.ErrorNotifyCallback (ErrorString)
+				raise NoSoundFile
+				return
 
 		# Initialise the colour table. Set a default value for any
 		# CDG files that don't actually load the colour table
@@ -383,7 +385,8 @@ class cdgPlayer(Thread):
 	def Play(self):
 		while self.State == STATE_INIT:
 			pass
-		pygame.mixer.music.play()
+		if self.options.nomusic == False:
+			pygame.mixer.music.play()
 		self.State = STATE_PLAYING
 
 	# Pause the song - Use Pause() again to unpause
@@ -435,7 +438,10 @@ class cdgPlayer(Thread):
 	def GetPos(self):
 		while self.State == STATE_INIT:
 			pass
-		return pygame.mixer.music.get_pos()
+		if self.options.nomusic == False:
+			return pygame.mixer.music.get_pos()
+		else:
+			return pygame.time.get_ticks()
 
 	# Get the current display size
 	def GetDisplaySize(self):
@@ -462,7 +468,8 @@ class cdgPlayer(Thread):
 
 		# Open the cdg and sound files
 		self.cdgFile = open (self.FileName, "rb") 
-		pygame.mixer.music.load(self.SoundFileName)
+		if self.options.nomusic == False:
+			pygame.mixer.music.load(self.SoundFileName)
 
 		# We're now ready to accept Play() commands
 		self.State = STATE_INIT_DONE
@@ -933,8 +940,9 @@ def setupOptions():
 	parser.add_option('-f', '--fullscreen', dest = 'fullscreen', action = 'store_true', 
 		help = 'draw CD+G window fullscreen', default = False)
 	parser.add_option('-s', '--fps', dest = 'fps', metavar='N', type = 'int',
-		help = 'draw updates at up to N frames per second (be careful; setting this value too high can consume excessive CPU time)', 
-		default = 10)
+		help = 'draw updates at up to N frames per second (be careful; setting this value too high can consume excessive CPU time)', default = 10)
+	parser.add_option('-n', '--nomusic', dest = 'nomusic', action = 'store_true',
+		help = 'disable music playback, just display graphics', default = False)
 	return parser
 
 # Can be called from the command line with the CDG filepath as parameter
