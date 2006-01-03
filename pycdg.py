@@ -611,28 +611,17 @@ class cdgPlayer(Thread):
 		else:
 			return None
 
-	# Set the preset colour
+	# Memory preset (clear the viewable area + border)
 	def cdgMemoryPreset (self, packd):
 		colour = packd['data'][0] & 0x0F
 		repeat = packd['data'][1] & 0x0F
 		# Ignore repeat because this is a reliable data stream
+
+		# Our new interpretation of CD+G Revealed is that memory preset
+		# commands should also change the border
 		self.cdgPresetColourIndex = colour
-		if (self.cdgBorderColourIndex == -1):
-			self.cdgBorderColourIndex = self.cdgPresetColourIndex
-		self.cdgPresetScreenCommon ()
-		return
-
-	# Set the border colour
-	def cdgBorderPreset (self, packd):
-		colour = packd['data'][0] & 0x0F
-		self.cdgBorderColourIndex = colour
-		if (self.cdgPresetColourIndex == -1):
-			self.cdgPresetColourIndex = self.cdgBorderColourIndex
-		self.cdgPresetScreenCommon ()
-		return
-
-	# Common function for border and preset colours, to set the pixels
-	def cdgPresetScreenCommon(self):
+		self.cdgBorderColourIndex = self.cdgPresetColourIndex
+		
 		# Note that this may be done before any load colour table
 		# commands by some CDGs. So the load colour table itself
 		# actual recalculates the RGB values for all pixels when
@@ -660,6 +649,29 @@ class cdgPlayer(Thread):
 		self.cdgSurfarray[6:,12:] = self.cdgSurfarray[6:,12:] + self.cdgColourTable[self.cdgPresetColourIndex]
 
 		self.UpdatedTiles = 0xFFFFFFFF
+
+	# Border Preset (clear the border area only) 
+	def cdgBorderPreset (self, packd):
+		colour = packd['data'][0] & 0x0F
+		self.cdgBorderColourIndex = colour
+
+		# See cdgMemoryPreset() for a description of what's going on.
+		# In this case we are only clearing the border area.
+
+		# Set up the border area of the pixel colours array
+		self.cdgPixelColours[:,:12] = N.zeros([300,12])
+		self.cdgPixelColours[:,:12] = self.cdgPixelColours[:,:12] + self.cdgBorderColourIndex
+		self.cdgPixelColours[:6,12:] = N.zeros([6,216]) 
+		self.cdgPixelColours[:6,12:] = self.cdgPixelColours[:6,12:] + self.cdgBorderColourIndex
+		
+		# Now set the border colour in our local surfarray. 
+		# This will be blitted next time there is a screen update.
+		self.cdgSurfarray[:,:12] = N.zeros([300,12])
+		self.cdgSurfarray[:,:12] = self.cdgSurfarray[:,:12] + self.cdgColourTable[self.cdgBorderColourIndex]
+		self.cdgSurfarray[:6,12:] = N.zeros([6,216])
+		self.cdgSurfarray[:6,12:] = self.cdgSurfarray[:6,12:] + self.cdgColourTable[self.cdgBorderColourIndex]
+
+		return
 
 	# CDG Scroll Command - Set the scrolled in area with a fresh colour
 	def cdgScrollPreset (self, packd):
