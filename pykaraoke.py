@@ -232,7 +232,7 @@ class SongDB:
 		self.BusyDlg = BusyCancelDialog (self.KaraokeMgr.Frame, "Searching")
 		self.BusyDlg.Show()
 		for root_path in self.Settings.FolderList:
-			cancelled = self.FolderScan (root_path)
+			cancelled = self.FolderScan (str(root_path))
 			if cancelled == True:
 				break
 		self.BusyDlg.Destroy()
@@ -261,30 +261,37 @@ class SongDB:
 					return (True)
 			# Store file details if it's a file type we're interested in
 			else:
-				root, ext = os.path.splitext(full_path)
-				# Non-ZIP files
-				if self.IsExtensionValid(ext):
-					self.SongList.append(SongStruct(full_path, item))
-				# Look inside ZIPs if configured to do so
-				if self.Settings.LookInsideZips and ext.lower() == ".zip":
-					try:
-						if zipfile.is_zipfile(full_path):
-							zip = zipfile.ZipFile(full_path)
-							for filename in zip.namelist():
-								root, ext = os.path.splitext(filename)
-								if self.IsExtensionValid(ext):
-									# Python zipfile only supports deflated and stored
-									info = zip.getinfo(filename)
-									if info.compress_type == zipfile.ZIP_STORED or info.compress_type == zipfile.ZIP_DEFLATED:
-										#print ("Adding song %s in ZIP file %s"%(filename, full_path))
-										lose, fileonly = os.path.split(filename)
-										zipname_with_file = item + ": " + fileonly
-										self.SongList.append(SongStruct(full_path, zipname_with_file, filename))
-									else:
-										print ("ZIP member %s compressed with unsupported type (%d)"%(filename,info.compress_type))
-					except:
-						print "Error looking inside zip " + full_path
+				self.SongList.extend(self.SongListFromFile(full_path))
 		return (False)
+
+	def SongListFromFile (self, full_path):
+		# Return a list of SongStruct instances for songs found in file full_path.
+		item = os.path.basename(full_path)
+		song_list = []
+		root, ext = os.path.splitext(full_path)
+		# Non-ZIP files
+		if self.IsExtensionValid(ext):
+			song_list.append(SongStruct(full_path, item))
+		# Look inside ZIPs if configured to do so
+		if self.Settings.LookInsideZips and ext.lower() == ".zip":
+			try:
+				if zipfile.is_zipfile(full_path):
+					zip = zipfile.ZipFile(full_path)
+					for filename in zip.namelist():
+						root, ext = os.path.splitext(filename)
+						if self.IsExtensionValid(ext):
+							# Python zipfile only supports deflated and stored
+							info = zip.getinfo(filename)
+							if info.compress_type == zipfile.ZIP_STORED or info.compress_type == zipfile.ZIP_DEFLATED:
+								#print ("Adding song %s in ZIP file %s"%(filename, full_path))
+								lose, fileonly = os.path.split(filename)
+								zipname_with_file = item + ": " + fileonly
+								song_list.append(SongStruct(full_path, zipname_with_file, filename))
+							else:
+								print ("ZIP member %s compressed with unsupported type (%d)"%(filename,info.compress_type))
+			except:
+				print "Error looking inside zip " + full_path
+		return song_list
 
 	# Add a folder to the database search list
 	def FolderAdd (self, FolderPath):
@@ -948,7 +955,7 @@ class SearchResultsPanel (wx.Panel):
 	def OnSearchClicked(self, event):
 		# Empty the previous results and perform a new search
 		self.StatusBar.SetStatusText ("Please wait... Searching")
-		songList = self.KaraokeMgr.SongDB.SearchDatabase(self.SearchText.GetValue())
+		songList = self.KaraokeMgr.SongDB.SearchDatabase(str(self.SearchText.GetValue()))
 		if self.KaraokeMgr.SongDB.GetDatabaseSize() == 0:
 			setupString = "You do not have any songs in your database. Would you like to add folders now?"
 			answer = wx.MessageBox(setupString, "Setup database now?", wx.YES_NO | wx.ICON_QUESTION)
@@ -967,11 +974,15 @@ class SearchResultsPanel (wx.Panel):
 			self.MaxTitleWidth = 0
 			index = 0
 			for song in songList:
-				# Set the SongStruct title as the text
-				self.ListPanel.InsertStringItem(index, song.Title)
-				index = index + 1
-				if (len(song.Title) * self.GetCharWidth()) > self.MaxTitleWidth:
-					self.MaxTitleWidth = (len(song.Title) * self.GetCharWidth())
+				try:
+					# Set the SongStruct title as the text
+					self.ListPanel.InsertStringItem(index, song.Title)
+					index = index + 1
+					if (len(song.Title) * self.GetCharWidth()) > self.MaxTitleWidth:
+						self.MaxTitleWidth = (len(song.Title) * self.GetCharWidth())
+				except UnicodeDecodeError:
+					# if we can't handle the title, ignore the song
+					pass
 			# Keep a copy of all the SongStructs in a list, accessible via item index
 			self.SongStructList = songList
 			self.StatusBar.SetStatusText ("%d songs found" % index)
@@ -1395,21 +1406,23 @@ class PyKaraokeEvent(wx.PyEvent):
 
 # Main manager class, starts the window and handles the playlist and players
 class PyKaraokeManager:
-	def __init__(self):
+	def __init__(self, gui=True):
+		self.gui = gui
 		# Set the default file types that should be displayed
 		self.Player = None
 		# Set up and store the song database instance
 		self.SongDB = SongDB(self)
-		# Set up the WX windows
-		self.Frame = PyKaraokeWindow(None, -1, "PyKaraoke " + pykversion.PYKARAOKE_VERSION_STRING, self)
 		# Set the default display size
 		self.DisplaySize = (640, 480)
-		# Set up an event so the player threads can call back and perform
-		# GUI operations
-		self.EVT_SONG_FINISHED = wx.NewId()
-		self.EVT_ERROR_POPUP = wx.NewId()
-		self.Frame.Connect(-1, -1, self.EVT_SONG_FINISHED, self.SongFinishedEventHandler)
-		self.Frame.Connect(-1, -1, self.EVT_ERROR_POPUP, self.ErrorPopupEventHandler)
+		if self.gui:
+			# Set up the WX windows
+			self.Frame = PyKaraokeWindow(None, -1, "PyKaraoke " + pykversion.PYKARAOKE_VERSION_STRING, self)
+			# Set up an event so the player threads can call back and perform
+			# GUI operations
+			self.EVT_SONG_FINISHED = wx.NewId()
+			self.EVT_ERROR_POPUP = wx.NewId()
+			self.Frame.Connect(-1, -1, self.EVT_SONG_FINISHED, self.SongFinishedEventHandler)
+			self.Frame.Connect(-1, -1, self.EVT_ERROR_POPUP, self.ErrorPopupEventHandler)
 		# Used to tell the song finished callback that a song has been
 		# requested for playing straight away
 		self.DirectPlaySongStruct = None
@@ -1459,6 +1472,8 @@ class PyKaraokeManager:
 	# The callback is in the player thread context, so need to post an event
 	# for the GUI thread, actually handled by SongFinishedEventHandler()
 	def SongFinishedCallback(self):
+		if not self.gui:
+			return
 		event = PyKaraokeEvent(self.EVT_SONG_FINISHED, None)
 		wx.PostEvent (self.Frame, event)
 	
@@ -1498,6 +1513,8 @@ class PyKaraokeManager:
 	# The callback is in the player thread context, so need to post an event
 	# for the GUI thread, actually handled by ErrorPopupEventHandler()
 	def ErrorPopupCallback(self, ErrorString):
+		if not self.gui:
+			return
 		# We use the extra data storage we got by subclassing WxPyEvent to
 		# pass data to the event handler (the error string).
 		event = PyKaraokeEvent(self.EVT_ERROR_POPUP, ErrorString)
@@ -1577,8 +1594,9 @@ class PyKaraokeManager:
 			else:
 				ErrorPopup ("Unsupported file format " + ext)
 		
-			# Set the status bar
-			self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Playing " + song_struct.Title)
+			if self.gui:
+				# Set the status bar
+				self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Playing " + song_struct.Title)
 		
 			# Start playing
 			self.Player.Play()
