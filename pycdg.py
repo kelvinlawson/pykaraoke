@@ -322,7 +322,7 @@ class cdgPlayer(Thread):
 			self.unscaled_tiles.append(tilerow)
 
 		# Start with all tiles requiring update
-		self.UpdatedTiles = 0xFFFFFFFF
+		self.UpdatedTiles = 0xFFFFFFFFL
 
 		# Build a 300x216 array for the actual RGB values. This will
 		# be changed by the various commands, and blitted to the
@@ -534,7 +534,7 @@ class cdgPlayer(Thread):
 			self.cdgDisplaySize = self.ResizeTuple
 			pygame.display.set_mode (self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
 			self.ResizeTuple = None
-			self.UpdatedTiles = 0xFFFFFFFF
+			self.UpdatedTiles = 0xFFFFFFFFL
 	
 	        # Handle full-screen in pygame thread context
 		if self.ResizeFullScreen == True:
@@ -542,7 +542,7 @@ class cdgPlayer(Thread):
 			self.cdgDisplayMode = pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.HWSURFACE
 			pygame.display.set_mode (self.cdgDisplaySize, self.cdgDisplayMode, DISPLAY_DEPTH)
 			self.ResizeFullScreen = False
-			self.UpdatedTiles = 0xFFFFFFFF
+			self.UpdatedTiles = 0xFFFFFFFFL
 
 		# Check for and handle pygame events and close requests
 		for event in pygame.event.get():
@@ -553,7 +553,7 @@ class cdgPlayer(Thread):
 			if event.type == pygame.VIDEORESIZE and self.GetPos() > 250:
 				self.cdgDisplaySize = event.size
 				pygame.display.set_mode (event.size, self.cdgDisplayMode, DISPLAY_DEPTH)
-				self.UpdatedTiles = 0xFFFFFFFF
+				self.UpdatedTiles = 0xFFFFFFFFL
 			elif event.type == pygame.KEYDOWN and ((event.key == pygame.K_ESCAPE) or (event.key == pygame.K_q)):
 				self.State = STATE_CLOSING
 			elif event.type == pygame.QUIT:
@@ -655,7 +655,7 @@ class cdgPlayer(Thread):
 		self.cdgSurfarray[:6,12:] = self.cdgSurfarray[:6,12:] + self.cdgColourTable[self.cdgBorderColourIndex]
 		self.cdgSurfarray[6:,12:] = self.cdgSurfarray[6:,12:] + self.cdgColourTable[self.cdgPresetColourIndex]
 
-		self.UpdatedTiles = 0xFFFFFFFF
+		self.UpdatedTiles = 0xFFFFFFFFL
 
 	# Border Preset (clear the border area only) 
 	def cdgBorderPreset (self, packd):
@@ -770,7 +770,7 @@ class cdgPlayer(Thread):
 		
 		# We have modified our local cdgSurfarray. This will be blitted to
 		# the screen by cdgDisplayUpdate()
-		self.UpdatedTiles = 0xFFFFFFFF
+		self.UpdatedTiles = 0xFFFFFFFFL
 	
 	# Set the colours for a 12x6 tile. The main CDG command for display data
 	def cdgTileBlockCommon (self, packd, xor):
@@ -874,7 +874,7 @@ class cdgPlayer(Thread):
 		#self.cdgSurfarray.flat[:] =  map(self.cdgColourTable.__getitem__, self.cdgPixelColours.flat)
 
 		# Update the screen for any colour changes
-		self.UpdatedTiles = 0xFFFFFFFF
+		self.UpdatedTiles = 0xFFFFFFFFL
 		return
 
 	# Actually update/refresh the video output
@@ -935,7 +935,7 @@ def setupOptions():
 		help = 'draw CD+G window X pixels wide', default = 294)
 	parser.add_option('-h', '--height', dest = 'size_y', type = 'int', metavar='Y',
 		help = 'draw CD+G window Y pixels high', default = 204)
-	parser.add_option('-t', '--title', dest = 'title', type = 'str', metavar='TITLE',
+	parser.add_option('-t', '--title', dest = 'title', type = 'string', metavar='TITLE',
 		help = 'set window title to TITLE', default = '')
 	parser.add_option('-f', '--fullscreen', dest = 'fullscreen', action = 'store_true', 
 		help = 'draw CD+G window fullscreen', default = False)
