@@ -1,8 +1,8 @@
 
 ---------------------------------------------------------------------------
 
-Release:      pykaraoke v0.4.1
-Date:         29/12/2005
+Release:      pykaraoke v0.4.2
+Date:         29/03/2006
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
@@ -26,16 +26,19 @@ needed to play your own karaoke song files.
 
 WHAT'S NEW
 
-We have made major performance improvements in the CDG player for this
-release. It should now be possible to play back CDGs on much slower
-machines than were previously supported.
+The PyKaraoke GUI now supports dragging and dropping songs from the Search
+Results and Folder View windows into the Playlist. It's also now possible 
+to use drag-and-drop within the Playlist to reorder the songs.
 
-Also new in this release is an install script for Linux/Unix systems.
-You can now install by running "python setup.py install" as root, and 
-can then start PyKaraoke from anywhere by running "pykaraoke".
+Craig Rindy added handling to the GUI file database for filenames with
+non-ASCII characters. He also modified pykaraoke.py to make some of its
+functionality reusable by other scripts.
 
-The PyKaraoke GUI can also now be used to play back MIDI files
-contained within ZIP files.
+The CDG player saw some changes for this release. A bug was found and fixed
+in the handling of certain CDG files (due to the handling of the CDG Border
+Preset command). The pycdg.py script no longer requires a .cdg extension
+so you can use tab-completion from the command-line to start CDGs. Finally
+some fixes were made to add support for a wider range of Python versions.
 
 ---------------------------------------------------------------------------
 
@@ -235,7 +238,21 @@ The CDG player should then work properly.
 
 ---------------------------------------------------------------------------
 
-CHANGELOG (v0.4.1)
+CHANGELOG (v0.4.2)
+
+Changes in v0.4.2:
+
+* pycdg.py: Allow CDG filenames without extension (just a .) to allow for 
+  tab-completion.
+* pycdg.py: Fix border preset (don't clear full-screen).
+* pycdg.py: Add --nomusic option.
+* pycdg.py: pycdg: Fix option type 'str' in optparse
+* pycdg.py: pycdg: Fix FutureWarning on 0xFFFFFFFFs
+* pykaraoke.py: Add drag-and-drop support from search results and within
+  playlist.
+* pykaraoke.py: Add drag-and-drop from Folder View
+* pykaraoke.py: Reuse PyKaraoke without the GUI from Craig Rindy.
+* pykaraoke.py: Support non-ASCII characters in filenames from Craig Rindy.
 
 Changes in v0.4.1:
 

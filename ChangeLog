@@ -1,3 +1,33 @@
+v0.4.2:
+	* pycdg.py: Allow CDG filenames without extension (just a .) to allow for 
+	tab-completion.
+
+	* pycdg.py: Fix border preset (don't clear full-screen).
+
+	* pycdg.py: Add --nomusic option.
+
+	* pycdg.py: pycdg: Fix option type 'str' in optparse
+
+	* pycdg.py: pycdg: Fix FutureWarning on 0xFFFFFFFFs
+
+	* pykaraoke.py: Add drag-and-drop support from search results and within
+	playlist.
+
+	* pykaraoke.py: Add drag-and-drop from Folder View
+
+	* pykaraoke.py: Reuse PyKaraoke without the GUI from Craig Rindy:
+	scripters might find it useful to reuse many things
+	implemented in pykaraoke.py such as zip file handling.
+	The attached patch allows the pykaraoke module (in
+	particular PyKaraokeManager) to be used without the
+	main application window. The patch also includes a
+	refactoring of SongDB.FolderScan to allow for reuse.
+
+	* pykaraoke.py: Support non-ASCII characters in filenames from Craig Rindy:
+	Any valid file can be imported, and filenames that present
+	problems in the search are skipped so that the search may
+	continue through the rest of the database.
+	
 v0.4.1:
 
 	* pycdg.py: Fix typo in "CDG file may be corrupt" warning (wwf)
