@@ -5,6 +5,10 @@ v0.4.3:
 
 	* pykaraoke.py: Add charset option & launch from command-line
 	<mantask>.
+
+	* pykaraoke.desktop: Add task-launcher file for file associations 
+	<mantask>.
+
 v0.4.2:
 	* pycdg.py: Allow CDG filenames without extension (just a .) to allow for 
 	tab-completion.

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Encoding=UTF-8
+Name=PyKaraoke
+Name[lt]=PyKaraoke
+GenericName=Karaoke player
+Comment=Universal karaoke songs and movies player
+Comment[lt]=Universalus karaoke muzikos bei video grotuvas
+Icon=/usr/share/pykaraoke/icons/pykaraoke.xpm
+Exec=pykaraoke
+Terminal=false
+MimeType=audio/x-karaoke;audio/x-midi;audio/midi
+Categories=Application;AudioVideo;Player;
