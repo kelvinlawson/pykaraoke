@@ -1,3 +1,10 @@
+v0.4.3:
+	* pycdg.py: Fix "scratchy" audio on some systems.
+
+	* pykar.py: Support non-ASCII, non-unicode charsets <mantask>.
+
+	* pykaraoke.py: Add charset option & launch from command-line
+	<mantask>.
 v0.4.2:
 	* pycdg.py: Allow CDG filenames without extension (just a .) to allow for 
 	tab-completion.

@@ -371,6 +371,7 @@ class cdgPlayer(Thread):
 			(uname, host, release, version, machine) = os.uname()
 		if (os.name != "posix") or (string.lower(uname)[:5] == "linux"):
 			os.environ['SDL_VIDEO_WINDOW_POS'] = '%d,%d' % (self.options.pos_x, self.options.pos_y)
+		pygame.mixer.pre_init(44100, -16, 2, 1024*3)
 		pygame.init()
 		if self.options.title:
 			pygame.display.set_caption(self.options.title, 'pykaraoke')

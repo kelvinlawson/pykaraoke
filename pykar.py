@@ -157,6 +157,8 @@ class midiFile:
 		self.text_events = []		# Lyrics (0x1 events) (list of delta and lyric text tuples)
 		self.lyric_events = []		# Lyrics (0x5 events) (list of delta and lyric text tuples)
 		self.lyrics = []			# Chosen lyric list from above
+#		self.text_charset = "iso-8859-13"		# The encoding of text in midi file
+		self.text_charset = ""		# The encoding of text in midi file
 		self.DeltaUnitsPerSMPTE = None
 		self.SMPTEFramesPerSec = None
 		self.DeltaUnitsPerQuarter = None
@@ -178,10 +180,11 @@ class TrackDesc:
 		self.RunningStatus = 0			# MIDI Running Status byte
 
 		
-def midiParseFile (filename, ErrorNotifyCallback):
+def midiParseFile (filename, ErrorNotifyCallback, Charset):
 	
 	# Create the midiFile structure
 	midifile = midiFile()
+	midifile.text_charset = Charset
 
 	# Check the MID/KAR file exists
 	if not os.path.isfile(filename):
@@ -348,6 +351,11 @@ def midiProcessEvent (filehdl, track_desc, midifile, ErrorNotifyCallback):
 			Length, varBytes = varLength(filehdl)
 			bytesRead = bytesRead + varBytes
 			text = filehdl.read(Length)
+			if (midifile.text_charset != "") :
+			    try:
+				text = text.decode(midifile.text_charset)
+			    except :
+				print "Unicode conversion error"
 			bytesRead = bytesRead + Length
 			# Take out any Sysex text events, and append to the lyrics list
 			if (" SYX" not in text) and ("Track-" not in text) \
@@ -588,7 +596,7 @@ def displayWrite(screen,font,t,x,y,color=(255,255,255)):
 
 
 class midPlayer(Thread):
-	def __init__(self, midFileName, errorNotifyCallback=None, doneCallback=None):
+	def __init__(self, midFileName, errorNotifyCallback=None, doneCallback=None, Charset="iso-8859-1"):
 		Thread.__init__(self)
 
 		# Store the parameter
@@ -609,7 +617,9 @@ class midPlayer(Thread):
 			self.SongFinishedCallback = None
 
 		# Parse the MIDI file
-		self.midifile = midiParseFile (self.FileName, self.ErrorNotifyCallback)
+		self.midifile = midiParseFile (self.FileName, self.ErrorNotifyCallback, Charset)
+
+
 		if (self.midifile == None):
 			ErrorString = "ERROR: Could not parse the MIDI file"
 			self.ErrorNotifyCallback (ErrorString)
@@ -666,11 +676,11 @@ class midPlayer(Thread):
 		# Find the correct font path. If fully installed on Linux this
 		# will be sys.prefix/share/pykaraoke/fonts. Otherwise look for
 		# it in the current directory.
-		if (os.path.isfile("fonts/vera.ttf")):
+		if (os.path.isfile("fonts/DejaVuSans.ttf")):
 			fontspath = "fonts"
 		else:
 			fontspath = os.path.join(sys.prefix, "share/pykaraoke/fonts")
-		self.font=pygame.font.Font(os.path.join(fontspath, "vera.ttf"), FONT_SIZE)
+		self.font=pygame.font.Font(os.path.join(fontspath, "DejaVuSans.ttf"), FONT_SIZE)
 
 	def resetPlayingState(self):
 	

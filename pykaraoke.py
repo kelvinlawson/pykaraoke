@@ -150,12 +150,13 @@ class SongStruct:
 # SettingsStruct used as storage only for settings. The instance
 # can be pickled to save all user's settings.
 class SettingsStruct:
-	def __init__(self, FolderList, FileExtensions, LookInsideZips, FullScreen):
+	def __init__(self, FolderList, FileExtensions, LookInsideZips, FullScreen, DefaultCharset):
 		self.Version = pykversion.PYKARAOKE_VERSION_STRING
 		self.FolderList = FolderList			# List of song folders
 		self.FileExtensions = FileExtensions	# List of extensions (.cdg etc)
 		self.LookInsideZips = LookInsideZips	# Whether to look inside zips
 		self.FullScreen = False					# Full-screen mode
+		self.DefaultCharset = "iso-8859-1"	# Default text charset in karaoke files
 
 
 # Song database class with methods for building the database, searching etc
@@ -171,7 +172,7 @@ class SongDB:
 	
 		# Create a SettingsStruct instance for storing settings
 		# in case none are stored.
-		self.Settings = SettingsStruct (folder_path, file_extensions, look_inside_zips, False)
+		self.Settings = SettingsStruct (folder_path, file_extensions, look_inside_zips, False, "iso-8859-1" )
 		
 		# Store the karaoke manager instance
 		self.KaraokeMgr = KaraokeMgr
@@ -198,8 +199,10 @@ class SongDB:
 				# Check settings are for the current version
 				if (loadsettings.Version == pykversion.PYKARAOKE_VERSION_STRING):
 					self.Settings = loadsettings
+				else:
+					ErrorPopup ("New version of PyKaraoke, clearing settings")
 			except:
-				ErrorPopup ("New version of PyKaraoke, clearing settings")
+				pass
 			file.close()
 		# Load the database file
 		db_filepath = os.path.join (self.TempDir, "songdb.dat")
@@ -613,14 +616,26 @@ class ConfigWindow (wx.Frame):
 		else:
 			self.FSCheckBox.SetValue(False)
 
+		self.CharsetText = wx.StaticText (self, wx.ID_ANY,
+				"\nDefault charset:\n", style = wx.ALIGN_LEFT) 
+		self.DefaulCharsetID = wx.NewId()
+		self.DefaultCharset = wx.TextCtrl(self, self.DefaulCharsetID, self.KaraokeMgr.SongDB.Settings.DefaultCharset, style=wx.TE_PROCESS_ENTER)
+#		self.DefaultCharset.SetValue(self, self.toGUI(self.KaraokeMgr.SongDB.Settings.DefaultCharset))
+
+
 		# Create a sizer for the settings
 		self.ConfigSizer = wx.BoxSizer (wx.HORIZONTAL)
 		self.ConfigSizer.Add (self.FSCheckBox, 0, wx.ALL)
+		self.CharsetSizer = wx.BoxSizer (wx.HORIZONTAL)
+		self.CharsetSizer.Add (self.CharsetText, 0, wx.ALL)
+		self.CharsetSizer.Add (self.DefaultCharset, 0, wx.ALL)
 
 		# Create the main sizer
 		self.MainSizer = wx.BoxSizer(wx.VERTICAL)
 		self.MainSizer.Add(self.ConfigSizer, 0, wx.ALL, 3)
+		self.MainSizer.Add(self.CharsetSizer, 0, wx.ALL, 3)
 		self.SetSizer(self.MainSizer)
+		wx.EVT_CLOSE(self, self.ExitHandler)
 	
 		self.Show()
 
@@ -629,6 +644,10 @@ class ConfigWindow (wx.Frame):
 		self.KaraokeMgr.SongDB.Settings.FullScreen = self.FSCheckBox.IsChecked()
 		self.KaraokeMgr.SongDB.SaveSettings()
 		
+	def ExitHandler(self, event):
+		self.KaraokeMgr.SongDB.Settings.DefaultCharset = self.DefaultCharset.GetValue()
+		self.KaraokeMgr.SongDB.SaveSettings()
+		self.Destroy()
 
 # Generic function for popping up errors
 def ErrorPopup (ErrorString):
@@ -1583,7 +1602,8 @@ class PyKaraokeManager:
 				if (self.SongDB.Settings.FullScreen == True):
 					self.Player.SetFullScreen ()
 			elif (ext.lower() == ".kar") or (ext.lower() == ".mid"):
-				self.Player = pykar.midPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
+				self.Player = pykar.midPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback, self.SongDB.Settings.DefaultCharset)
+				
 			elif (ext.lower() == ".mpg") or (ext.lower() == ".mpeg"):
 				self.Player = pympg.mpgPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
 				# Set the display size to the user's current preference (i.e. last song)
@@ -1603,9 +1623,23 @@ class PyKaraokeManager:
 		except:
 			ErrorPopup ("Error starting player")
 
+def usage():
+    print "Usage:  %s [filename]" % os.path.basename(sys.argv[0])
+
 def main():
+        args = sys.argv[1:]
+        if ("-h" in args) or ("--help" in args):
+                usage()
+                sys.exit(2)
+
 	PyKaraokeApp = wx.PySimpleApp()
 	Mgr = PyKaraokeManager()
+
+	if (len(sys.argv) > 1):
+		# TODO implement handling multiple files
+		file_path = sys.argv[1]
+		song = Mgr.SongDB.SongListFromFile(file_path)[0]
+		Mgr.StartPlayer(song)
 	PyKaraokeApp.MainLoop()
 
 if __name__ == "__main__":
