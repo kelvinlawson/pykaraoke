@@ -1334,6 +1334,18 @@ class PyKaraokeWindow (wx.Frame):
 		wx.Frame.__init__(self,parent,wx.ID_ANY, title, size = MAIN_WINDOW_SIZE,
 							style=wx.DEFAULT_FRAME_STYLE|wx.NO_FULL_REPAINT_ON_RESIZE)
 		self.KaraokeMgr = KaraokeMgr
+
+		# Create the window icon. Find the correct icons path. If 
+		# fully installed on Linux this will be 
+		# sys.prefix/share/pykaraoke/icons. Otherwise look for it
+		# in the current directory.
+		if (os.path.isfile("icons/pykaraoke.xpm")):
+			iconspath = "icons"
+		else:
+			iconspath = os.path.join(sys.prefix, "share/pykaraoke/icons")
+		fullpath = os.path.join(iconspath, "pykaraoke.xpm")
+		icon1 = wx.Icon(fullpath, wx.BITMAP_TYPE_XPM)
+		self.SetIcon(icon1)
 		
 		# Create left-hand side buttons at the button
 		choices = ["Search View", "Folder View"]

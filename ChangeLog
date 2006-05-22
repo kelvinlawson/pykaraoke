@@ -9,6 +9,8 @@ v0.4.3:
 	* pykaraoke.desktop: Add task-launcher file for file associations 
 	<mantask>.
 
+	* pykaraoke.py: Show pykaraoke.xpm icon as WX window icon.
+
 v0.4.2:
 	* pycdg.py: Allow CDG filenames without extension (just a .) to allow for 
 	tab-completion.
