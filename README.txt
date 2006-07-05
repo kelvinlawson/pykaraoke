@@ -1,12 +1,13 @@
 
 ---------------------------------------------------------------------------
 
-Release:      pykaraoke v0.4.2
-Date:         29/03/2006
+Release:      pykaraoke v0.4.1
+Date:         29/12/2005
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
 Contributors: William Ferrell <willfe@gmail.com>
+              David Rose <pykar@ddrose.com>
 
 ---------------------------------------------------------------------------
 
@@ -25,6 +26,17 @@ needed to play your own karaoke song files.
 ---------------------------------------------------------------------------
 
 WHAT'S NEW
+
+This release includes still more major performance improvements in the
+CDG player.  There should be very few performance bottlenecks
+remaining when playing CDG files.  The MIDI player has also received a
+number of improvements with this release, including word wrap and
+dynamic text scaling.
+
+We have added the pykaraoke_mini interface, suitable for environments
+lacking a keyboard/mouse, or for simple, casual karaoke parties.
+
+This is the first release with support for the handheld GP2X console.
 
 The PyKaraoke GUI now supports dragging and dropping songs from the Search
 Results and Folder View windows into the Playlist. It's also now possible 
@@ -47,6 +59,17 @@ INSTALLATION (WINDOWS)
 Windows users can install PyKaraoke by simply downloading and running the
 installer executable. This installs all prerequisite libraries, and adds
 icons in your start menu to run PyKaraoke.
+
+If you prefer, you may choose to build the Windows version from
+source.  We will assume you are familiar with the steps involved for
+installing a Python distribution from source on Windows; they are
+similar to those for the Linux installation, below.  You will need to
+download and unpack the SDL source distribution to a known place (for
+instance, in the same directory with PyKaraoke, under the name like
+"SDL-1.2.11", and you need to tell Python where that place is, with
+the --include-dirs and --library-dirs option to setup.py, like this:
+
+# python setup.py install --include-dirs=SDL-1.2.11/include --library_dirs=SDL-1.2.11/lib
 
 ---------------------------------------------------------------------------
 
@@ -153,6 +176,100 @@ tracks for playing, or adding to the playlist.
 
 ---------------------------------------------------------------------------
 
+MINI VERSION
+
+There is now a reduced-interface frontend for PyKaraoke, which you can
+invoke with:
+
+	$ pykaraoke_mini
+
+Or:
+	$ python pykaraoke_mini.py
+
+This is a more primitive interface which runs in the same window that
+is also used for displaying the lyrics of the Karaoke songs.  It is
+specifically designed to be a useful interface with a minimal input
+device, for instance with a joystick or a remote control, for those
+environments when you don't have convenient access to a full keyboard
+and mouse.  It is the default interface on the GP2X handheld.
+
+The pykaraoke_mini interface presents a scrolling window that lists
+all of the songs in your database in alphabetical order by filename
+(but you can also sort them by song title or artist name; see TITLES
+AND ARTIST NAMES, below).
+
+You can easily navigate through this list with the up and down arrow
+keys, and press enter to select a song.  If you hold down the arrow
+keys, the highlight gradually accelerates until it is moving quite
+fast, so it doesn't take long to navigate through even a very large
+list.  You can also use the PageUp and PageDown keys to move a
+screen's worth at a time.
+
+By default, the font is quite large, chosen to be easily visible on a
+Karaoke monitor across the room.  You can change the font size at run
+time (for instance, to make more text appear on the page) by pressing
+the - and + keys.  This also affects the size of the font chosen for
+the lyrics if you select a .kar file.
+
+There is no search function in the mini player; the list always
+includes the entire database.  (But you can type a few letters to go
+straight to the song that begins with that string.)  There is also no
+playlist feature; you must pick each song and play it one at a time.
+
+The mini player uses the same database as the full-featured player, so
+you may need to launch the full player from time to time to re-scan
+the song database or update the directory list.  Alternatively, you
+can use the command-line interface to do this:
+
+pykaraoke_mini --set_scan_dir=/my/song/directory
+
+   Removes any directories you had already set, and adds
+   /my/song/directory as the only song directory.
+
+pykaraoke_mini --add_scan_dir=/my/other/song/directory
+
+   Adds /my/other/song/directory to the list of directories to scan.
+   This option may be repeated.
+
+pykaraoke_mini --scan
+
+   Actually rescans all of the recorded directories into the database.
+
+---------------------------------------------------------------------------
+
+SONG TITLE AND ARTIST NAMES
+
+By default, songs are listed in the search results panel by filename.
+If you name your karaoke files with descriptive names, that may be all
+you need.  However, as of PyKaraoke version 0.5, there is now a
+feature which can record a separate title and/or artist name along
+with each song.  These names will appear in separate columns in the
+search results, and you can click on the column header to re-sort the
+selected songs by the indicated column; for instance, click on the
+"Artist" column to sort all of the songs in alphabetical order by
+artist name.  In the mini player, press the TAB key to change the sort
+mode between title, artist, and filename.
+
+To get the artist and title names in the database, you must create a
+file called titles.txt in the same directory with your song files, and
+add one line for each song file, of the form:
+
+filename<tab>title
+
+or
+
+filename<tab>title<tab>artist
+
+The separator character between the fields must be an actual TAB
+character, not just a sequence of spaces.  If you want to use
+international characters in the title and artist names, save the file
+using the utf-8 encoding.
+
+Once you have created this file, re-scan the directory to read it into
+the database.
+
+---------------------------------------------------------------------------
+
 COMMAND LINE VERSION
 
 PyKaraoke is actually a GUI frontend which controls three libraries, pycdg
@@ -238,7 +355,36 @@ The CDG player should then work properly.
 
 ---------------------------------------------------------------------------
 
-CHANGELOG (v0.4.2)
+CHANGELOG (v0.5)
+
+Changes in v0.5 (submitted by David Rose):
+
+* Fixed a problem in pykar.py with synchronization of lyrics to music
+  on certain MIDI files (files in which the tempo changes during the
+  song).
+* Reworked rendering engine in pykar.py to support wordwrap and font
+  scaling.
+* Wrote pykaraoke_mini.py, with an in-window scrolling interface for
+  environments in which a full keyboard/mouse is not available.
+* Added pykplayer.py and pykmanager.py to collect together common bits
+  of code between the various player types.
+* Made command-line options available to all public entry points:
+  pycdg.py, pykar.py, pymgr.py, pykaraoke.py, and pykaraoke_mini.py.
+* Replaced threading code with explicit calls to manager.Poll().
+* Moved the CDG-processing code from pycdg.py into pycdgAux.py, and
+  also ported it down to C in _pycdgAux.c for further runtime
+  optimization.
+* Pushed default framerate back to 30 fps.  Setting it lower than
+  that has limited benefit with the new codebase.
+* Added --zoom to control the mode in which pycdg.py scales its
+  display to fit the window.
+* Added command-line parameters to control audio properties.
+* Added separate "titles" and "artists" columns to the song database,
+  making it possible to sort the returned songlist by any of the three
+  columns.  The file titles.txt can be defined in the directory with
+  all of your song files to define the title and/or artist for each
+  song.
+* Ported to the GP2X.
 
 Changes in v0.4.2:
 

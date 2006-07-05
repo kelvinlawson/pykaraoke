@@ -1,0 +1,17 @@
+#! /bin/sh
+#
+# This script is used to rescan the songs directory on the GP2X console.
+#
+
+PYTHONHOME=python
+export PYTHONHOME
+
+LD_LIBRARY_PATH=${PYTHONHOME}/extras:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH
+
+${PYTHONHOME}/python pykaraoke_mini.py --set-scan-dir=songs --scan > pykaraoke.log 2>&1
+echo Exit with status $? >> pykaraoke.log
+
+sync
+cd /usr/gp2x
+exec ./gp2xmenu

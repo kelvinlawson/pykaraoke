@@ -1,4 +1,6 @@
-from distutils.core import setup
+#!/usr/bin/env python
+
+from distutils.core import setup, Extension
 import pykversion
 
 setup(name="pykaraoke",
@@ -9,8 +11,14 @@ setup(name="pykaraoke",
       url = 'http://www.kibosh.org/pykaraoke',
       license = 'LGPL',
       long_description = 'PyKaraoke - CD+G/MPEG/KAR Karaoke Player',
-      py_modules=["pykaraoke", "pycdg","pympg","pykar","pykversion"],
+      py_modules = [ "pycdgAux", "pycdg", "pykaraoke_mini",
+                     "pykaraoke", "pykar", "pykconstants",
+                     "pykdb", "pykenv", "pykmanager",
+                     "pykplayer", "pykversion", "pympg" ],
+      ext_modules=[Extension("_pycdgAux", ["_pycdgAux.c"],
+                             libraries=['SDL'])],
       data_files=[('bin', ['install/pykaraoke',
+                           'install/pykaraoke_mini',
                            'install/pycdg',
                            'install/pykar',
                            'install/pympg']),
@@ -19,7 +27,8 @@ setup(name="pykaraoke",
                         'icons/folder_close_16.png',
                         'icons/folder_open_16.png', 
                         'icons/note.ico',
-                        'icons/pykaraoke.xpm']),
+                        #'icons/pykaraoke.xpm',
+                        'icons/splash.jpg']),
                   ('share/pykaraoke/fonts', ['fonts/DejaVuSans.ttf']),
                   ('share/applications', ['install/pykaraoke.desktop'])],
       classifiers=['Development Status :: 5 - Production/Stable',

@@ -18,8 +18,11 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+from pykconstants import *
+from pykplayer import pykPlayer
+from pykenv import env
+from pykmanager import manager
 import pygame, sys, os, string
-from threading import Thread
 
 # OVERVIEW
 #
@@ -42,7 +45,7 @@ from threading import Thread
 
 # REQUIREMENTS
 #
-# pycdg requires the following to be installed on your system:
+# pympg requires the following to be installed on your system:
 # . Python (www.python.org)
 # . Pygame (www.pygame.org)
 
@@ -50,14 +53,17 @@ from threading import Thread
 # USAGE INSTRUCTIONS
 #
 # To start the player, pass the MPEG filename/path on the command line:
-# 		python pympg.py /songs/theboxer.mpg
+#       python pympg.py /songs/theboxer.mpg
 #
 # You can also incorporate a MPG player in your own projects by
 # importing this module. The class mpgPlayer is exported by the
 # module. You can import and start it as follows:
-#	import pympg
-#	player = pympg.mpgPlayer("/songs/theboxer.mpg")
-#	player.Play()
+#   import pympg
+#   player = pympg.mpgPlayer("/songs/theboxer.mpg")
+#   player.Play()
+# If you do this, you must also arrange to call pympg.manager.Poll()
+# from time to time, at least every 100 milliseconds or so, to allow
+# the player to do its work.
 #
 # The class also exports Close(), Pause(), Rewind(), GetPos().
 #
@@ -70,17 +76,17 @@ from threading import Thread
 # error popup window mechanism (or similar). If no callback is provided,
 # errors are printed to stdout. errorNotifyCallback should take one 
 # parameter, the error string, e.g.:
-# 	def errorPopup (ErrorString):
-#		msgBox (ErrorString)
+#   def errorPopup (ErrorString):
+#       msgBox (ErrorString)
 #
 # doneCallback can be used to register a callback so that the player
 # calls you back when the song is finished playing. The callback should
 # take no parameters, e.g.:
-# 	def songFinishedCallback():
-#		msgBox ("Song is finished")
+#   def songFinishedCallback():
+#       msgBox ("Song is finished")
 #
 # To register callbacks, pass the functions in to the initialiser:
-# 	mpgPlayer ("/songs/theboxer.mpg", errorPopup, songFinishedCallback)
+#   mpgPlayer ("/songs/theboxer.mpg", errorPopup, songFinishedCallback)
 # These parameters are optional and default to None.
 #
 # If the initialiser fails (e.g. the song file is not present), __init__
@@ -89,251 +95,106 @@ from threading import Thread
 
 # IMPLEMENTATION DETAILS
 #
-# pympg is implemented as one python module. Pygame provides all
-# of the MPEG decoding and display capabilities, and can play an
-# MPEG file with just a few lines of code. Hence this module is
-# rather small. What it provides on top of the basic pygame
-# features, is a player-like class interface with Play, Pause,
-# Rewind etc. It also implements a resizable player window.
+# pympg is implemented as a handful of python modules. Pygame provides
+# all of the MPEG decoding and display capabilities, and can play an
+# MPEG file with just a few lines of code. Hence this module is rather
+# small. What it provides on top of the basic pygame features, is a
+# player-like class interface with Play, Pause, Rewind etc. It also
+# implements a resizable player window.  And, of course, it integrates
+# nicely with pykaraoke.py and pykaraoke_mini.py.
 #
-# The player is run within a thread to allow for easy
-# integration with media player programs. Once the pygame MPEG
-# player window is opened, it monitors for Rewind etc commands,
-# and handles resize and close window events.
-
-
-# States
-STATE_INIT			= 1
-STATE_NOT_PLAYING	= 2
-STATE_PLAYING		= 3
-STATE_CLOSING		= 4
+# Previous implementations ran the player within a thread; this is no
+# longer the case.  Instead, it is the caller's responsibility to call
+# pycdg.manager.Poll() every once in a while to ensure that the player
+# gets enough CPU time to do its work.  Ideally, this should be at
+# least every 100 milliseconds or so to guarantee good video and audio
+# response time.
 
 # Display depth (bits)
 DISPLAY_DEPTH       = 32 
 
 
 # mpgPlayer Class
-class mpgPlayer(Thread):
-	# Initialise the player instace
-	def __init__(self, mpgFileName, errorNotifyCallback=None, doneCallback=None):
-		Thread.__init__(self)
+class mpgPlayer(pykPlayer):
+    # Initialise the player instace
+    def __init__(self, fileName, errorNotifyCallback=None, doneCallback=None):
+        pykPlayer.__init__(self, fileName, errorNotifyCallback, doneCallback)
 
-		# Store the params
-		self.mpgFileName = mpgFileName
+        self.Movie = None
 
-		# Caller can register a callback by which we
-		# print out error information, use stdout if none registered
-		if errorNotifyCallback:
-			self.ErrorNotifyCallback = errorNotifyCallback
-		else:
-			self.ErrorNotifyCallback = defaultErrorPrint
-	
-		# Caller can register a callback by which we
-		# let them know when the song is finished
-		if doneCallback:
-			self.SongFinishedCallback = doneCallback
-		else:
-			self.SongFinishedCallback = None
-					
-		# Check the MPEG filename
-		self.FileName = mpgFileName
-		if not os.path.isfile(mpgFileName):
-			ErrorString = "No such file: " + mpgFileName
-			self.ErrorNotifyCallback (ErrorString)
-			raise NoSuchFile
-			return
+        # Check the MPEG filename
+        if not os.path.isfile(self.FileName):
+            ErrorString = "No such file: " + self.FileName
+            self.ErrorNotifyCallback (ErrorString)
+            raise 'NoSuchFile'
 
-		# Default display-mode resizable
-		self.DisplayMode = pygame.RESIZABLE
-		self.ResizeFullScreen = False
+        manager.InitPlayer(self)
+        manager.OpenDisplay(depth = DISPLAY_DEPTH)
 
-		# Can only do the set_mode() on Windows in the pygame thread.
-		# Therefore use a variable to tell the thread when a resize
-		# is required. This can then be modified by any thread calling
-		# SetDisplaySize()
-		self.ResizeTuple = None
+        self.Movie = pygame.movie.Movie(self.FileName)
+        self.Movie.set_display(manager.display, (0, 0, manager.displaySize[0], manager.displaySize[1]))
 
-		# Initialise pygame
-		if os.name == "posix":
-			self.pygame_init()
 
-		# Set the state to init - when the thread starts and pygame
-		# init has been done, we will change this to STATE_NOT_PLAYING.
-		# That makes any callers to Play() etc aware that pygame has
-		# been initialised, and they can do stuff.
-		self.State = STATE_INIT
-		
-		# Automatically start the thread which handles pygame events
-		# The movie doesn't start playing until Play() is called
-		self.start()
+    def doPlay(self):
+        self.Movie.play()
 
-	# Pygame initialisation
-	def pygame_init(self):
+    def doPause(self):
+        self.Movie.pause()
 
-		# Initialise the pygame movie library
-		# Fix the position at top-left of window. Note when doing this, if the
-		# mouse was moving around as the window opened, it made the window tiny.
-		# Have stopped doing anything for resize events until 1sec into the song
-		# to work around this. Note there appears to be no way to find out the
-		# current window position, in order to bring up the next window in the
-		# same place. Things seem to be different in development versions of
-		# pygame-1.7 - it appears to remember the position, and it is the only
-		# version for which fixing the position works on MS Windows.
-		# Don't set the environment variable on OSX.
-		if os.name == "posix":
-			(uname, host, release, version, machine) = os.uname()
-		if (os.name != "posix") or (string.lower(uname)[:5] == "linux"):
-			os.environ['SDL_VIDEO_WINDOW_POS'] = "30,30"
-		pygame.init()
-		pygame.mixer.quit()
-		pygame.display.set_caption(self.mpgFileName)
-		self.Movie = pygame.movie.Movie(self.mpgFileName)
-		# Default to movie display size
-		self.DisplaySize = self.Movie.get_size()
-		self.DisplaySurface = pygame.display.set_mode(self.DisplaySize, self.DisplayMode, DISPLAY_DEPTH)
-		self.Movie.set_display (self.DisplaySurface, (0, 0, self.DisplaySize[0], self.DisplaySize[1]))
-		
-	# Start the thread running. Blocks until the pygame
-	# initialisation is complete
-	def Play(self):
-		while self.State == STATE_INIT:
-			pass
-		self.Movie.play()
-		self.State = STATE_PLAYING
+    def doUnpause(self):
+        self.Movie.play()
 
-	# Pause the mpg - Use Pause() again to unpause
-	def Pause(self):
-		if self.State == STATE_PLAYING:
-			self.Movie.pause()
-			self.State = STATE_NOT_PLAYING
-		elif self.State == STATE_NOT_PLAYING:
-			self.Movie.play()
-			self.State = STATE_PLAYING
+    def doRewind(self):
+        self.Movie.stop()
+        self.Movie.rewind()
+            
+    # Get the movie length (in seconds).
+    def GetLength(self):
+        return self.Movie.get_length()
+        
+    # Get the current time (in milliseconds).
+    def GetPos(self):
+        return (self.Movie.get_time() * 1000)
 
-	# Close the whole thing down
-	def Close(self):
-		self.State = STATE_CLOSING
+    def SetupOptions(self):
+        """ Initialise and return optparse OptionParser object,
+        suitable for parsing the command line options to this
+        application. """
 
-	# Rewind to the beginning - also stops the movie, so 
-	# you must call Play() to restart. Blocks until pygame
-	# is initialised. There's no point calling it then,
-	# but it prevents internal errors.
-	def Rewind(self):
-		while self.State == STATE_INIT:
-			pass
-		self.Movie.stop()
-		self.Movie.rewind()
-		self.State = STATE_NOT_PLAYING
+        parser = pykPlayer.SetupOptions(self, usage = "%prog [options] <mpg filename>")
 
-	# Stop the movie and returns to the beginning - Play()
-	# restarts. For a pause, use Pause() instead.
-	def Stop(self):
-		self.Rewind()
-			
-	# Get the movie length (in seconds). Block until pygame init.
-	def GetLength(self):
-		while self.State == STATE_INIT:
-			pass
-		return self.Movie.get_length()
-		
-	# Get the current time (in milliseconds). Block until pygame init.
-	def GetPos(self):
-		while self.State == STATE_INIT:
-			pass
-		return (self.Movie.get_time() * 1000)
+        # Remove irrelevant options.
+        parser.remove_option('--font-scale')
+        
+        return parser
 
-	# Get the current display size
-	def GetDisplaySize(self):
-		return self.DisplaySize
+    def shutdown(self):
+        # This will be called by the pykManager to shut down the thing
+        # immediately.
+        if self.Movie:
+            self.Movie.stop()
+        pykPlayer.shutdown(self)
 
-	# Set the display size. This is deferred to the pygame thread
-	# because MS Windows doesn't like the call to set_mode() done
-	# outside of the pygame thread's context
-	def SetDisplaySize(self, displaySizeTuple):
-		self.ResizeTuple = displaySizeTuple
+    # Internal. Only called by the pykManager.
+    def doResize(self, newSize):
+        # The pygame library needs to be paused while resizing
+        if self.State == STATE_PLAYING:
+            self.Movie.pause()
+        # Resize the screen.
+        self.Movie.set_display(manager.display, (0, 0, manager.displaySize[0], manager.displaySize[1]))
+        # Unpause if it was playing
+        if self.State == STATE_PLAYING:
+            self.Movie.play()
 
-    # Set full-screen mode. Defer to pygame thread context for MS Win.
-	def SetFullScreen(self):
-		self.ResizeFullScreen = True
-
-	# Internal. Only called by the pygame thread
-	def set_display_size(self, displaySizeTuple):
-		self.DisplaySize = displaySizeTuple
-		# The pygame library needs to be paused while resizing
-		if self.State == STATE_PLAYING:
-			self.Movie.pause()
-		# Resize the screen.
-		pygame.display.set_mode (self.DisplaySize, self.DisplayMode, DISPLAY_DEPTH)
-		self.Movie.set_display (self.DisplaySurface, (0, 0, self.DisplaySize[0], self.DisplaySize[1]))
-		# Unpause if it was playing
-		if self.State == STATE_PLAYING:
-			self.Movie.play()
-	
-	# Start the thread but don't play until Play()
-	def run(self):
-
-		# It turns out that on MS Windows you have to initialise pygame in the
-		# thread that is going to check for events. Therefore move all pygame
-		# init stuff here. Play() will now have to block until pygame init is
-		# complete.
-		if os.name != "posix":
-			self.pygame_init()
-
-		# Set initial state
-		self.State = STATE_NOT_PLAYING
-
-		while 1:
-			# Check for and handle pygame events and close requests
-			for event in pygame.event.get():
-				# Only handle resize events 1ms into song. This is to handle the
-				# bizarre problem of SDL making the window small automatically if
-				# you set SDL_VIDEO_WINDOW_POS and move the mouse around while the
-				# window is opening. Give it some time to settle.
-				if event.type == pygame.VIDEORESIZE and self.GetPos() > 1000:
-					self.set_display_size(event.size)
-				# If the pygame window is closed quit the thread
-				elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-					self.State = STATE_CLOSING
-				elif event.type == pygame.QUIT:
-					self.State = STATE_CLOSING
-
-			# Handle a user call to SetDisplaySize(). That defers the display size
-			# set_mode() to this thread (to keep MS Windows happy).
-			if self.ResizeTuple != None and self.GetPos() > 1000:
-				self.set_display_size(self.ResizeTuple)
-				self.ResizeTuple = None
-
-            # Handle full-screen in pygame thread context
-			if self.ResizeFullScreen == True:
-				self.DisplaySize = pygame.display.list_modes(DISPLAY_DEPTH, pygame.FULLSCREEN)[0]
-				self.DisplayMode = pygame.FULLSCREEN
-				pygame.display.set_mode (self.DisplaySize, self.DisplayMode, DISPLAY_DEPTH)
-				self.ResizeFullScreen = False
-					
-			# Common handling code for a close request or if the
-			# pygame window was quit
-			if  self.State == STATE_CLOSING:
-					self.Movie.stop()
-					self.Movie = None
-					pygame.quit()
-					# If the caller gave us a callback, let them know we're finished
-					if self.SongFinishedCallback != None:
-						self.SongFinishedCallback()
-					return
-
-def defaultErrorPrint(ErrorString):
-	print (ErrorString)
-
-def usage():
-    print "Usage:  %s <mpg filename>" % os.path.basename(sys.argv[0])
-
+# Can be called from the command line with the MPG filepath as parameter
 def main():
-	args = sys.argv[1:]
-	if (len(sys.argv) != 2) or ("-h" in args) or ("--help" in args):
-		usage()
-		sys.exit(2)
-	player = mpgPlayer(sys.argv[1])
-	player.Play()
-	
+    player = mpgPlayer(None)
+    player.Play()
+    manager.WaitForPlayer()
+
 if __name__ == "__main__":
     sys.exit(main())
+    #import profile
+    #result = profile.run('main()', 'pympg.prof')
+    #sys.exit(result)
+    
