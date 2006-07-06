@@ -118,6 +118,7 @@ class App(pykPlayer):
         try:
             splash = pygame.image.load(splashFilename)
         except:
+            print "Unable to load splash image."
             return
 
         # Put the version number up there too.

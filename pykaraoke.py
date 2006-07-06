@@ -126,7 +126,7 @@ import os, string, wx, sys
 from pykconstants import *
 from pykenv import env
 import pycdg, pympg, pykar, pykversion, pykdb
-import pickle
+import cPickle
 from pykmanager import manager
 
 # Size of the main window
@@ -635,9 +635,7 @@ class FileTree (wx.Panel):
             def DoDragDrop():
                 txt = tree.GetItemText(item)
                 
-                # Convert the song_struct to a string. Regular
-                # pickle didn't translate through SetData(),
-                # GetData() so we made our own.
+                # Convert the song_struct to a string.
                 filename = self.FileTree.GetItemText(item)
                 full_path = self.GetFullPathForNode(item)
                 song_struct = SongStruct (full_path, filename)
@@ -678,13 +676,13 @@ class ListDrop(wx.PyDropTarget):
         return d
 
 def SongStructPickle(song_struct):
-    return pickle.dumps(song_struct)
+    return cPickle.dumps(song_struct)
 
 def SongStructUnpickle(song_struct_pickled):
     # The drag-and-drop operation upgrades the pickle string to a
     # unicode string, which seems to confuse pickle.  The str()
     # operator will convert it back correctly.
-    return pickle.loads(str(song_struct_pickled))
+    return cPickle.loads(str(song_struct_pickled))
 
 
 # Implement the Search Results panel and list box
@@ -908,9 +906,7 @@ class SearchResultsPanel (wx.Panel):
     # Put together a data object for drag-and-drop _from_ this list
     # Code from WxPython Wiki
     def _startDrag(self, e):
-
-        # Convert the song_struct to a string. Regular pickle didn't
-        # translate through SetData(), GetData() so we made our own.
+        # Convert the song_struct to a string.
         song_struct_string = SongStructPickle(self.SongStructList[e.GetIndex()])
         data = wx.PyTextDataObject()
         data.SetText(song_struct_string)
@@ -929,6 +925,8 @@ class SearchResultsPanel (wx.Panel):
             # Find correct position.
             pos = self.ListPanel.FindItem(idx, text)
             self.ListPanel.DeleteItem(pos)
+
+        return True
 
 
 # Class to manage the playlist panel and list box
@@ -1101,9 +1099,7 @@ class Playlist (wx.Panel):
     # Put together a data object for drag-and-drop _from_ this list
     # Code from WxPython Wiki
     def _startDrag(self, e):
-
-        # Convert the song_struct to a string. Regular pickle didn't
-        # translate through SetData(), GetData() so we made our own.
+        # Convert the song_struct to a string.
         song_struct_string = SongStructPickle(self.PlaylistSongStructList[e.GetIndex()])
         data = wx.PyTextDataObject()
         data.SetText(song_struct_string)

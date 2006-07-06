@@ -22,7 +22,7 @@ import pykversion
 import pygame
 from pykconstants import *
 from pykenv import env
-import os, pickle, zipfile, codecs
+import os, cPickle, zipfile, codecs
 
 # The amount of time to wait, in milliseconds, before yielding to the
 # app for windowing updates during a long update process.
@@ -91,7 +91,7 @@ class SongStruct:
     def GetFilePath(self, SongDB):
         """Returns the full path to the song file.  If the file is
         within a zip file, this will first extract it to a temporary
-        file, and then return the full path tot he temporary file. """
+        file, and then return the full path to the temporary file. """
         
         root, ext = os.path.splitext(self.Filepath)
         if ext.lower() == ".zip":
@@ -227,7 +227,7 @@ class SongDB:
             file = open (settings_filepath, "rb")
             loadsettings = None
             try:
-                loadsettings = pickle.load (file)
+                loadsettings = cPickle.load (file)
             except:
                 pass
             # Check settings are for the current version
@@ -243,7 +243,7 @@ class SongDB:
         db_filepath = os.path.join (self.TempDir, "songdb.dat")
         if os.path.exists (db_filepath):
             file = open (db_filepath, "rb")
-            self.SongList = pickle.load (file)
+            self.SongList = cPickle.load (file)
 
         # Scan the songlist for titles and/or artists.
         for file in self.SongList:
@@ -261,12 +261,12 @@ class SongDB:
         # Save the settings file
         settings_filepath = os.path.join (self.TempDir, "settings.dat")
         file = open (settings_filepath, "wb")
-        pickle.dump (self.Settings, file)
+        cPickle.dump (self.Settings, file)
 
         # Save the database file
         db_filepath = os.path.join (self.TempDir, "songdb.dat")
         file = open (db_filepath, "wb")
-        pickle.dump (self.SongList, file)
+        cPickle.dump (self.SongList, file)
     
     def BuildSearchDatabase(self, yielder, busyDlg):
         # Zap the database and build again from scratch. Return False
@@ -509,29 +509,31 @@ class SongDB:
         where the first string of each tuple is the sort key. """
         
         self.Sort = sort
-
         global fileSortKey
-
+        
         if self.Sort == 'title':
-            fileSortKey = lambda kf: kf.Title.lower()
             if self.GotArtists:
                 self.GetSongTuple = self.getSongTupleTitleArtistFilename
+                fileSortKey = self.getSongTupleTitleArtistFilenameSortKey
             else:
                 self.GetSongTuple = self.getSongTupleTitleFilenameArtist
+                fileSortKey = self.getSongTupleTitleFilenameArtistSortKey
 
         elif self.Sort == 'artist':
-            fileSortKey = lambda kf: kf.Artist.lower()
             if self.GotTitles:
                 self.GetSongTuple = self.getSongTupleArtistTitleFilename
+                fileSortKey = self.getSongTupleArtistTitleFilenameSortKey
             else:
                 self.GetSongTuple = self.getSongTupleArtistFilenameTitle
+                fileSortKey = self.getSongTupleArtistFilenameTitleSortKey
 
         elif self.Sort == 'filename':
-            fileSortKey = lambda kf: kf.DisplayFilename.lower()
             if self.GotTitles:
                 self.GetSongTuple = self.getSongTupleFilenameTitleArtist
+                fileSortKey = self.getSongTupleFilenameTitleArtistSortKey
             else:
                 self.GetSongTuple = self.getSongTupleFilenameArtistTitle
+                fileSortKey = self.getSongTupleFilenameArtistTitleSortKey
 
         self.SongList.sort(key = fileSortKey)
 
@@ -552,6 +554,24 @@ class SongDB:
 
     def getSongTupleFilenameArtistTitle(self, file):
         return (file.DisplayFilename, file.Artist, file.Title)
+
+    def getSongTupleTitleArtistFilenameSortKey(self, file):
+        return (file.Title.lower(), file.Artist.lower(), file.DisplayFilename.lower(), id(file))
+
+    def getSongTupleTitleFilenameArtistSortKey(self, file):
+        return (file.Title.lower(), file.DisplayFilename.lower(), file.Artist.lower(), id(file))
+
+    def getSongTupleArtistTitleFilenameSortKey(self, file):
+        return (file.Artist.lower(), file.Title.lower(), file.DisplayFilename.lower(), id(file))
+
+    def getSongTupleArtistFilenameTitleSortKey(self, file):
+        return (file.Artist.lower(), file.DisplayFilename.lower(), file.Title.lower(), id(file))
+
+    def getSongTupleFilenameTitleArtistSortKey(self, file):
+        return (file.DisplayFilename.lower(), file.Title.lower(), file.Artist.lower(), id(file))
+
+    def getSongTupleFilenameArtistTitleSortKey(self, file):
+        return (file.DisplayFilename.lower(), file.Artist.lower(), file.Title.lower(), id(file))
 
     def addSong(self, file):
         self.SongList.append(file)

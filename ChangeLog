@@ -1,3 +1,44 @@
+
+v0.5:
+
+	* Fixed a problem in pykar.py with synchronization of lyrics to
+	music on certain MIDI files (files in which the tempo changes
+	during the song).
+
+	* Reworked rendering engine in pykar.py to support wordwrap and
+	font scaling.
+
+	* Wrote pykaraoke_mini.py, with an in-window scrolling interface
+	for environments in which a full keyboard/mouse is not available.
+
+	* Added pykplayer.py and pykmanager.py to collect together common
+	bits of code between the various player types.
+
+	* Made command-line options available to all public entry points:
+	pycdg.py, pykar.py, pymgr.py, pykaraoke.py, and pykaraoke_mini.py.
+
+	* Replaced threading code with explicit calls to manager.Poll().
+
+	* Moved the CDG-processing code from pycdg.py into pycdgAux.py,
+	and also ported it down to C in _pycdgAux.c for further runtime
+	optimization.
+
+	* Pushed default framerate back to 30 fps.  Setting it lower than
+	that has limited benefit with the new codebase.
+
+	* Added --zoom to control the mode in which pycdg.py scales its
+	display to fit the window.
+
+	* Added command-line parameters to control audio properties.
+
+	* Added separate "titles" and "artists" columns to the song
+	database, making it possible to sort the returned songlist by any
+	of the three columns.  The file titles.txt can be defined in the
+	directory with all of your song files to define the title and/or
+	artist for each song.
+
+	* Ported to the GP2X.
+
 v0.4.3:
 	* pycdg.py: Fix "scratchy" audio on some systems.
 
@@ -77,4 +118,88 @@ v0.4.1:
 	* pycdg.py: Don't specify the display depth, pygame will use the
 	most appropriate.
 
+v0.4:
 
+	* Use optparse to support additional command-line options
+	(optparse is included in Python 2.3 and newer, on all standard
+	Python-supporting platforms); run "pycdg.py --help" to see a full
+	list of supported options.
+
+	* Permit user to specify window's starting X and Y positions
+
+	* Permit user to specify window's starting X and Y sizes
+
+	* Permit user to start the player in fullscreen mode
+
+	* Permit user to specify FPS on command line, defaults to 60
+
+	* Pass cdgPlayer.__init__() an "options" object now instead of a
+	filename; contains size_x, size_y, pos_x, pos_y, fullscreen,
+	cdgFileName
+
+	* cdgPlayer.run(): it's pedantic, but use self.Close() instead of
+	setting self.State manually
+
+	* Add key binding "q" to exit ([ESC] still works)
+
+	* Hide the mouse cursor (both in fullscreen and in windowed mode)
+
+	* Fix "Frames Per Second" so it's honored (previously it was
+	ignored because curr_pos wasn't always updated as often as needed)
+
+	* Change order of import statements so local versions of pygame,
+	Numeric can be picked up if present.
+
+	* Check for all mixed-case cases of matching audio files (mp3,
+	ogg)
+
+	* Misc. tab/spacing fixes in "constant" definitions
+
+v0.3.1:
+
+	* Added full-screen player mode (CDG and MPG)
+
+	* Supports the latest WxPython (v2.6)
+
+	* Improved CPU usage
+
+	* Displays ZIP filename together with the internal song filename
+
+v0.3:
+
+	* Added MIDI/KAR file support
+
+	* CDG player now uses psyco for faster playback on low-end
+	machines
+
+	* Better handling of corrupt CDG rips
+
+	* Minor changes to make it more OSX-friendly
+
+	* Added facility for cancelling song database builds in PyKaraoke
+	GUI
+
+v0.2.1:
+
+	* Fixed colour cycling in the CDG player
+
+	* Fixed transparent colours used in CDG files
+
+	* Searches are optimised to handle thousands of CDG files very
+	quickly
+
+	* Fixed inaccurate right-clicking in the playlist on some systems
+
+	* Fixed Windows drive icon
+
+	* Fixed tree root issue on some Linux systems
+
+	* Added more status messages to the status bars
+
+v0.2:
+
+	* PyKaraoke can now be used on Windows (98/XP/2000)
+
+	* Modified the playlist logic
+
+	* Changes to work with pygame-1.6.2

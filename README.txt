@@ -127,6 +127,44 @@ To install Timidity++ on Gentoo together with Eric Welsh's patches use:
 
 ---------------------------------------------------------------------------
 
+INSTALLATION (GP2X)
+
+PyKaraoke can run on the GP2X handheld console, giving you a Karaoke
+machine that fits in your pocket.  You may find it easiest simply to
+install the prebuilt binary version.  The prebuilt version already
+includes Python and the necessary supporting libraries (except SDL,
+which you should already have installed on your GP2X).  Simply unpack
+this archive onto your SD card; it will expand to a small hierarchy of
+files.  On of these directory names is pykaraoke/songs, which will be
+empty; you should put your song files in this pykaraoke/songs
+directory.  The first time you install, and each time you add new song
+files to this directory, you should run the "rescan_songs" script to
+rebuild the database with the new song files; but most of the time,
+you should start PyKaraoke simply by running the script named
+"pykaraoke".
+
+If, for some reason, you wish to build your own version for the GP2X,
+this is possible, but there will be a bit of work involved.  You will
+need to install the GP2X development kit, which includes a
+cross-compiler for the GP2X.  You should next use this cross-compiler
+to build and install SDL and PyGame, so that you have the appropriate
+source headers and matching binaries for these library.  Note it may
+be necessary for you to apply patches to SDL_mixer to support using
+tremor and libmad, which are alternative libraries used for playing
+OGG and MP3 files, respectively.  (The default OGG and MP3
+implementations used by SDL_mixer make heavy use of floating-point
+arithmetic, which does not perform well on the GP2X.)  You will also
+need to patch the timidity/config.h file to reduce the MIDI rendering
+demands on the CPU.  All of these patches are available for download
+elsewhere.
+
+Once all that is done, you need to use the cross compiler to build
+_pycdgAux.so.  A sample script called cross-build-gp2x.sh is provided
+to do this.  Then it is simply a matter of copying this file, along
+with all of the .py files, to the GP2X.
+
+---------------------------------------------------------------------------
+
 INSTRUCTIONS
 
 If you used the install script you can start the player using:
@@ -234,6 +272,19 @@ pykaraoke_mini --add_scan_dir=/my/other/song/directory
 pykaraoke_mini --scan
 
    Actually rescans all of the recorded directories into the database.
+
+---------------------------------------------------------------------------
+
+GP2X USAGE
+
+On the GP2X you will run PyKaraoke with the pykaraoke_mini interface
+(see above).  This interface presents your song files in a long list.
+While viewing this list, use the joystick up and down to navigate to a
+song, or hold it down to scroll very rapidly.  Use the left and right
+shoulder buttons to move a page at a time.  Press B or X to select a
+song, and Y to exit.  If you have supplied song titles and artist
+names with a titles.txt file (see below), you can change the sort
+order of the list with the A button.
 
 ---------------------------------------------------------------------------
 
@@ -352,130 +403,6 @@ release of pygame. Follow the instructions at http://pygame.org/cvs.html to obta
    folder containing pycdg.py and the rest of the PyKaraoke files.
 
 The CDG player should then work properly.
-
----------------------------------------------------------------------------
-
-CHANGELOG (v0.5)
-
-Changes in v0.5 (submitted by David Rose):
-
-* Fixed a problem in pykar.py with synchronization of lyrics to music
-  on certain MIDI files (files in which the tempo changes during the
-  song).
-* Reworked rendering engine in pykar.py to support wordwrap and font
-  scaling.
-* Wrote pykaraoke_mini.py, with an in-window scrolling interface for
-  environments in which a full keyboard/mouse is not available.
-* Added pykplayer.py and pykmanager.py to collect together common bits
-  of code between the various player types.
-* Made command-line options available to all public entry points:
-  pycdg.py, pykar.py, pymgr.py, pykaraoke.py, and pykaraoke_mini.py.
-* Replaced threading code with explicit calls to manager.Poll().
-* Moved the CDG-processing code from pycdg.py into pycdgAux.py, and
-  also ported it down to C in _pycdgAux.c for further runtime
-  optimization.
-* Pushed default framerate back to 30 fps.  Setting it lower than
-  that has limited benefit with the new codebase.
-* Added --zoom to control the mode in which pycdg.py scales its
-  display to fit the window.
-* Added command-line parameters to control audio properties.
-* Added separate "titles" and "artists" columns to the song database,
-  making it possible to sort the returned songlist by any of the three
-  columns.  The file titles.txt can be defined in the directory with
-  all of your song files to define the title and/or artist for each
-  song.
-* Ported to the GP2X.
-
-Changes in v0.4.2:
-
-* pycdg.py: Allow CDG filenames without extension (just a .) to allow for 
-  tab-completion.
-* pycdg.py: Fix border preset (don't clear full-screen).
-* pycdg.py: Add --nomusic option.
-* pycdg.py: pycdg: Fix option type 'str' in optparse
-* pycdg.py: pycdg: Fix FutureWarning on 0xFFFFFFFFs
-* pykaraoke.py: Add drag-and-drop support from search results and within
-  playlist.
-* pykaraoke.py: Add drag-and-drop from Folder View
-* pykaraoke.py: Reuse PyKaraoke without the GUI from Craig Rindy.
-* pykaraoke.py: Support non-ASCII characters in filenames from Craig Rindy.
-
-Changes in v0.4.1:
-
-* Add install script and /usr/bin links in install directory.
-* Get icons and fonts from current directory or /usr/share/pykaraoke.
-* Use /usr/bin/env for shebang.
-* pycdg.py: Fix typo in "CDG file may be corrupt" warning (wwf)
-* pycdg.py: Add -t/--title option to set the window title to 
-  something specific (useful for window managers that can remember
-  window settings like sticky, size, location, stacking, desktop,
-  etc., based on window title/name/class attributes, like 
-  Enlightenment does) (wwf)
-* pykaraoke.py: Add KAR inside ZIP fix from Andrei Gavrila.
-* pykaraoke.py: Add mid/mpg extension fix from Andrei Gavrila.
-* pycdg.py: Default to 10 frames per second.
-* pycdg.py: Fix scrolling variable names
-* pykaraoke.py: Fix wx 2.6 API change.
-* pycdg.py: Split the screen into 24 tiles for better screen 
-  update performance.
-* pycdg.py: Lower delay time when no packets are due.
-* pycdg.py: Don't update the screen if 1/4 second out of sync.
-* pycdg.py: Don't specify the display depth, pygame will use the
-  most appropriate.
-
-Changes in v0.4 (All modifications submitted by William Ferrell):
-
-* Use optparse to support additional command-line options (optparse is 
-  included in Python 2.3 and newer, on all standard Python-supporting 
-  platforms); run "pycdg.py --help" to see a full list of supported 
-  options.
-* Permit user to specify window's starting X and Y positions
-* Permit user to specify window's starting X and Y sizes
-* Permit user to start the player in fullscreen mode
-* Permit user to specify FPS on command line, defaults to 60
-* Pass cdgPlayer.__init__() an "options" object now instead of a filename;
-  contains size_x, size_y, pos_x, pos_y, fullscreen, cdgFileName
-* cdgPlayer.run(): it's pedantic, but use self.Close() instead of setting
-  self.State manually
-* Add key binding "q" to exit ([ESC] still works)
-* Hide the mouse cursor (both in fullscreen and in windowed mode)
-* Fix "Frames Per Second" so it's honored (previously it was ignored because
-  curr_pos wasn't always updated as often as needed)
-* Change order of import statements so local versions of pygame, Numeric can be
-  picked up if present.
-* Check for all mixed-case cases of matching audio files (mp3, ogg)
-* Misc. tab/spacing fixes in "constant" definitions
-
-Changes in v0.3.1:
-
-* Added full-screen player mode (CDG and MPG)
-* Supports the latest WxPython (v2.6)
-* Improved CPU usage
-* Displays ZIP filename together with the internal song filename
-
-Changes in v0.3:
-
- * Added MIDI/KAR file support
- * CDG player now uses psyco for faster playback on low-end machines 
- * Better handling of corrupt CDG rips
- * Minor changes to make it more OSX-friendly
- * Added facility for cancelling song database builds in PyKaraoke GUI
-
-Changes in v0.2.1:
-
- * Fixed colour cycling in the CDG player
- * Fixed transparent colours used in CDG files
- * Searches are optimised to handle thousands of CDG files very quickly
- * Fixed inaccurate right-clicking in the playlist on some systems
- * Fixed Windows drive icon
- * Fixed tree root issue on some Linux systems
- * Added more status messages to the status bars
-
-Changes in v0.2:
-
- * PyKaraoke can now be used on Windows (98/XP/2000)
- * Modified the playlist logic
- * Changes to work with pygame-1.6.2
 
 ---------------------------------------------------------------------------
 

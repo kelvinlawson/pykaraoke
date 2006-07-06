@@ -34,17 +34,7 @@
 #include <stdio.h>
 #include "structmember.h"
 #include "SDL.h"
-
-/* This struct is defined just so we can pull the SDL_Surface pointer
-   out of a pygame PySurfaceObject without having to include pygame.h.
-   It's a hack, we really should be including pygame.h, but that looks
-   like it requires more work in the setup.py than I want to do right
-   now. */
-typedef struct {
-  PyObject_HEAD
-  SDL_Surface* surf;
-} PySurfaceObjectHack;
-#define PySurface_AsSurface(x) (((PySurfaceObjectHack*)x)->surf)
+#include "pygame/pygame.h"
 
 /* CDG Command Code */
 #define CDG_COMMAND                 0x09
@@ -76,6 +66,13 @@ typedef struct {
 #define TILE_HEIGHT      (CDG_DISPLAY_HEIGHT / TILES_PER_COL)
 
 #define COLOUR_TABLE_SIZE           16
+
+/* In case we are building on a pre-2.4 version of Python. */
+#ifndef Py_RETURN_TRUE
+  #define Py_RETURN_TRUE return Py_INCREF(Py_True), Py_True
+  #define Py_RETURN_FALSE return Py_INCREF(Py_False), Py_False
+#endif
+
 
 /* This struct just represents a single 24-byte packet read from
    the CDG stream.  It's not used outside this module. */
@@ -121,7 +118,6 @@ static int __getNextPacket(CdgPacketReader *self, CdgPacket *packd);
 static void __cdgPacketProcess(CdgPacketReader *self, CdgPacket *packd);
 static void __cdgMemoryPreset(CdgPacketReader *self, CdgPacket *packd);
 static void __cdgBorderPreset(CdgPacketReader *self, CdgPacket *packd);
-static void __cdgPresetScreenCommon(CdgPacketReader *self);
 static void __cdgScrollPreset(CdgPacketReader *self, CdgPacket *packd);
 static void __cdgScrollCopy(CdgPacketReader *self, CdgPacket *packd);
 static void __cdgScrollCommon(CdgPacketReader *self, CdgPacket *packd, int copy);
@@ -464,74 +460,71 @@ __cdgPacketProcess(CdgPacketReader *self, CdgPacket *packd) {
 static void
 __cdgMemoryPreset(CdgPacketReader *self, CdgPacket *packd) {
   int colour;
+  int ri, ci;
+  Uint32 presetColour;
 
   colour = packd->data[0] & 0x0F;
   /* Ignore repeat because this is a reliable data stream */
   /* repeat = packd->data[1] & 0x0F; */
-
+  
+  /* Our new interpretation of CD+G Revealed is that memory preset
+     commands should also change the border */
   self->__cdgPresetColourIndex = colour;
-  if (self->__cdgBorderColourIndex == -1) {
-    self->__cdgBorderColourIndex = self->__cdgPresetColourIndex;
+  self->__cdgBorderColourIndex = self->__cdgPresetColourIndex;
+
+  /* Note that this may be done before any load colour table
+     commands by some CDGs. So the load colour table itself
+     actual recalculates the RGB values for all pixels when
+     the colour table changes. */
+
+  presetColour = self->__cdgColourTable[colour];
+
+  /* Set the preset colour for every pixel. Must be stored in 
+     the pixel colour table indeces array, as well as
+     the screen RGB surfarray. */
+
+  /* Also set the border and preset colour in our local surfarray.
+     This will be blitted next time there is a screen update. */
+
+  for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
+    for (ci = 0; ci < CDG_FULL_HEIGHT; ++ci) {
+      self->__cdgPixelColours[ri][ci] = colour;
+      self->__cdgSurfarray[ri][ci] = presetColour;
+    }
   }
-  __cdgPresetScreenCommon(self);
+
+  self->__updatedTiles = 0xFFFFFFFF;
 }
 
 /* Set the border colour */
 static void
 __cdgBorderPreset(CdgPacketReader *self, CdgPacket *packd) {
   int colour;
+  int ri, ci;
+  Uint32 borderColour;
 
   colour = packd->data[0] & 0x0F;
   self->__cdgBorderColourIndex = colour;
-  if (self->__cdgPresetColourIndex == -1) {
-    self->__cdgPresetColourIndex = self->__cdgBorderColourIndex;
-  }
-  __cdgPresetScreenCommon(self);
-}
 
-/* Common function for border and preset colours, to set the pixels */
-static void
-__cdgPresetScreenCommon(CdgPacketReader *self) {
-  /* Note that this may be done before any load colour table
-     commands by some CDGs. So the load colour table itself
-     actual recalculates the RGB values for all pixels when
-     the colour table changes. */
+  /* See __cdgMemoryPreset() for a description of what's going on.
+     In this case we are only clearing the border area. */
 
-  int ri, ci;
-  int borderColourIndex = self->__cdgBorderColourIndex;
-  Uint32 borderColour = self->__cdgColourTable[borderColourIndex];
-  int presetColourIndex = self->__cdgPresetColourIndex;
-  Uint32 presetColour = self->__cdgColourTable[presetColourIndex];
+  borderColour = self->__cdgColourTable[colour];
 
-  /* Set the border colour for every pixel. Must be stored in 
-     the pixel colour table indeces array, as well as
-     the screen RGB surfarray.
-     NOTE: The preset area starts at (6,12) and extends all
-     the way to the right and bottom edges. */
-
-  /* Also set the border and preset colour in our local surfarray.
-     This will be blitted next time there is a screen update. */
+  /* NOTE: The border area is everything left and above (6,12). */
 
   for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
     for (ci = 0; ci < 12; ++ci) {
-      self->__cdgPixelColours[ri][ci] = borderColourIndex;
+      self->__cdgPixelColours[ri][ci] = colour;
       self->__cdgSurfarray[ri][ci] = borderColour;
     }
   }
   for (ri = 0; ri < 6; ++ri) {
     for (ci = 12; ci < CDG_FULL_HEIGHT; ++ci) {
-      self->__cdgPixelColours[ri][ci] = borderColourIndex;
+      self->__cdgPixelColours[ri][ci] = colour;
       self->__cdgSurfarray[ri][ci] = borderColour;
     }
   }
-  for (ri = 6; ri < CDG_FULL_WIDTH; ++ri) {
-    for (ci = 12; ci < CDG_FULL_HEIGHT; ++ci) {
-      self->__cdgPixelColours[ri][ci] = presetColourIndex;
-      self->__cdgSurfarray[ri][ci] = presetColour;
-    }
-  }
-
-  self->__updatedTiles = 0xFFFFFFFF;
 }
 
 /* CDG Scroll Command - Set the scrolled in area with a fresh colour */

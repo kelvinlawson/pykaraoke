@@ -138,16 +138,13 @@ from pykenv import env
 from pykmanager import manager
 import pygame, sys, os, struct, string
 
-# Number of rows of text on the screen with a 1.0 font scale
-NUM_ROWS = 6
-
 # At what percentage of the screen height should we try to keep the
 # current singing cursor?  33% keeps it on the top third, 50% keeps it
 # centered.
 VIEW_PERCENT = 33
 
-# Inter-line gap with a 1.0 font scale, for a 480-pixel screen.
-LINE_GAP = 10
+# Default font size at 480 pixels.
+FONT_SIZE = 50
 
 # How much lead time before a new paragraph is scrolled up into view
 # (scrolling the old paragraph off), in milliseconds.  This only comes
@@ -944,9 +941,7 @@ class midPlayer(pykPlayer):
 
 
     def initFont(self):
-        lineGap = int(LINE_GAP * manager.GetFontScale() * manager.displaySize[1] / 480.)
-        fontSize = int(manager.GetFontScale() * (manager.displaySize[1] - Y_BORDER * 2) / NUM_ROWS) - lineGap
-
+        fontSize = int(FONT_SIZE * manager.GetFontScale() * manager.displaySize[1] / 480.)
         self.font = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSans.ttf"), fontSize)
         self.lineSize = max(self.font.get_height(), self.font.get_linesize())
         self.numRows = int((manager.displaySize[1] - Y_BORDER * 2) / self.lineSize)
