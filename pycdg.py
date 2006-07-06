@@ -229,22 +229,23 @@ class cdgPlayer(pykPlayer):
 
             # Get the list of all files with the same basename, but any
             # extension.
-            pattern = re.compile (re.escape(self.FileName[:-3]))
-            fileList = [filename for filename in os.listdir(".") if pattern.match(filename)] 
+            path, file = os.path.split ((self.FileName[:-3]))
+            pattern = re.compile (re.escape(file))
+            fileList = [filename for filename in os.listdir(path) if pattern.match(filename)] 
 
             # Convert them to lowercase for a case-insensitive search (but
             # keep the original case files around too).
             lowerFileList = map(lambda s: s.lower(), fileList)
             matched = 0
             for ext in validexts:
-                consider = (self.FileName[:-3] + ext).lower()
+                consider = (file + ext).lower()
                 try:
                     i = lowerFileList.index(consider)
                 except:
                     continue
 
                 # We found a match!
-                self.SoundFileName = fileList[i]
+                self.SoundFileName = os.path.join(path, fileList[i])
                 matched = 1
                 break
 
