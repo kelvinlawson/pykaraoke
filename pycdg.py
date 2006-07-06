@@ -181,7 +181,11 @@ from pykenv import env
 from pykmanager import manager
 import sys, pygame, os, string, math, re
 
-import _pycdgAux as aux
+# Import the optimised C version if available, or fall back to Python
+try:
+    import _pycdgAux as aux
+except:
+    import pycdgAux as aux
 
 CDG_DISPLAY_WIDTH   = 294
 CDG_DISPLAY_HEIGHT  = 204
