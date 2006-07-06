@@ -179,7 +179,7 @@ from pykconstants import *
 from pykplayer import pykPlayer
 from pykenv import env
 from pykmanager import manager
-import sys, pygame, os, glob, string, math
+import sys, pygame, os, string, math, re
 
 import _pycdgAux as aux
 
@@ -229,8 +229,8 @@ class cdgPlayer(pykPlayer):
 
             # Get the list of all files with the same basename, but any
             # extension.
-            pattern = self.FileName[:-3] + '*'
-            fileList = glob.glob(pattern)
+            pattern = re.compile (re.escape(self.FileName[:-3]))
+            fileList = [filename for filename in os.listdir(".") if pattern.match(filename)] 
 
             # Convert them to lowercase for a case-insensitive search (but
             # keep the original case files around too).
