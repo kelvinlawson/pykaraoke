@@ -53,11 +53,26 @@
 /* Bitmask for all CDG fields */
 #define CDG_MASK                    0x3F
 
+/* This is the size of the display as defined by the CDG specification.
+   The pixels in this region can be painted, and scrolling operations
+   rotate through this number of pixels. */
+#define CDG_SCROLL_WIDTH            300
+#define CDG_SCROLL_HEIGHT           216
+
+/* This is the size of the array that we operate on.  We add an
+   additional border on the right and bottom edge of 6 and 12 pixels,
+   respectively, to allow for display shifting.  (It's not clear from
+   the spec which colour should be visible when the display is shifted
+   to the right or down.  We say it should be the border colour.) */
+#define CDG_FULL_WIDTH              306
+#define CDG_FULL_HEIGHT             228
+
+/* This is the size of the screen that is actually intended to be
+   visible.  It is the center area of CDG_FULL.  In addition to hiding
+   our additional border on the right and bottom, there is an official
+   border area on the top and left that is not meant to be visible. */
 #define CDG_DISPLAY_WIDTH           294
 #define CDG_DISPLAY_HEIGHT          204
-
-#define CDG_FULL_WIDTH              300
-#define CDG_FULL_HEIGHT             216
 
 
 #define TILES_PER_ROW    6
@@ -89,7 +104,9 @@ typedef struct {
 typedef struct {
   PyObject_HEAD
   
-  FILE *__cdgFile;
+  char *__cdgData;
+  int __cdgDataLen;
+  int __cdgDataPos;
   
   /* This is just for the purpose of mapping colors. */
   SDL_Surface *__mapperSurface;
@@ -99,6 +116,15 @@ typedef struct {
   int __cdgBorderColourIndex;
   int __cdgTransparentColour;
 
+  /* These values are used to implement screen shifting.  The CDG
+     specification allows the entire screen to be shifted, up to
+     5 pixels right and 11 pixels down.  This shift is persistent
+     until it is reset to a different value.  In practice, this
+     is used in conjunction with scrolling (which always jumps in
+     integer blocks of 6x12 pixels) to perform
+     one-pixel-at-a-time scrolls. */
+  int __hOffset, __vOffset;
+  
   /* This is an array of the pixel indices, including border area. */
   unsigned char __cdgPixelColours[CDG_FULL_WIDTH][CDG_FULL_HEIGHT];
 
@@ -128,9 +154,9 @@ static void __cdgTileBlockCommon(CdgPacketReader *self, CdgPacket *packd, int xo
 /* The Python destructor for the CdgPacketReader class. */
 static void
 CdgPacketReader_dealloc(CdgPacketReader *self) {
-  if (self->__cdgFile != NULL) {
-    fclose(self->__cdgFile);
-    self->__cdgFile = NULL;
+  if (self->__cdgData != NULL) {
+    free(self->__cdgData);
+    self->__cdgData = NULL;
   }
   self->ob_type->tp_free((PyObject *)self);
 }
@@ -143,7 +169,7 @@ CdgPacketReader_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
 
   self = (CdgPacketReader *)type->tp_alloc(type, 0);
   if (self != NULL) {
-    self->__cdgFile = NULL;
+    self->__cdgData = NULL;
     self->__mapperSurface = NULL;
   }
 
@@ -157,23 +183,22 @@ CdgPacketReader_init(CdgPacketReader *self, PyObject *args, PyObject *kwds) {
   /* Boilerplate code to extract the Python arguments passed in. */
 
   static char *keyword_list[] = { "fileName", "mapperSurface", NULL };
-  char *fileName;
+  char *data;
+  int len;
   PyObject *mapperSurface;
   if (!PyArg_ParseTupleAndKeywords(args, kwds, 
-                                   "sO:CdgPacketReader.__init__", 
-                                   keyword_list, &fileName, 
+                                   "s#O:CdgPacketReader.__init__", 
+                                   keyword_list, &data, &len,
                                    &mapperSurface)) {
     return -1;
   }
 
   /* The actual function body begins here. */
 
-  assert(self->__cdgFile == NULL);
-  self->__cdgFile = fopen(fileName, "rb");
-  if (self->__cdgFile == NULL) {
-    PyErr_SetString(PyExc_AssertionError, "Couldn't open file");
-    return -1;
-  }
+  assert(self->__cdgData == NULL);
+  self->__cdgData = (char *)malloc(len);
+  memcpy(self->__cdgData, data, len);
+  self->__cdgDataLen = len;
   self->__mapperSurface = PySurface_AsSurface(mapperSurface);
 
   do_rewind(self);
@@ -195,8 +220,7 @@ static void
 do_rewind(CdgPacketReader *self) {
   int defaultColour;
 
-  assert(self->__cdgFile != NULL);
-  fseek(self->__cdgFile, 0, SEEK_SET);
+  self->__cdgDataPos = 0;
 
   defaultColour = 0;
   memset(self->__cdgColourTable, defaultColour, sizeof(int) * COLOUR_TABLE_SIZE);
@@ -335,10 +359,10 @@ CdgPacketReader_FillTile(CdgPacketReader *self, PyObject *args, PyObject *kwds) 
   /* The actual function body begins here. */
 
   /* Calculate the row & column starts/ends */
-  row_start = 6 + (row * TILE_WIDTH);
-  row_end = 6 + ((row + 1) * TILE_WIDTH);
-  col_start = 12 + (col * TILE_HEIGHT);
-  col_end = 12 + ((col + 1) * TILE_HEIGHT);
+  row_start = 6 + self->__hOffset + (row * TILE_WIDTH);
+  row_end = 6 + self->__hOffset + ((row + 1) * TILE_WIDTH);
+  col_start = 12 + self->__vOffset + (col * TILE_HEIGHT);
+  col_end = 12 + self->__vOffset + ((col + 1) * TILE_HEIGHT);
 
   SDL_LockSurface(surface);
   start = (Uint8 *)surface->pixels;
@@ -392,15 +416,15 @@ CdgPacketReader_FillTile(CdgPacketReader *self, PyObject *args, PyObject *kwds) 
 /* Read the next CDG command from the file (24 bytes each) */
 static int
 __getNextPacket(CdgPacketReader *self, CdgPacket *packd) {
-  size_t objsRead;
 
-  assert(self->__cdgFile != NULL);
-
-  objsRead = fread(packd, sizeof(*packd), 1, self->__cdgFile);
-  if (objsRead != 1) {
+  assert(self->__cdgData != NULL);
+  if (self->__cdgDataLen - self->__cdgDataPos < 24) {
     /* End of file. */
     return 0;
   }
+
+  memcpy(packd, self->__cdgData + self->__cdgDataPos, 24);
+  self->__cdgDataPos += 24;
 
   return 1;
 }
@@ -511,16 +535,25 @@ __cdgBorderPreset(CdgPacketReader *self, CdgPacket *packd) {
 
   borderColour = self->__cdgColourTable[colour];
 
-  /* NOTE: The border area is everything left and above (6,12). */
+  /* NOTE: The border area is everything left and above (6,12), and
+     everything right and below the bottom (6,12). */
 
   for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
     for (ci = 0; ci < 12; ++ci) {
       self->__cdgPixelColours[ri][ci] = colour;
       self->__cdgSurfarray[ri][ci] = borderColour;
     }
+    for (ci = CDG_FULL_HEIGHT - 12; ci < CDG_FULL_HEIGHT; ++ci) {
+      self->__cdgPixelColours[ri][ci] = colour;
+      self->__cdgSurfarray[ri][ci] = borderColour;
+    }
   }
-  for (ri = 0; ri < 6; ++ri) {
-    for (ci = 12; ci < CDG_FULL_HEIGHT; ++ci) {
+  for (ci = 12; ci < CDG_FULL_HEIGHT - 12; ++ci) {
+    for (ri = 0; ri < 6; ++ri) {
+      self->__cdgPixelColours[ri][ci] = colour;
+      self->__cdgSurfarray[ri][ci] = borderColour;
+    }
+    for (ri = CDG_FULL_WIDTH - 6; ri < CDG_FULL_WIDTH; ++ri) {
       self->__cdgPixelColours[ri][ci] = colour;
       self->__cdgSurfarray[ri][ci] = borderColour;
     }
@@ -546,7 +579,7 @@ __cdgScrollCommon(CdgPacketReader *self, CdgPacket *packd, int copy) {
   int vScrollPixels, hScrollPixels;
   int vInc, hInc;
   int ri, ci;
-  unsigned char temp[CDG_FULL_WIDTH][CDG_FULL_HEIGHT];
+  unsigned char temp[CDG_SCROLL_WIDTH][CDG_SCROLL_HEIGHT];
 
   /* Decode the scroll command parameters */
   colour = packd->data[0] & 0x0F;
@@ -559,42 +592,49 @@ __cdgScrollCommon(CdgPacketReader *self, CdgPacket *packd, int copy) {
 
   /* Scroll Vertical - Calculate number of pixels */
   vScrollPixels = 0;
-  if (vSCmd == 2 && vOffset == 0) {
+  if (vSCmd == 2) {
     vScrollPixels = -12;
-  } else if (vSCmd == 2) {
-    vScrollPixels = -vOffset;
-  } else if (vSCmd == 1 && vOffset == 0) {
-    vScrollPixels = 12;
   } else if (vSCmd == 1) {
-    vScrollPixels = vOffset;
+    vScrollPixels = 12;
   }
 
   /* Scroll Horizontal- Calculate number of pixels */
   hScrollPixels = 0;
-  if (hSCmd == 2 && hOffset == 0) {
-    hScrollPixels = 6;
-  } else if (hSCmd == 2) {
-    hScrollPixels = hOffset;
-  } else if (hSCmd == 1 && hOffset == 0) {
+  if (hSCmd == 2) {
     hScrollPixels = -6;
   } else if (hSCmd == 1) {
-    hScrollPixels = -hOffset;
+    hScrollPixels = 6;
+  }
+
+  if (hOffset != self->__hOffset || vOffset != self->__vOffset) {
+    /* Changing the screen shift. */
+    self->__hOffset = hOffset < 5 ? hOffset : 5;
+    self->__vOffset = vOffset < 11 ? vOffset : 11;
+    self->__updatedTiles = 0xFFFFFFFFL;
+  }
+
+  if (hScrollPixels == 0 && vScrollPixels == 0) {
+    /* Never mind. */
+    return;
   }
 
   /* Perform the actual scroll. */
 
-  /* NOTE: Only Vertical Scroll with Copy has been tested as no CDGs
-     were available with horizontal scrolling or Scroll Preset. */
-
   /* For the circular add, we add hScrollPixels and then modulo
-     CDG_FULL_WIDTH.  We also add CDG_FULL_WIDTH before the modulo to
+     CDG_SCROLL_WIDTH.  We also add CDG_SCROLL_WIDTH before the modulo to
      avoid a negative increment (which doesn't work properly with the
      C modulo operator).  A similar story in the vertical direction. */
-  hInc = hScrollPixels + CDG_FULL_WIDTH;
-  vInc = vScrollPixels + CDG_FULL_HEIGHT;
-  for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
-    for (ci = 0; ci < CDG_FULL_HEIGHT; ++ci) {
-      temp[(ri + hInc) % CDG_FULL_WIDTH][(ci + vInc) % CDG_FULL_HEIGHT] = 
+
+  /* Note that the scroll does not involve the right and bottom
+     border edges, which are not part of the CDG
+     specification--we put them there just so there will always
+     be pixels of the border colour to draw from when the screen
+     is shifted in that direction. */
+  hInc = hScrollPixels + CDG_SCROLL_WIDTH;
+  vInc = vScrollPixels + CDG_SCROLL_HEIGHT;
+  for (ri = 0; ri < CDG_SCROLL_WIDTH; ++ri) {
+    for (ci = 0; ci < CDG_SCROLL_HEIGHT; ++ci) {
+      temp[(ri + hInc) % CDG_SCROLL_WIDTH][(ci + vInc) % CDG_SCROLL_HEIGHT] = 
         self->__cdgPixelColours[ri][ci];
     }
   }
@@ -605,40 +645,38 @@ __cdgScrollCommon(CdgPacketReader *self, CdgPacket *packd, int copy) {
      colour.  Go back and do that now. */
   if (!copy) {
     if (vScrollPixels > 0) {
-      for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
+      for (ri = 0; ri < CDG_SCROLL_WIDTH; ++ri) {
         for (ci = 0; ci < vScrollPixels; ++ci) {
           temp[ri][ci] = colour;
         }
       }
     } else if (vScrollPixels < 0) {
-      for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
-        for (ci = CDG_FULL_HEIGHT + vScrollPixels; ci < CDG_FULL_HEIGHT; ++ci) {
+      for (ri = 0; ri < CDG_SCROLL_WIDTH; ++ri) {
+        for (ci = CDG_SCROLL_HEIGHT + vScrollPixels; ci < CDG_SCROLL_HEIGHT; ++ci) {
           temp[ri][ci] = colour;
         }
       }
     }
     if (hScrollPixels > 0) {
       for (ri = 0; ri < hScrollPixels; ++ri) {
-        for (ci = 0; ci < CDG_FULL_HEIGHT; ++ci) {
+        for (ci = 0; ci < CDG_SCROLL_HEIGHT; ++ci) {
           temp[ri][ci] = colour;
         }
       }
     } else if (hScrollPixels < 0) {
-      for (ri = CDG_FULL_WIDTH + hScrollPixels; ri < CDG_FULL_WIDTH; ++ri) {
-        for (ci = 0; ci < CDG_FULL_HEIGHT; ++ci) {
+      for (ri = CDG_SCROLL_WIDTH + hScrollPixels; ri < CDG_SCROLL_WIDTH; ++ri) {
+        for (ci = 0; ci < CDG_SCROLL_HEIGHT; ++ci) {
           temp[ri][ci] = colour;
         }
       }
     }
   }
 
-  /* Now copy the temporary buffer back to our array. */
-  memcpy(self->__cdgPixelColours, temp, CDG_FULL_WIDTH * CDG_FULL_HEIGHT);
-
-  /* We have now scrolled cdgPixelColours array.  Now apply that to
-     cdgSurfarray by reapplying the colour indices. */
-  for (ri = 6; ri < CDG_FULL_WIDTH; ++ri) {
-    for (ci = 12; ci < CDG_FULL_HEIGHT; ++ci) {
+  /* Now copy the temporary buffer back to our array, and also apply
+     that to cdgSurfarray by reapplying the colour indices. */
+  for (ri = 0; ri < CDG_SCROLL_WIDTH; ++ri) {
+    for (ci = 0; ci < CDG_SCROLL_HEIGHT; ++ci) {
+      self->__cdgPixelColours[ri][ci] = temp[ri][ci];
       self->__cdgSurfarray[ri][ci] = self->__cdgColourTable[temp[ri][ci]];
     }
   }
@@ -702,6 +740,7 @@ static void
 __cdgTileBlockCommon(CdgPacketReader *self, CdgPacket *packd, int xor) {
   int colour0, colour1;
   int column_index, row_index;
+  int firstRow, lastRow, firstCol, lastCol;
   int col, row;
   int i, j, byte, pixel, xor_col, currentColourIndex, new_col;
 
@@ -710,14 +749,17 @@ __cdgTileBlockCommon(CdgPacketReader *self, CdgPacket *packd, int xor) {
   column_index = ((packd->data[2] & 0x1f) * 12);
   row_index = ((packd->data[3] & 0x3f) * 6);
 
-  for (col = 0; col < TILES_PER_COL; ++col) {
-    for (row = 0; row < TILES_PER_ROW; ++row) {
-      if ((row_index >= (TILE_WIDTH * row))                    
-          && (row_index <= 6 + (TILE_WIDTH * (row + 1)))      
-          && (column_index >= (TILE_HEIGHT * col))                    
-          && (column_index <= 12 + (TILE_HEIGHT * (col + 1)))) {
-        self->__updatedTiles |= ((1 << row) << (col * 8));
-      }
+  firstRow = (row_index - 6 - self->__hOffset) / TILE_WIDTH;
+  firstRow = (firstRow >= 0) ? firstRow : 0;
+  lastRow = (row_index - 1 - self->__hOffset) / TILE_WIDTH;
+
+  firstCol = (column_index - 12 - self->__vOffset) / TILE_HEIGHT;
+  firstCol = (firstCol >= 0) ? firstCol : 0;
+  lastCol = (column_index - 1 - self->__vOffset) / TILE_HEIGHT;
+
+  for (col = firstCol; col <= lastCol; ++col) {
+    for (row = firstRow; row <= lastRow; ++row) {
+      self->__updatedTiles |= ((1 << row) << (col * 8));
     }
   }
 

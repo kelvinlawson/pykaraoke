@@ -146,7 +146,7 @@ class pykManager:
         self.player.State = STATE_NOT_PLAYING
 
         if self.display != None and self.displayTitle == None:
-            pygame.display.set_caption(player.FileName)
+            pygame.display.set_caption(player.WindowTitle)
 
 
     def OpenDisplay(self, displaySize = None, flags = None, depth = None):
@@ -170,7 +170,7 @@ class pykManager:
         if self.displayTitle != None:
             pygame.display.set_caption(self.displayTitle)
         elif self.player != None:
-            pygame.display.set_caption(self.player.FileName)
+            pygame.display.set_caption(self.player.WindowTitle)
         
         self.displayTime = pygame.time.get_ticks()
 

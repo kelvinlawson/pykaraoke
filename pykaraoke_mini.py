@@ -79,7 +79,6 @@ from pykmanager import manager
 from pykplayer import pykPlayer
 import pykversion
 import pykdb
-import pykar, pycdg, pympg
 import pygame, sys, os, math, bisect
 
 # We inherit from pykPlayer here, not because we need to play a song
@@ -87,7 +86,8 @@ import pygame, sys, os, math, bisect
 # get resize callbacks, etc.
 class App(pykPlayer):
     def __init__(self):
-        pykPlayer.__init__(self, "PyKaraoke", self.errorPopupCallback, self.songFinishedCallback)
+        pykPlayer.__init__(self, '', self.errorPopupCallback, self.songFinishedCallback,
+                           windowTitle = "PyKaraoke")
         self.SupportsFontZoom = True
 
     def SetupOptions(self):
@@ -218,7 +218,7 @@ class App(pykPlayer):
         self.setupScrollWindow()
 
         self.screenDirty = True
-        self.SongDB = pykdb.SongDB()
+        self.SongDB = pykdb.globalSongDB
         self.SongDB.LoadSettings(self.errorPopupCallback)
 
         needsSave = False
@@ -323,29 +323,10 @@ class App(pykPlayer):
         # This will call the songFinishedCallback, so call it early.
         self.shutdown()
 
-        filePath = file.GetFilePath(self.SongDB)
-        root, ext = os.path.splitext(filePath)
-        
-        constructor = None
-        
-        if ext.lower() == ".cdg":
-            constructor = player = pycdg.cdgPlayer
-        elif (ext.lower() == ".kar") or (ext.lower() == ".mid"):
-            constructor = player = pykar.midPlayer
-        elif (ext.lower() == ".mpg") or (ext.lower() == ".mpeg"):
-            constructor = player = pympg.mpgPlayer
-        # TODO basic mp3/ogg player
-        else:
-            self.errorPopupCallback("Unsupported file format " + ext)
+        player = file.MakePlayer(self.errorPopupCallback, self.songFinishedCallback)
+        if player == None:
             return
-
-        # Try to open the song file.
-        try:
-            player = constructor(filePath, self.errorPopupCallback, self.songFinishedCallback)
-        except:
-            self.errorPopupCallback("Error opening file.\n%s\n%s" % (sys.exc_info()[0], sys.exc_info()[1]))
-            return
-
+        
         # Start playing.
         try:
             player.Play()
@@ -360,6 +341,8 @@ class App(pykPlayer):
             self.errorPopupCallback("Error while playing song.\n%s\n%s" % (sys.exc_info()[0], sys.exc_info()[1]))
             return
 
+        # The song is over.  Now recover control and redisplay the
+        # song list.
         manager.InitPlayer(self)
         manager.OpenDisplay()
 
@@ -548,6 +531,7 @@ class App(pykPlayer):
             row += self.thinHeight
 
         pygame.display.flip()
+        self.screenDirty = True
 
         # Now wait a certain amount of time--say 5 seconds.
         waitUntil = pygame.time.get_ticks() + 5000

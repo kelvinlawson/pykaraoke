@@ -179,19 +179,17 @@ from pykconstants import *
 from pykplayer import pykPlayer
 from pykenv import env
 from pykmanager import manager
-import sys, pygame, os, string, math, re
+import sys, pygame, os, string, math
 
 # Import the optimised C version if available, or fall back to Python
 try:
     import _pycdgAux as aux
 except:
     import pycdgAux as aux
+    print "Using Python implementation of CDG interpreter."
 
 CDG_DISPLAY_WIDTH   = 294
 CDG_DISPLAY_HEIGHT  = 204
-
-CDG_FULL_WIDTH      = 300
-CDG_FULL_HEIGHT     = 216
 
 # Screen tile positions
 # The viewable area of the screen (294x204) is divided into 24 tiles
@@ -208,55 +206,37 @@ TILE_HEIGHT             = CDG_DISPLAY_HEIGHT / TILES_PER_COL
 # cdgPlayer Class
 class cdgPlayer(pykPlayer):
     # Initialise the player instace
-    def __init__(self, fileName, errorNotifyCallback=None, doneCallback=None):
-        pykPlayer.__init__(self, fileName, errorNotifyCallback, doneCallback)
-                
-        # Allow for calls through tab-completion, where we will
-        # get just a '.' and not the '.cdg' extension
-        if self.FileName[len(self.FileName)-1] == '.':
-            self.FileName = self.FileName + 'cdg'
-                    
-        # Check the CDG file exists
-        if not os.path.isfile(self.FileName):
-            ErrorString = "No such file: " + self.FileName
-            self.ErrorNotifyCallback (ErrorString)
-            raise 'NoSuchFile'
+    def __init__(self, song, errorNotifyCallback=None, doneCallback=None):
+        """The first parameter, song, may be either a pykdb.SongStruct
+        instance, or it may be a filename. """
+
+        pykPlayer.__init__(self, song, errorNotifyCallback, doneCallback)
 
         # With the nomusic option no music will be played.
-        self.SoundFileName = None
-        if manager.options.nomusic == False:
-            # Check there is a matching mp3 or ogg file.  Check extensions
+        soundFileData = None
+        if not manager.options.nomusic:
+            # Check for a matching mp3 or ogg file.  Check extensions
             # in the following order.
             validexts = [
-                'wav', 'ogg', 'mp3'
+                '.wav', '.ogg', '.mp3'
             ]
 
-            # Get the list of all files with the same basename, but any
-            # extension.
-            path, file = os.path.split ((self.FileName[:-3]))
-            pattern = re.compile (re.escape(file))
-            fileList = [filename for filename in os.listdir(path) if pattern.match(filename)] 
-
-            # Convert them to lowercase for a case-insensitive search (but
-            # keep the original case files around too).
-            lowerFileList = map(lambda s: s.lower(), fileList)
-            matched = 0
             for ext in validexts:
-                consider = (file + ext).lower()
-                try:
-                    i = lowerFileList.index(consider)
-                except:
-                    continue
+                for data in self.SongDatas:
+                    if data.Ext == ext:
+                        # Found a match!
+                        soundFileData = data
+                        break
+                if soundFileData:
+                    break
 
-                # We found a match!
-                self.SoundFileName = os.path.join(path, fileList[i])
-                matched = 1
-                break
-
-            if not matched:
-                ErrorString = "There is no mp3 or ogg file to match " + self.FileName
+            if not soundFileData:
+                ErrorString = "There is no mp3 or ogg file to match " + self.Song.DisplayFilename
                 self.ErrorNotifyCallback (ErrorString)
                 raise 'NoSoundFile'
+
+        self.cdgFileData = self.SongDatas[0]
+        self.soundFileData = soundFileData
 
         # Handle a bug in pygame (pre-1.7) which means that the position
         # timer carries on even when the song has been paused.
@@ -282,13 +262,16 @@ class cdgPlayer(pykPlayer):
         self.computeDisplaySize()
 
         # Open the cdg and sound files
-        self.packetReader = aux.CdgPacketReader(self.FileName, self.workingTile)
+        self.packetReader = aux.CdgPacketReader(self.cdgFileData.GetData(), self.workingTile)
         
-        if manager.options.nomusic == False:
-            audioProperties = self.getAudioProperties(self.SoundFileName)
-            manager.OpenAudio(suggestedProperties = (audioProperties))
-
-            pygame.mixer.music.load(self.SoundFileName)
+        if self.soundFileData:
+            audioProperties = self.getAudioProperties(self.soundFileData)
+            try:
+                manager.OpenAudio(suggestedProperties = (audioProperties))
+                pygame.mixer.music.load(self.soundFileData.GetFilepath())
+            except:
+                self.Close()
+                raise
 
             # Set an event for when the music finishes playing
             pygame.mixer.music.set_endevent(pygame.USEREVENT)
@@ -313,21 +296,21 @@ class cdgPlayer(pykPlayer):
         self.ms_per_update = (1000.0 / manager.options.fps)        
 
     def doPlay(self):
-        if manager.options.nomusic == False:
+        if self.soundFileData:
             pygame.mixer.music.play()
         else:
             self.PlayStartTime = pygame.time.get_ticks()
 
     # Pause the song - Use Pause() again to unpause
     def doPause(self):
-        if manager.options.nomusic == False:
+        if self.soundFileData:
             pygame.mixer.music.pause()
             self.PauseStartTime = self.GetPos()
         else:
             self.PlayTime = pygame.time.get_ticks() - self.PlayStartTime
 
     def doUnpause(self):
-        if manager.options.nomusic == False:
+        if self.soundFileData:
             self.pauseOffsetTime = self.pauseOffsetTime + (self.GetPos() - self.PauseStartTime)
             pygame.mixer.music.unpause()
         else:
@@ -346,7 +329,7 @@ class cdgPlayer(pykPlayer):
         # Move file pointer to the beginning of the file
         self.packetReader.Rewind()
 
-        if manager.options.nomusic == False:
+        if self.soundFileData:
             # Actually stop the audio
             pygame.mixer.music.rewind()
             pygame.mixer.music.stop()
@@ -354,7 +337,7 @@ class cdgPlayer(pykPlayer):
     # Get the current time (in milliseconds). Blocks if pygame is
     # not initialised yet.
     def GetPos(self):
-        if manager.options.nomusic == False:
+        if self.soundFileData:
             return pygame.mixer.music.get_pos()
         else:
             if self.State == STATE_PLAYING:
@@ -449,7 +432,7 @@ class cdgPlayer(pykPlayer):
             self.displayTileWidth = CDG_DISPLAY_WIDTH / TILES_PER_ROW
             self.displayTileHeight = CDG_DISPLAY_HEIGHT / TILES_PER_COL
 
-    def getAudioProperties(self, filename):
+    def getAudioProperties(self, soundFileData):
         """ Attempts to determine the samplerate, etc., from the
         specified filename.  It would be nice to know this so we can
         configure the audio hardware to the same properties, to
@@ -460,12 +443,9 @@ class cdgPlayer(pykPlayer):
         # information, so we have to open the soundfile separately and
         # try to figure it out ourselves.
 
-        basename, ext = os.path.splitext(filename)
-        ext = ext.lower()
-
         audioProperties = None
-        if ext == '.mp3':
-            audioProperties = self.getMp3AudioProperties(filename)
+        if soundFileData.Ext == '.mp3':
+            audioProperties = self.getMp3AudioProperties(soundFileData)
 
         if audioProperties == None:
             # We don't know how to determine the audio properties from
@@ -475,16 +455,18 @@ class cdgPlayer(pykPlayer):
 
         return audioProperties
 
-    def getMp3AudioProperties(self, filename):
+    def getMp3AudioProperties(self, soundFileData):
         """ Attempts to determine the samplerate, etc., from the
         specified filename, which is known to be an mp3 file. """
 
         # Hopefully, we have MP3Info.py available.
         try:
             import MP3Info
-            m = MP3Info.MPEG(open(filename, 'rb'))
         except:
             return None
+
+        import cStringIO
+        m = MP3Info.MPEG(cStringIO.StringIO(soundFileData.GetData()))
 
         channels = 1
         if 'stereo' in m.mode:

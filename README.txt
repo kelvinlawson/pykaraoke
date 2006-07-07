@@ -404,6 +404,45 @@ release of pygame. Follow the instructions at http://pygame.org/cvs.html to obta
 
 The CDG player should then work properly.
 
+
+GP2X ISSUES
+
+When you store your Karaoke files within a zip archive, PyKaraoke has
+to unpack them to a temporary file in order to play them.  This all
+happens transparently; normally, PyKaraoke will unpack them within the
+/tmp directory.
+
+However, on the GP2X the /tmp directory is mounted as a 5MB Ramdisk.
+This is good, because it's very fast; but it means you can't unpack a
+file larger than about 5MB.  Many mp3 and ogg files are smaller than
+5MB, but depending on the bitrate you used to encode them, you may
+also have some that are larger than this.  This means you cannot play
+these large song files on your GP2X if they are stored within a zip
+file.
+
+There are several possible workarounds to this.
+
+(1) Reconfigure your GP2X to make the size of the /tmp directory
+    larger.  We don't recommend doing this.
+
+(2) Reencode all of your mp3 or ogg files so that they are smaller
+    than 5MB.  This is certainly a fine option; you will lose a bit of
+    quality, but probably not much.
+
+(3) Uncomment the indicated lines in pykaraoke.gpe to configure
+    PyKaraoke to store temporary files on the SD card instead.  This,
+    however, will be much slower; and it does require that you keep a
+    certain amount of space available on your SD card.
+
+(4) Don't store your mp3 and ogg files in a zip file.  Just store the
+    cdg files there, if you want to use zip files at all, but leave
+    the mp3 files in the directory, next to the zip file--PyKaraoke
+    can still find them there.  You won't get any compression benefit
+    from storing the mp3 or ogg files in a zip file, anyway.  If you
+    are using zip files for organization, use a subdirectory instead.
+
+We recommend approach (4).
+
 ---------------------------------------------------------------------------
 
 TEST SYSTEMS

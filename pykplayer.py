@@ -25,12 +25,14 @@ from pykmanager import manager
 from pykenv import env
 import pygame
 import sys
+import types
+import os
 
 class pykPlayer:
-    def __init__(self, fileName, errorNotifyCallback, doneCallback):
-
-        # Store the parameter
-        self.FileName = fileName
+    def __init__(self, song, errorNotifyCallback, doneCallback,
+                 windowTitle = None):
+        """The first parameter, song, may be either a pykdb.SongStruct
+        instance, or it may be a filename. """
 
         # Set the global command-line options if they have not already
         # been set.
@@ -38,12 +40,26 @@ class pykPlayer:
             parser = self.SetupOptions()
             (manager.options, args) = parser.parse_args()
 
-            if fileName == None:
+            if song is None:
                 if (len(args) != 1):
                     parser.print_help()
                     sys.exit(2)
-                self.FileName = args[0]
+                song = args[0]
 
+        if isinstance(song, types.StringTypes):
+            # We were given a filename.  Convert it to a SongStruct.
+            import pykdb
+            song = pykdb.SongStruct(song)
+        
+        # Store the parameters
+        self.Song = song
+        self.WindowTitle = windowTitle
+
+        # And look up the actual files corresponding to this SongStruct.
+        self.SongDatas = song.GetSongDatas()
+        if windowTitle is None:
+            self.WindowTitle = song.DisplayFilename
+            
         # Caller can register a callback by which we
         # print out error information, use stdout if none registered
         if errorNotifyCallback:

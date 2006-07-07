@@ -9,7 +9,17 @@ export PYTHONHOME
 LD_LIBRARY_PATH=${PYTHONHOME}/extras:${LD_LIBRARY_PATH}
 export LD_LIBRARY_PATH
 
-${PYTHONHOME}/python pykaraoke_mini.py > pykaraoke.log 2>&1
+# Uncomment the following two lines to write temporary files to the SD
+# card, instead of to /tmp.  This will be slower, but will allow you
+# to player larger files stored in .zip files (unless your SD card is
+# nearly full).
+
+#PYKARAOKE_TEMP_DIR=.pykaraoke
+#export PYKARAOKE_TEMP_DIR
+
+rm -f pykaraoke.log
+
+${PYTHONHOME}/python pykaraoke_mini.py >> pykaraoke.log 2>&1
 echo Exit with status $? >> pykaraoke.log
 
 sync

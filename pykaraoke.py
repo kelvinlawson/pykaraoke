@@ -1264,7 +1264,7 @@ class PyKaraokeEvent(wx.PyEvent):
 # Main manager class, starts the window and handles the playlist and players
 class PyKaraokeManager:
     def __init__(self, gui=True):
-        self.SongDB = pykdb.SongDB()
+        self.SongDB = pykdb.globalSongDB
         self.gui = True
         
         # Set the global command-line options.
@@ -1277,7 +1277,12 @@ class PyKaraokeManager:
                 # line, don't start up a gui.
                 self.gui = False
                 for a in args:
-                    self.SongDB.AddFile(a)
+                    if os.path.exists(a):
+                        self.SongDB.AddFile(a)
+                    elif a[-1] == '.' and os.path.exists(a + 'cdg'):
+                        self.SongDB.AddFile(a + 'cdg')
+                    else:
+                        print "No such file: %s" % (a)
 
         # Set the default file types that should be displayed
         self.Player = None
@@ -1356,6 +1361,7 @@ class PyKaraokeManager:
     # for the GUI thread, actually handled by SongFinishedEventHandler()
     def SongFinishedCallback(self):
         if not self.gui:
+            self.SongDB.CleanupTempFiles()
             return
         manager.CloseDisplay()
         event = PyKaraokeEvent(self.EVT_SONG_FINISHED, None)
@@ -1398,6 +1404,7 @@ class PyKaraokeManager:
     # for the GUI thread, actually handled by ErrorPopupEventHandler()
     def ErrorPopupCallback(self, ErrorString):
         if not self.gui:
+            print ErrorString
             return
         # We use the extra data storage we got by subclassing WxPyEvent to
         # pass data to the event handler (the error string).
@@ -1406,6 +1413,7 @@ class PyKaraokeManager:
         if self.Player != None:
             self.Player.shutdown()
             self.Player = None
+        self.SongDB.CleanupTempFiles()
         
     # Handle the error popup event, runs in the GUI thread.
     def ErrorPopupEventHandler(self, event):
@@ -1413,33 +1421,19 @@ class PyKaraokeManager:
     
     # Takes a SongStruct, which contains any info on ZIPs etc
     def StartPlayer(self, song_struct):
-        self.FilePath = song_struct.GetFilePath(self.SongDB)
         manager.SetFullScreen (self.SongDB.Settings.FullScreen)
 
         # Create the necessary player instance for this filetype.
-
-        try:
-            root, ext = os.path.splitext(self.FilePath)
-            if ext.lower() == ".cdg":
-                self.Player = pycdg.cdgPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
-            elif (ext.lower() == ".kar") or (ext.lower() == ".mid"):
-                self.Player = pykar.midPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback, self.SongDB.Settings.DefaultCharset)
-                
-            elif (ext.lower() == ".mpg") or (ext.lower() == ".mpeg"):
-                self.Player = pympg.mpgPlayer(self.FilePath, self.ErrorPopupCallback, self.SongFinishedCallback)
-            # TODO basic mp3/ogg player
-            else:
-                ErrorPopup ("Unsupported file format " + ext)
+        self.Player = song_struct.MakePlayer(self.ErrorPopupCallback, self.SongFinishedCallback)
+        if self.Player == None:
+            return
         
-            if self.gui:
-                # Set the status bar
-                self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Playing " + song_struct.DisplayFilename)
+        if self.gui:
+            # Set the status bar
+            self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Playing " + song_struct.DisplayFilename)
         
-            # Start playing
-            self.Player.Play()
-        except:
-            ErrorPopup ("Error starting player")
-            raise
+        # Start playing
+        self.Player.Play()
 
     def handleIdle(self, event):
         manager.Poll()

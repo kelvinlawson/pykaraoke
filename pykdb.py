@@ -22,11 +22,16 @@ import pykversion
 import pygame
 from pykconstants import *
 from pykenv import env
-import os, cPickle, zipfile, codecs
+import pykar, pycdg, pympg
+import os, cPickle, zipfile, codecs, sys
 
 # The amount of time to wait, in milliseconds, before yielding to the
 # app for windowing updates during a long update process.
 YIELD_INTERVAL = 1000
+
+# The maximum number of zip files we will attempt to store in our zip
+# file cache.
+MAX_ZIP_FILES = 10
 
 class AppYielder:
     """ This is a simple class that knows how to yield control to the
@@ -68,67 +73,181 @@ class BusyCancelDialog:
     def Destroy(self):
         pass
 
+class SongData:
+    """This class is returned by SongStruct.GetSongData(), below.  It
+    represents either a song file that exists on disk (and must still
+    be read), or it is a song file that was found in a zip archive
+    (and its data is available now)."""
+
+    def __init__(self, filename, data):
+        self.filename = filename
+        self.tempFilename = None
+        self.data = data
+        self.Ext = os.path.splitext(filename)[1].lower()
+
+        # By convention, if data is passed as None to the constructor,
+        # that means this file is a true file that exists on disk.  On
+        # the other hand, if data is not None, then this is not a true
+        # file, and data contains its contents.
+        self.trueFile = (data == None)
+
+    def GetData(self):
+        """Returns the actual data of the file.  If the file has not
+        yet been read, this will read it and return the data."""
+
+        if self.data != None:
+            # The file has already been read; return that data.
+            return self.data
+
+        # The file has not yet been read
+        self.data = open(self.filename, 'rb').read()
+        return self.data
+
+    def GetFilepath(self):
+        """Returns a full pathname to the file.  If the file does not
+        exist on disk, this will write it to a temporary file and
+        return the name of that file."""
+
+        if self.trueFile:
+            # The file exists on disk already; just return its
+            # pathname.
+            return self.filename
+
+        if not self.tempFilename:
+            # The file does not exist on disk already; we have to write it
+            # to a temporary file.
+            prefix = globalSongDB.CreateTempFileNamePrefix()
+            basename = os.path.basename(self.filename)
+            self.tempFilename = prefix + basename
+            open(self.tempFilename, 'wb').write(self.data)
+            
+        return self.tempFilename
+        
+
 # This functor is declared globally.  It is assigned by
 # SongDB.SelectSort(), so we can use bisect to search through
 # the list also.  This is an ugly hack around the fact that bisect has
 # no facility to receive a key parameter, like sort does.
 fileSortKey = None
 
-# SongStruct used to store song details for the database. Separate
+# SongStruct is used to store song details for the database. Separate
 # Titles allow us to cut off the pathname, use ID3 tags (when
 # supported) etc. For ZIP files there is an extra member - for the
 # stored filename, which might be different from the title if the
 # stored file is in a stored sub-dir, or is an ID tag.
 class SongStruct:
-    def __init__(self, Filepath, DisplayFilename, Title = None, Artist = None, ZipStoredName = None):
+    def __init__(self, Filepath, Title = None, Artist = None, ZipStoredName = None):
         self.Filepath = Filepath    # Full path to file or ZIP file
-        lose, fileonly = os.path.split(DisplayFilename)
-        self.DisplayFilename = fileonly # Filename for display
         self.Title = Title or ''    # (optional) Title for display in playlist
         self.Artist = Artist or ''  # (optional) Artist for display
         self.ZipStoredName = ZipStoredName # Filename stored in ZIP
 
-    def GetFilePath(self, SongDB):
-        """Returns the full path to the song file.  If the file is
-        within a zip file, this will first extract it to a temporary
-        file, and then return the full path to the temporary file. """
+        # If the file ends in '.', assume we got it via tab-completion
+        # on a filename, and it really is meant to end in '.cdg'.
+        if self.Filepath != '' and self.Filepath[-1] == '.':
+            self.Filepath += 'cdg'
+
+        if ZipStoredName:
+            self.DisplayFilename = os.path.basename(ZipStoredName)
+        else:
+            self.DisplayFilename = os.path.basename(Filepath)
+            
+
+    def MakePlayer(self, errorNotifyCallback, doneCallback):
+        """Creates and returns a player of the appropriate type to
+        play this file, if possible; or returns None if the file
+        cannot be played (in which case, the errorNotifyCallback will
+        have already been called with the error message). """
+
+        ext = os.path.splitext(self.DisplayFilename)[1]
         
+        constructor = None
+        
+        if ext.lower() == ".cdg":
+            constructor = player = pycdg.cdgPlayer
+        elif (ext.lower() == ".kar") or (ext.lower() == ".mid"):
+            constructor = player = pykar.midPlayer
+        elif (ext.lower() == ".mpg") or (ext.lower() == ".mpeg"):
+            constructor = player = pympg.mpgPlayer
+        # TODO basic mp3/ogg player
+        else:
+            errorNotifyCallback("Unsupported file format " + ext)
+            return None
+
+        # Try to open the song file.
+        try:
+            player = constructor(self, errorNotifyCallback, doneCallback)
+        except:
+            errorNotifyCallback("Error opening file.\n%s\n%s" % (sys.exc_info()[0], sys.exc_info()[1]))
+            return None
+
+        return player
+
+    def GetSongDatas(self):
+        """Returns a list of SongData objects; see SongData.
+
+        Usually there is only one element in the list: the file named
+        by this SongStruct.  In the case of .cdg files, however, there
+        may be more tuples; the first tuple will be the file named by
+        this SongStruct, and the remaining tuples will correspond to
+        other files with the same basenames but different extensions
+        (so that the .mp3 or .ogg associated with a cdg file may be
+        recovered)."""
+
+        songDatas = []
+
+        if not self.Filepath:
+            return songDatas
+
+        if not os.path.exists(self.Filepath):
+            error = 'No such file: %s' % (self.Filepath)
+            raise error
+
+        dir = os.path.dirname(self.Filepath)
         root, ext = os.path.splitext(self.Filepath)
-        if ext.lower() == ".zip":
-            # It's in a ZIP file, unpack it
-            zip = zipfile.ZipFile(self.Filepath)
-            tmpfile_prefix = SongDB.CreateTempFileNamePrefix()
-            root, stored_ext = os.path.splitext(self.ZipStoredName)
-            # Need to get the MP3 out for a CDG as well
-            if stored_ext.lower() == ".cdg":
+        prefix = os.path.basename(root + ".")
+        
+        if self.ZipStoredName:
+            # It's in a ZIP file; unpack it.
+            zip = globalSongDB.GetZipFile(self.Filepath)
+            filelist = [self.ZipStoredName]
+
+            root, ext = os.path.splitext(self.ZipStoredName)
+            prefix = os.path.basename(root + ".")
+            
+            if ext.lower() == ".cdg":
                 # In addition to the .cdg file, we also have to get
                 # out the mp3/ogg/whatever audio file comes with the
                 # .cdg file.  Just extract out any files that have the
                 # same basename.
-                prefix = root + "."
                 for name in zip.namelist():
-                    if name.startswith(prefix):
-                        # Create a local file using the filename in
-                        # the zip file.  (slicing off any path info
-                        # first in case its in a subdir in the zip).
-                        lose, cdgpath = os.path.split(name)
-                        cdg_file = open (tmpfile_prefix + cdgpath, "wb")
-                        cdg_data = zip.read(name)
-                        cdg_file.write(cdg_data)
-                    
-                lose, cdgpath = os.path.split(self.ZipStoredName)
-                return tmpfile_prefix + cdgpath
-            else:
-            # Not a CDG, just unzip the one file
-                # Handle files in sub-dirs inside the zip
-                lose, local_file = os.path.split(self.ZipStoredName)
-                unzipped_file = open (tmpfile_prefix + local_file, "wb")
-                unzipped_data = zip.read(self.ZipStoredName)
-                unzipped_file.write(unzipped_data)
-                return tmpfile_prefix + local_file
+                    if name != self.ZipStoredName and name.startswith(prefix):
+                        filelist.append(name)
+
+            # We'll continue looking for matching files outside the
+            # zip, too.
+
+            for file in filelist:
+                data = zip.read(file)
+                songDatas.append(SongData(file, data))
         else:
-            # A non-zipped file, just start playing
-            return self.Filepath
+            # A non-zipped file; this is an easy case.
+            songDatas.append(SongData(self.Filepath, None))
+
+        if ext.lower() == ".cdg":
+            # In addition to the .cdg file, we also have to find the
+            # mp3/ogg/whatever audio file comes with the .cdg file,
+            # just as above, when we were pulling them out of the zip
+            # file.  This time we are just looking for loose files on
+            # the disk.
+            for file in os.listdir(dir):
+                if file.startswith(prefix):
+                    path = os.path.join(dir, file)
+                    if path != self.Filepath:
+                        songDatas.append(SongData(path, None))
+
+        # Now we've found all the matching files.
+        return songDatas
 
 
     def __cmp__(self, other):
@@ -168,6 +287,9 @@ class SongDB:
         # Filepaths and titles are stored in a list of SongStruct instances
         self.SongList = []
 
+        # A cache of zip files.
+        self.ZipFiles = []
+
         # Some databases may omit either or both of titles and
         # artists, relying on filenames instead.
         self.GotTitles = False
@@ -180,7 +302,8 @@ class SongDB:
         # All temporary files use this prefix
         self.TempFilePrefix = "00Pykar__"
 
-        self.TempDir = self.getSaveDirectory()
+        self.SaveDir = self.getSaveDirectory()
+        self.TempDir = self.getTempDirectory()
         self.CleanupTempFiles()
 
     def getSaveDirectory(self):
@@ -196,6 +319,24 @@ class SongDB:
         # out.
         homeDir = self.getHomeDirectory()
         return os.path.join(homeDir, ".pykaraoke")
+
+    def getTempDirectory(self):
+        """ Returns the directory in which temporary files should be
+        saved. """
+        dir = os.getenv('PYKARAOKE_TEMP_DIR')
+        if dir:
+            return dir
+
+        dir = os.getenv('TEMP')
+        if dir:
+            return os.path.join(dir, 'pykaraoke')
+
+        if env != ENV_WINDOWS:
+            if os.path.exists('/tmp'):
+                return '/tmp/pykaraoke'
+
+        # If we can't find a good temp directory, use our save directory.
+        return self.getSaveDirectory()
 
     def getHomeDirectory(self):
         """ Returns the user's home directory, if we can figure that
@@ -222,7 +363,7 @@ class SongDB:
         self.SongList = []
         
         # Load the settings file
-        settings_filepath = os.path.join (self.TempDir, "settings.dat")
+        settings_filepath = os.path.join (self.SaveDir, "settings.dat")
         if os.path.exists (settings_filepath):
             file = open (settings_filepath, "rb")
             loadsettings = None
@@ -240,7 +381,7 @@ class SongDB:
                    return
                 
         # Load the database file
-        db_filepath = os.path.join (self.TempDir, "songdb.dat")
+        db_filepath = os.path.join (self.SaveDir, "songdb.dat")
         if os.path.exists (db_filepath):
             file = open (db_filepath, "rb")
             self.SongList = cPickle.load (file)
@@ -256,15 +397,15 @@ class SongDB:
     # Save settings and database to the home/temp directory
     def SaveSettings (self):
         # Create the temp directory if it doesn't exist already
-        if not os.path.exists (self.TempDir):
-            os.mkdir(self.TempDir)
+        if not os.path.exists (self.SaveDir):
+            os.mkdir(self.SaveDir)
         # Save the settings file
-        settings_filepath = os.path.join (self.TempDir, "settings.dat")
+        settings_filepath = os.path.join (self.SaveDir, "settings.dat")
         file = open (settings_filepath, "wb")
         cPickle.dump (self.Settings, file)
 
         # Save the database file
-        db_filepath = os.path.join (self.TempDir, "songdb.dat")
+        db_filepath = os.path.join (self.SaveDir, "songdb.dat")
         file = open (db_filepath, "wb")
         cPickle.dump (self.SongList, file)
     
@@ -281,6 +422,29 @@ class SongDB:
         all the sub-files. """
 
         self.doSearch([filename], AppYielder(), BusyCancelDialog())
+
+    def GetZipFile(self, filename):
+        """Creates a ZipFile object corresponding to the indicated zip
+        file on disk and returns it.  If there was already a ZipFile
+        for this filename in the cache, just returns that one
+        instead, saving on load time from repeatedly loading the same
+        zip file. """
+
+        for tuple in self.ZipFiles:
+            cacheFilename, cacheZip = tuple
+            if cacheFilename == filename:
+                # Here is a zip file in the cache; move it to the
+                # front of the list.
+                self.ZipFiles.remove(tuple)
+                self.ZipFiles.insert(0, tuple)
+                return cacheZip
+
+        # The zip file was not in the cache, create a new one and cache it.
+        zip = zipfile.ZipFile(filename)
+        if len(self.ZipFiles) > MAX_ZIP_FILES:
+            del self.ZipFiles[-1]
+        self.ZipFiles.insert(0, (filename, zip))
+        return zip
 
     def doSearch(self, fileList, yielder, busyDlg):
         """ This is the actual implementation of BuildSearchDatabase()
@@ -303,7 +467,7 @@ class SongDB:
         tmpfile_prefix = self.CreateTempFileNamePrefix()
         for fullpath, nameInZip in self.titlesFiles:
             if nameInZip != None:
-                zip = zipfile.ZipFile(fullpath)
+                zip = self.GetZipFile(fullpath)
                 lose, local_file = os.path.split(fullpath)
                 tempfile = tmpfile_prefix + local_file
                 unzipped_file = open (tempfile, "wb")
@@ -359,12 +523,12 @@ class SongDB:
                 # Save this titles.txt file for reading later.
                 self.titlesFiles.append((full_path, None))
             elif self.IsExtensionValid(ext):
-                self.addSong(SongStruct(full_path, full_path))
+                self.addSong(SongStruct(full_path))
             # Look inside ZIPs if configured to do so
             elif self.Settings.LookInsideZips and ext.lower() == ".zip":
                 try:
                     if zipfile.is_zipfile(full_path):
-                        zip = zipfile.ZipFile(full_path)
+                        zip = self.GetZipFile(full_path)
                         for filename in zip.namelist():
                             root, ext = os.path.splitext(filename)
                             if self.Settings.ReadTitlesTxt and filename.endswith('titles.txt'):
@@ -375,7 +539,7 @@ class SongDB:
                                 info = zip.getinfo(filename)
                                 if info.compress_type == zipfile.ZIP_STORED or info.compress_type == zipfile.ZIP_DEFLATED:
                                     #print ("Adding song %s in ZIP file %s"%(filename, full_path))
-                                    self.addSong(SongStruct(full_path, filename, ZipStoredName = filename))
+                                    self.addSong(SongStruct(full_path, ZipStoredName = filename))
                                 else:
                                     print ("ZIP member %s compressed with unsupported type (%d)"%(filename,info.compress_type))
                 except:
@@ -494,7 +658,7 @@ class SongDB:
         if os.path.exists (self.TempDir):
             filedir_list = os.listdir(self.TempDir)
             for item in filedir_list:
-                if self.TempFilePrefix in item:
+                if item.startswith(self.TempFilePrefix):
                     full_path = os.path.join (self.TempDir, item)
                     try:
                         os.unlink(full_path)
@@ -587,3 +751,5 @@ class SongDB:
         if file.ZipStoredName:
             fullpath = os.path.join(fullpath, file.ZipStoredName)
         self.filesByFullpath[fullpath] = file
+
+globalSongDB = SongDB()

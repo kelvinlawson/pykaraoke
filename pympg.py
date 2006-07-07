@@ -117,21 +117,19 @@ DISPLAY_DEPTH       = 32
 # mpgPlayer Class
 class mpgPlayer(pykPlayer):
     # Initialise the player instace
-    def __init__(self, fileName, errorNotifyCallback=None, doneCallback=None):
-        pykPlayer.__init__(self, fileName, errorNotifyCallback, doneCallback)
+    def __init__(self, song, errorNotifyCallback=None, doneCallback=None):
+        """The first parameter, song, may be either a pykdb.SongStruct
+        instance, or it may be a filename. """
+
+        pykPlayer.__init__(self, song, errorNotifyCallback, doneCallback)
 
         self.Movie = None
-
-        # Check the MPEG filename
-        if not os.path.isfile(self.FileName):
-            ErrorString = "No such file: " + self.FileName
-            self.ErrorNotifyCallback (ErrorString)
-            raise 'NoSuchFile'
 
         manager.InitPlayer(self)
         manager.OpenDisplay(depth = DISPLAY_DEPTH)
 
-        self.Movie = pygame.movie.Movie(self.FileName)
+        filepath = self.SongDatas[0].GetFilepath()
+        self.Movie = pygame.movie.Movie(filepath)
         self.Movie.set_display(manager.display, (0, 0, manager.displaySize[0], manager.displaySize[1]))
 
 

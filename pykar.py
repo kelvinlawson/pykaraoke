@@ -136,7 +136,7 @@ from pykconstants import *
 from pykplayer import pykPlayer
 from pykenv import env
 from pykmanager import manager
-import pygame, sys, os, struct, string
+import pygame, sys, os, struct, cStringIO
 
 # At what percentage of the screen height should we try to keep the
 # current singing cursor?  33% keeps it on the top third, 50% keeps it
@@ -463,19 +463,14 @@ class Lyrics:
         for syllable in self.list:
             print "%s %s %s" % (syllable.ms, syllable.line, syllable.text)
         
-def midiParseFile (filename, ErrorNotifyCallback, Charset):
+def midiParseData(midiData, ErrorNotifyCallback, Charset):
     
     # Create the midiFile structure
     midifile = midiFile()
     midifile.text_charset = Charset
-
-    # Check the MID/KAR file exists
-    if not os.path.isfile(filename):
-        ErrorNotifyCallback ("No such file: %s" % filename)
-        return None
     
     # Open the file
-    filehdl = open (filename, "rb") 
+    filehdl = cStringIO.StringIO(midiData) 
 
     # Check it's a MThd chunk
     packet = filehdl.read(8)
@@ -863,14 +858,16 @@ def varLength(filehdl):
 
 
 class midPlayer(pykPlayer):
-    def __init__(self, fileName, errorNotifyCallback=None, doneCallback=None, Charset="iso-8859-1"):
-        pykPlayer.__init__(self, fileName, errorNotifyCallback, doneCallback)
+    def __init__(self, song, errorNotifyCallback=None, doneCallback=None, Charset="iso-8859-1"):
+        """The first parameter, song, may be either a pykdb.SongStruct
+        instance, or it may be a filename. """
+
+        pykPlayer.__init__(self, song, errorNotifyCallback, doneCallback)
 
         self.SupportsFontZoom = True
 
-
         # Parse the MIDI file
-        self.midifile = midiParseFile (self.FileName, self.ErrorNotifyCallback, Charset)
+        self.midifile = midiParseData(self.SongDatas[0].GetData(), self.ErrorNotifyCallback, Charset)
         if (self.midifile == None):
             ErrorString = "ERROR: Could not parse the MIDI file"
             self.ErrorNotifyCallback (ErrorString)
@@ -914,7 +911,7 @@ class midPlayer(pykPlayer):
         self.lyrics = self.midifile.lyrics.wordWrapLyrics(self.font)
 
         # Load the MIDI player
-        pygame.mixer.music.load(self.FileName)
+        pygame.mixer.music.load(self.SongDatas[0].GetFilepath())
 
         # Set an event for when the music finishes playing
         pygame.mixer.music.set_endevent(pygame.USEREVENT)
