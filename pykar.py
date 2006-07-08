@@ -895,7 +895,7 @@ class midPlayer(pykPlayer):
         # slower computer that's struggling to keep up, this may not
         # be the right amount of delay, but it should usually be
         # pretty close.
-        self.InternalOffsetTime = manager.GetAudioBufferMS()
+        self.InternalOffsetTime = -manager.GetAudioBufferMS()
 
         self.screenDirty = False
         self.initFont()
@@ -905,7 +905,7 @@ class midPlayer(pykPlayer):
         # there.  On timidity-based platforms, we anticipate our
         # lyrics display by the time of the first note.
         if env != ENV_WINDOWS:
-            self.InternalOffsetTime -= self.midifile.earliestNoteMS
+            self.InternalOffsetTime += self.midifile.earliestNoteMS
 
         # Now word-wrap the text to fit our window.
         self.lyrics = self.midifile.lyrics.wordWrapLyrics(self.font)
@@ -1073,7 +1073,7 @@ class midPlayer(pykPlayer):
         pykPlayer.doStuff(self)
 
         if self.State == STATE_PLAYING:
-            self.currentMs = int(pygame.mixer.music.get_pos() - self.InternalOffsetTime - self.UserOffsetTime)
+            self.currentMs = int(pygame.mixer.music.get_pos() + self.InternalOffsetTime + manager.UserOffsetTime)
             self.colourUpdateMs()
 
     def doResize(self, newSize):

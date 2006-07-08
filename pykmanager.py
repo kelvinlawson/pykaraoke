@@ -49,10 +49,6 @@ class pykManager:
         self.displayDepth = 0
         self.gotDisplayDefaults = False
 
-        # Fill this in to request a resize from the application.
-        self.resizeRequest = None
-
-
         # Find the correct font path. If fully installed on Linux this
         # will be sys.prefix/share/pykaraoke/fonts. Otherwise look for
         # it in the current directory.
@@ -66,6 +62,23 @@ class pykManager:
         # This factor may be changed by the user to make text bigger
         # or smaller on those players that support it.
         self.fontScale = None
+
+        # This value is a time in milliseconds that will be used to
+        # shift the time of the lyrics display relative to the video.
+        # It is adjusted by the user pressing the left and right
+        # arrows during singing, and is persistent during a session.
+        # Positive values make the lyrics anticipate the music,
+        # negative values delay them.
+
+        # For some reason, an initial value of -250 ms seems about
+        # right empirically, on both Windows and Linux.  Maybe some
+        # delay built into the video libraries of SDL in conjunction
+        # with PC hardware?  It doesn't seem to be the case on the
+        # GP2X.
+        if env == ENV_GP2X:
+            self.UserOffsetTime = 0
+        else:
+            self.UserOffsetTime = -250
 
     # Get the current display size
     def GetDisplaySize(self):

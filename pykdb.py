@@ -441,7 +441,7 @@ class SongDB:
 
         # The zip file was not in the cache, create a new one and cache it.
         zip = zipfile.ZipFile(filename)
-        if len(self.ZipFiles) > MAX_ZIP_FILES:
+        if len(self.ZipFiles) >= MAX_ZIP_FILES:
             del self.ZipFiles[-1]
         self.ZipFiles.insert(0, (filename, zip))
         return zip

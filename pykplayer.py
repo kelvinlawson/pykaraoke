@@ -76,7 +76,6 @@ class pykPlayer:
 
         self.State = STATE_INIT
         self.InternalOffsetTime = 0
-        self.UserOffsetTime = 0
 
         # Set this true if the player can zoom font sizes.
         self.SupportsFontZoom = False
@@ -177,10 +176,10 @@ class pykPlayer:
 
             # Use left/right arrow to offset the current graphics time
             # by 1/4 sec
-            elif event.key == pygame.K_RIGHT:
-                self.UserOffsetTime += 250
-            elif event.key == pygame.K_LEFT:
-                self.UserOffsetTime -= 250
+            elif self.State == STATE_PLAYING and event.key == pygame.K_RIGHT:
+                manager.UserOffsetTime += 250
+            elif self.State == STATE_PLAYING and event.key == pygame.K_LEFT:
+                manager.UserOffsetTime -= 250
 
             if self.SupportsFontZoom:
                 if event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS or \

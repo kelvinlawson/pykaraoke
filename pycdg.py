@@ -281,7 +281,7 @@ class cdgPlayer(pykPlayer):
             # slower computer that's struggling to keep up, this may not
             # be the right amount of delay, but it should usually be
             # pretty close.
-            self.InternalOffsetTime = manager.GetAudioBufferMS()
+            self.InternalOffsetTime = -manager.GetAudioBufferMS()
         else:
             self.InternalOffsetTime = 0
             
@@ -370,7 +370,7 @@ class cdgPlayer(pykPlayer):
         # Check whether the songfile has moved on, if so
         # get the relevant CDG data and update the screen.
         if self.State == STATE_PLAYING:
-            self.curr_pos = self.GetPos() - self.InternalOffsetTime - self.UserOffsetTime - self.pauseOffsetTime
+            self.curr_pos = self.GetPos() + self.InternalOffsetTime + manager.UserOffsetTime - self.pauseOffsetTime
 
             self.cdgPacketsDue = int((self.curr_pos * 300) / 1000)
             numPackets = self.cdgPacketsDue - self.cdgReadPackets
