@@ -204,6 +204,8 @@ class SongStruct:
             raise error
 
         dir = os.path.dirname(self.Filepath)
+        if dir == "":
+            dir = "."
         root, ext = os.path.splitext(self.Filepath)
         prefix = os.path.basename(root + ".")
         
