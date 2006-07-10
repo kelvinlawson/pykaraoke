@@ -29,7 +29,7 @@ import types
 import os
 
 class pykPlayer:
-    def __init__(self, song, errorNotifyCallback, doneCallback,
+    def __init__(self, song, errorNotifyCallback = None, doneCallback = None,
                  windowTitle = None):
         """The first parameter, song, may be either a pykdb.SongStruct
         instance, or it may be a filename. """
