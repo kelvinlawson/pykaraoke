@@ -39,6 +39,10 @@ v0.5:
 
 	* Ported to the GP2X.
 
+	* Fixed horizontal scrolling CDGs.
+
+	* Smoother CDG scrolling.
+	
 v0.4.3:
 	* pycdg.py: Fix "scratchy" audio on some systems.
 
