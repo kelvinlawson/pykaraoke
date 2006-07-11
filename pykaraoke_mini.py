@@ -123,11 +123,11 @@ class App(pykPlayer):
 
         # Put the version number up there too.
         pygame.font.init()
-        font = pygame.font.SysFont([], 16)
+        font = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSansCondensed-Bold.ttf"), 12)
 
         text = font.render("v%s" % pykversion.PYKARAOKE_VERSION_STRING, True, (0, 0, 0))
         rect = text.get_rect()
-        rect = rect.move(225 - rect.width, 46)
+        rect = rect.move(225 - rect.width, 43)
         splash.blit(text, rect)
 
         # Center the splash screen within our display window.
@@ -163,15 +163,22 @@ class App(pykPlayer):
         winWidth, winHeight = manager.displaySize
         
         pygame.font.init()
-        self.thinFont = pygame.font.SysFont([], int(manager.GetFontScale() * winHeight / 13))
-        self.boldFont = pygame.font.SysFont([], int(manager.GetFontScale() * winHeight / 10), bold = True)
+        fontSize = int(manager.GetFontScale() * winHeight / 18)
+        self.thinFont = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSansCondensed.ttf"), fontSize)
+
+        fontSize = int(manager.GetFontScale() * winHeight / 15)
+        self.boldFont = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSansCondensed-Bold.ttf"), fontSize)
         
-        self.boldHeight = self.boldFont.get_height()
-        self.thinHeight = self.thinFont.get_height()
+        self.boldHeight = self.boldFont.get_linesize()
+        self.thinHeight = self.thinFont.get_linesize()
         self.rowHeight = self.boldHeight + (self.numSongInfoLines - 1) * self.thinHeight
 
+        # Make sure the color highlight covers the bottom of the line.
+        # Empirically, the DejaVu fonts want this much shift:
+        self.lineShift = -self.boldFont.get_descent() / 2
+
         self.numRows = max(int(winHeight / self.rowHeight), 1)
-        self.yMargin = (winHeight - self.numRows * self.rowHeight) / 2
+        self.yMargin = (winHeight - self.numRows * self.rowHeight) / 2 - self.lineShift
         self.xMargin = 5
         self.xIndent = 10
 
@@ -180,6 +187,12 @@ class App(pykPlayer):
     def paintScrollWindow(self):
         manager.display.fill((0,0,0))
 
+        # First, fill in the blue highlight bar in the center.
+        y = self.yMargin + self.centerRow * self.rowHeight + self.lineShift
+        rect = pygame.Rect(0, y, manager.displaySize[0], self.rowHeight)
+        manager.display.fill((0, 0, 120), rect)
+
+        # Now draw the text over everything.
         for i in range(self.numRows):
             y = self.yMargin + i * self.rowHeight
             r = (self.currentRow + i - self.centerRow) % len(self.SongDB.SongList)
@@ -187,22 +200,18 @@ class App(pykPlayer):
             a, b, c = self.SongDB.GetSongTuple(file)
 
             fg = (180, 180, 180)
-            bg = (0, 0, 0)
             if i == self.centerRow:
                 fg = (255, 255, 255)
-                bg = (0, 0, 120)
-                rect = pygame.Rect(0, y, manager.displaySize[0], self.rowHeight)
-                manager.display.fill(bg, rect)
 
-            text = self.boldFont.render(a, True, fg, bg)
+            text = self.boldFont.render(a, True, fg)
             manager.display.blit(text, (self.xMargin, y))
             y += self.boldHeight
             if self.numSongInfoLines >= 2:
-                text = self.thinFont.render(b, True, fg, bg)
+                text = self.thinFont.render(b, True, fg)
                 manager.display.blit(text, (self.xMargin + self.xIndent, y))
                 y += self.thinHeight
             if self.numSongInfoLines >= 3:
-                text = self.thinFont.render(c, True, fg, bg)
+                text = self.thinFont.render(c, True, fg)
                 manager.display.blit(text, (self.xMargin + self.xIndent, y))
                 y += self.thinHeight
 

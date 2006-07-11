@@ -50,16 +50,30 @@ installer executable. This installs all prerequisite libraries, and adds
 icons in your start menu to run PyKaraoke.
 
 If you prefer, you may choose to build the Windows version from source. We
-will assume you are familiar with the steps involved for installing a 
+will assume you are familiar with the steps involved for installing a
 Python distribution from source on Windows; they are similar to those for
-the Linux installation, below. You will need to download and unpack the 
-SDL source distribution to a known place (for instance, in the same 
-directory with PyKaraoke, under the name like "SDL-1.2.11", and you need
-to tell Python where that place is, with the --include-dirs and 
---library-dirs option to setup.py, like this:
+the Linux installation, below. You will need to have pygame
+(www.pygame.org) installed. You will also need to download and unpack the
+SDL source distribution (www.libsdl.org) into the same directory with
+PyKaraoke, under its default name, which will be something like
+"SDL-1.2.11" (by default, setup.py will search for any directories named
+SDL* in the current directory). You will then invoke the command:
 
-# python setup.py install --include-dirs=SDL-1.2.11/include 
-   --library_dirs=SDL-1.2.11/lib
+python setup.py install
+
+You may also choose to unpack the source distribution elsewhere and
+specify its path with --sdl-location=/path/to/SDL on the above command.
+
+To build a Windows installer, you additionally need to have py2exe
+(www.py2exe.org) and NSIS (nsis.sourceforge.net) installed, and then you
+may invoke:
+
+python setup.py nsis
+
+This will create an executable called pykaraoke-<current_version>.exe
+in the current directory, which will be a standalone Windows installer
+program you may then distribute to other Windows users. You don't
+need to install PyKaraoke before building an installer for it.
 
 ---------------------------------------------------------------------------
 

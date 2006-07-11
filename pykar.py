@@ -910,18 +910,38 @@ class midPlayer(pykPlayer):
         # Now word-wrap the text to fit our window.
         self.lyrics = self.midifile.lyrics.wordWrapLyrics(self.font)
 
-        # Load the MIDI player
-        pygame.mixer.music.load(self.SongDatas[0].GetFilepath())
+        # By default, we will use the get_pos() functionality returned
+        # by pygame to get the current time through the song, to
+        # synchronize lyric display with the music.
+        self.useMidiTimer = True
 
-        # Set an event for when the music finishes playing
-        pygame.mixer.music.set_endevent(pygame.USEREVENT)
+        if env == ENV_WINDOWS:
+            # Unless we're running on Windows.  For some reason, MIDI
+            # playback on Windows reports an unreliable time.  To
+            # avoid that problem, we'll always use the CPU timer
+            # instead of the MIDI timer.
+            self.useMidiTimer = False
+
+        # Load the MIDI player
+        if not manager.options.nomusic:
+            pygame.mixer.music.load(self.SongDatas[0].GetFilepath())
+
+            # Set an event for when the music finishes playing
+            pygame.mixer.music.set_endevent(pygame.USEREVENT)
+        else:
+            # If we're not playing music, use the CPU timer instead of
+            # the MIDI timer.
+            self.useMidiTimer = False
 
         # Reset all the state (current lyric index etc) and
         # paint the first numRows lines.
         self.resetPlayingState()
 
     def GetPos(self):
-        return pygame.mixer.music.get_pos()
+        if self.useMidiTimer:
+            return pygame.mixer.music.get_pos()
+        else:
+            return pykPlayer.GetPos(self)
 
     def SetupOptions(self):
         """ Initialise and return optparse OptionParser object,
@@ -1041,31 +1061,36 @@ class midPlayer(pykPlayer):
 
  
     def doPlay(self):
-        pygame.mixer.music.play()
+        if not manager.options.nomusic:
+            pygame.mixer.music.play()
 
-        # For some reason, timidity sometimes reports a bogus
-        # get_pos() until the first few milliseconds have elapsed.  As
-        # a cheesy way around this, we'll just wait a bit right up
-        # front.
-        pygame.time.wait(50)
+            # For some reason, timidity sometimes reports a bogus
+            # get_pos() until the first few milliseconds have elapsed.  As
+            # a cheesy way around this, we'll just wait a bit right up
+            # front.
+            pygame.time.wait(50)
 
     def doPause(self): 
-        pygame.mixer.music.pause()
+        if not manager.options.nomusic:
+            pygame.mixer.music.pause()
 
     def doUnpause(self):
-        pygame.mixer.music.unpause()
-
+        if not manager.options.nomusic:
+            pygame.mixer.music.unpause()
+        
     def doRewind(self):
         # Reset all the state (current lyric index etc)
         self.resetPlayingState()
         # Stop the audio
-        pygame.mixer.music.rewind()
-        pygame.mixer.music.stop()
+        if not manager.options.nomusic:
+            pygame.mixer.music.rewind()
+            pygame.mixer.music.stop()
 
     def shutdown(self):
         # This will be called by the pykManager to shut down the thing
         # immediately.
-        pygame.mixer.music.stop()
+        if not manager.options.nomusic:
+            pygame.mixer.music.stop()
         pykPlayer.shutdown(self)
 
 
@@ -1073,7 +1098,7 @@ class midPlayer(pykPlayer):
         pykPlayer.doStuff(self)
 
         if self.State == STATE_PLAYING:
-            self.currentMs = int(pygame.mixer.music.get_pos() + self.InternalOffsetTime + manager.UserOffsetTime)
+            self.currentMs = int(self.GetPos() + self.InternalOffsetTime + manager.UserOffsetTime)
             self.colourUpdateMs()
 
     def doResize(self, newSize):

@@ -77,6 +77,20 @@ class pykPlayer:
         self.State = STATE_INIT
         self.InternalOffsetTime = 0
 
+        # These values are used to keep track of the current position
+        # through the song based on pygame's get_ticks() interface.
+        # It's used only when get_pos() cannot be used or is
+        # unreliable for some reason.
+        self.PlayTime = 0
+        self.PlayStartTime = 0
+
+        # self.PlayStartTime is valid while State == STATE_PLAYING; it
+        # indicates the get_ticks() value at which the song started
+        # (adjusted for any pause intervals that occurred during
+        # play).  self.PlayTime is valid while State != STATE_PLAYING;
+        # it indicates the total number of ticks (milliseconds) that
+        # have elapsed in the song so far.
+
         # Set this true if the player can zoom font sizes.
         self.SupportsFontZoom = False
 
@@ -87,15 +101,18 @@ class pykPlayer:
     # has finished initialising pygame.
     def Play(self):
         self.doPlay()
+        self.PlayStartTime = pygame.time.get_ticks()
         self.State = STATE_PLAYING
 
     # Pause the song - Use Pause() again to unpause
     def Pause(self):
         if self.State == STATE_PLAYING:
             self.doPause()
+            self.PlayTime = pygame.time.get_ticks() - self.PlayStartTime
             self.State = STATE_PAUSED
         elif self.State == STATE_PAUSED:
             self.doUnpause()
+            self.PlayStartTime = pygame.time.get_ticks() - self.PlayTime
             self.State = STATE_PLAYING
 
     # Close the whole thing down
@@ -105,6 +122,8 @@ class pykPlayer:
     # you must call Play() to restart. Blocks until pygame is initialised
     def Rewind(self):
         self.doRewind()
+        self.PlayTime = 0
+        self.PlayStartTime = 0
         self.State = STATE_NOT_PLAYING
 
     # Stop the song and go back to the start. As you would
@@ -121,9 +140,10 @@ class pykPlayer:
 
     # Get the current time (in milliseconds).
     def GetPos(self):
-        ErrorString = "GetPos() not supported"
-        self.ErrorNotifyCallback (ErrorString)
-        return None
+        if self.State == STATE_PLAYING:
+            return pygame.time.get_ticks() - self.PlayStartTime
+        else:
+            return self.PlayTime
 
     def SetupOptions(self, usage = None):
         """ Initialise and return optparse OptionParser object,
@@ -174,12 +194,17 @@ class pykPlayer:
             if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
                 self.Close()
 
+            elif event.key == pygame.K_PAUSE:
+                self.Pause()
+
             # Use left/right arrow to offset the current graphics time
-            # by 1/4 sec
+            # by 1/4 sec.  Use the down arrow to restore them to sync.
             elif self.State == STATE_PLAYING and event.key == pygame.K_RIGHT:
                 manager.UserOffsetTime += 250
             elif self.State == STATE_PLAYING and event.key == pygame.K_LEFT:
                 manager.UserOffsetTime -= 250
+            elif self.State == STATE_PLAYING and event.key == pygame.K_DOWN:
+                manager.UserOffsetTime = 0
 
             if self.SupportsFontZoom:
                 if event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS or \

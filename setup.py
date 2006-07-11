@@ -1,37 +1,79 @@
 #!/usr/bin/env python
 
 from distutils.core import setup, Extension
+from distutils.command.build_ext import build_ext
 import pykversion
+import sys
+import glob
+from pykenv import *
 
-setup(name="pykaraoke",
-      version=pykversion.PYKARAOKE_VERSION_STRING,
-      description = 'PyKaraoke = CD+G/MPEG/KAR Karaoke Player',
-      maintainer = 'Kelvin Lawson',
-      maintainer_email = 'kelvin@kibosh.org',
-      url = 'http://www.kibosh.org/pykaraoke',
-      license = 'LGPL',
-      long_description = 'PyKaraoke - CD+G/MPEG/KAR Karaoke Player',
-      py_modules = [ "pycdgAux", "pycdg", "pykaraoke_mini",
-                     "pykaraoke", "pykar", "pykconstants",
-                     "pykdb", "pykenv", "pykmanager",
-                     "pykplayer", "pykversion", "pympg" ],
-      ext_modules=[Extension("_pycdgAux", ["_pycdgAux.c"],
-                             libraries=['SDL'])],
-      data_files=[('bin', ['install/pykaraoke',
-                           'install/pykaraoke_mini',
-                           'install/pycdg',
-                           'install/pykar',
-                           'install/pympg']),
-                  ('share/pykaraoke/icons',
-                       ['icons/audio_16.png',
-                        'icons/folder_close_16.png',
-                        'icons/folder_open_16.png', 
-                        'icons/note.ico',
-                        #'icons/pykaraoke.xpm',
-                        'icons/splash.jpg']),
-                  ('share/pykaraoke/fonts', ['fonts/DejaVuSans.ttf']),
-                  ('share/applications', ['install/pykaraoke.desktop'])],
-      classifiers=['Development Status :: 5 - Production/Stable',
+# patch distutils if it can't cope with the "classifiers" or
+# "download_url" keywords
+if sys.version < '2.2.3':
+    from distutils.dist import DistributionMetadata
+    DistributionMetadata.classifiers = None
+    DistributionMetadata.download_url = None
+
+gotPy2exe = 0
+if env == ENV_WINDOWS:
+    # On Windows, we use py2exe to build a binary executable.  But we
+    # don't require it, since even without it it's still possible to
+    # use distutils to install pykaraoke as a standard Python module.
+    try:
+        import py2exe
+        gotPy2exe = True
+    except ImportError:
+        pass
+
+# These are the data file that should be installed for all systems,
+# including Windows.
+
+data_files = [
+    ('share/pykaraoke/icons',
+     ['icons/audio_16.png',
+      'icons/folder_close_16.png',
+      'icons/folder_open_16.png', 
+      'icons/note.ico',
+      #'icons/pykaraoke.xpm',
+      'icons/splash.jpg']),
+    ('share/pykaraoke/fonts', [
+    'fonts/DejaVuSans.ttf',
+    'fonts/DejaVuSansCondensed.ttf',
+    'fonts/DejaVuSansCondensed-bold.ttf',
+    ])]
+
+# These data files only make sense on Unix-like systems.
+if env != ENV_WINDOWS:
+    data_files += [
+        ('bin', ['install/pykaraoke',
+                 'install/pykaraoke_mini',
+                 'install/pycdg',
+                 'install/pykar',
+                 'install/pympg']),
+        ('share/applications', ['install/pykaraoke.desktop',
+                                'install/pykaraoke_mini.desktop'])]
+
+# These are the basic keyword arguments we will pass to distutil's
+# setup() function.
+cmdclass = {}
+setupArgs = {
+  'name' : "pykaraoke",
+  'version' : pykversion.PYKARAOKE_VERSION_STRING,
+  'description' : 'PyKaraoke = CD+G/MPEG/KAR Karaoke Player',
+  'maintainer' : 'Kelvin Lawson',
+  'maintainer_email' : 'kelvin@kibosh.org',
+  'url' : 'http://www.kibosh.org/pykaraoke',
+  'license' : 'LGPL',
+  'long_description' : 'PyKaraoke - CD+G/MPEG/KAR Karaoke Player',
+  'py_modules' : [ "pycdgAux", "pycdg", "pykaraoke_mini",
+                   "pykaraoke", "pykar", "pykconstants",
+                   "pykdb", "pykenv", "pykmanager",
+                   "pykplayer", "pykversion", "pympg" ],
+  'ext_modules' : [Extension("_pycdgAux", ["_pycdgAux.c"],
+                             libraries = ['SDL'])],
+  'data_files' : data_files,
+  'cmdclass' : cmdclass,
+  'classifiers' : ['Development Status :: 5 - Production/Stable',
                    'Environment :: X11 Applications',
                    'Environment :: Win32 (MS Windows)',
                    'Intended Audience :: End Users/Desktop',
@@ -39,4 +81,118 @@ setup(name="pykaraoke",
                    'Operating System :: Microsoft :: Windows',
                    'Operating System :: POSIX',
                    'Programming Language :: Python',
-                   'Topic :: Multimedia :: Sound/Audio :: Players'])
+                   'Topic :: Games/Entertainment',
+                   'Topic :: Multimedia :: Sound/Audio :: Players'],
+  }
+
+# Let's extend build_ext so we can allow the user to specify
+# explicitly the location of the SDL installation (or we can try to
+# guess where it might be.)
+class my_build_ext(build_ext):
+    user_options = build_ext.user_options
+    user_options += [('sdl-location=', None,
+                      "Specify the path to the SDL source directory, assuming sdl_location/include and sdl_location/lib exist beneath that.  (Otherwise, use --include-dirs and --library-dirs.)"),
+                     ]
+
+    def initialize_options(self):
+        build_ext.initialize_options(self)
+        self.sdl_location = None
+
+    def finalize_options(self):
+        build_ext.finalize_options(self)
+        if self.sdl_location is None:
+
+            # The default SDL location.  This is useful only if your
+            # SDL source is installed under a common root, with
+            # sdl_loc/include and sdl_loc/lib directories beneath that
+            # root.  This is the standard way that SDL is distributed
+            # on Windows, but not on Unix.  For a different
+            # configuration, just specify --include-dirs and
+            # --library-dirs separately.
+
+            if env == ENV_WINDOWS:
+                # For a default location on Windows, look around for SDL
+                # in the current directory.
+                sdl_dirs = glob.glob('SDL*')
+
+                # Sort them in order, so that the highest-numbered version
+                # will (probably) fall to the end.
+                sdl_dirs.sort()
+
+                for dir in sdl_dirs:
+                    if os.path.isdir(os.path.join(dir, 'include')):
+                        self.sdl_location = dir
+
+        if self.sdl_location is not None:
+            # Now append the system paths.
+            self.include_dirs.append(os.path.join(self.sdl_location, 'include'))
+            self.library_dirs.append(os.path.join(self.sdl_location, 'lib'))
+
+        
+cmdclass['build_ext'] = my_build_ext
+        
+
+# On Windows, we might want to build an installer.  This means
+# subclassing from py2exe to add new behavior.
+if gotPy2exe:
+    class BuildInstaller(py2exe.build_exe.py2exe):
+
+        user_options = py2exe.build_exe.py2exe.user_options
+        user_options += [('makensis=', None,
+                          "path to makensis.exe, the NSIS compiler."),
+                         ]
+
+        def initialize_options(self):
+            py2exe.build_exe.py2exe.initialize_options(self)
+            self.makensis = None
+
+        def finalize_options(self):
+            py2exe.build_exe.py2exe.finalize_options(self)
+            if self.makensis is None:
+                # Default path for makensis.  This is where it gets
+                # installed by default.
+                self.makensis = 'c:\\Program Files\\NSIS\\makensis'
+        
+        def run(self):
+            # Make sure the dist directory is initially empty, since
+            # py2exe won't clean it out.
+            self.rm_rf(self.dist_dir)
+            
+            # Build the .exe files, etc.
+            py2exe.build_exe.py2exe.run(self)
+
+            # Now run NSIS to build the installer.
+            cmd = '"%(makensis)s" /DVERSION=%(version)s install\\windows_installer.nsi' % {
+                'makensis' : self.makensis,
+                'version' : pykversion.PYKARAOKE_VERSION_STRING,
+                }
+            print cmd
+            os.system(cmd)
+
+            # Now that we've got an installer, we can empty the dist
+            # dir again.
+            self.rm_rf(self.dist_dir)
+
+        def rm_rf(self, dirname):
+            """Recursively removes a directory's contents."""
+            if os.path.isdir(dirname):
+                for root, dirs, files in os.walk(dirname, topdown=False):
+                    for name in files:
+                        os.remove(os.path.join(root, name))
+                    for name in dirs:
+                        os.rmdir(os.path.join(root, name))
+                os.rmdir(dirname)
+
+    cmdclass['nsis'] = BuildInstaller
+
+    # tell py2exe what the front end applications are.
+    setupArgs['windows'] = [
+        { "script": "pykaraoke.py",
+          "icon_resources" : [(0, "icons\\note.ico")],
+          },
+        { "script": "pykaraoke_mini.py",
+          "icon_resources" : [(0, "icons\\note.ico")],
+          },
+        ]
+
+setup(**setupArgs)

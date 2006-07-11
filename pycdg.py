@@ -184,9 +184,9 @@ import sys, pygame, os, string, math
 # Import the optimised C version if available, or fall back to Python
 try:
     import _pycdgAux as aux
-except:
-    import pycdgAux as aux
+except ImportError:
     print "Using Python implementation of CDG interpreter."
+    import pycdgAux as aux
 
 CDG_DISPLAY_WIDTH   = 294
 CDG_DISPLAY_HEIGHT  = 204
@@ -289,8 +289,6 @@ class cdgPlayer(pykPlayer):
         self.cdgReadPackets = 0
         self.cdgPacketsDue = 0
         self.LastPos = self.curr_pos = 0
-        self.PlayTime = 0
-        self.PlayStartTime = 0
 
         # Some session-wide constants.
         self.ms_per_update = (1000.0 / manager.options.fps)        
@@ -298,23 +296,17 @@ class cdgPlayer(pykPlayer):
     def doPlay(self):
         if self.soundFileData:
             pygame.mixer.music.play()
-        else:
-            self.PlayStartTime = pygame.time.get_ticks()
 
     # Pause the song - Use Pause() again to unpause
     def doPause(self):
         if self.soundFileData:
             pygame.mixer.music.pause()
             self.PauseStartTime = self.GetPos()
-        else:
-            self.PlayTime = pygame.time.get_ticks() - self.PlayStartTime
 
     def doUnpause(self):
         if self.soundFileData:
             self.pauseOffsetTime = self.pauseOffsetTime + (self.GetPos() - self.PauseStartTime)
             pygame.mixer.music.unpause()
-        else:
-            self.PlayStartTime = pygame.time.get_ticks() - self.PlayTime
 
     # you must call Play() to restart. Blocks until pygame is initialised
     def doRewind(self):
@@ -322,8 +314,6 @@ class cdgPlayer(pykPlayer):
         self.cdgReadPackets = 0
         self.cdgPacketsDue = 0
         self.LastPos = 0
-        self.PlayTime = 0
-        self.PlayStartTime = 0
         # No need for the Pause() fix anymore
         self.pauseOffsetTime = 0
         # Move file pointer to the beginning of the file
@@ -340,10 +330,7 @@ class cdgPlayer(pykPlayer):
         if self.soundFileData:
             return pygame.mixer.music.get_pos()
         else:
-            if self.State == STATE_PLAYING:
-                return pygame.time.get_ticks() - self.PlayStartTime
-            else:
-                return self.PlayTime
+            return pykPlayer.GetPos(self)
 
     def SetupOptions(self):
         """ Initialise and return optparse OptionParser object,

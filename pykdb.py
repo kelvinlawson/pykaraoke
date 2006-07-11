@@ -570,6 +570,10 @@ class SongDB:
                     print "Invalid line in %s:\n%s" % (catalogPathname, line)
                     continue
 
+                # Allow a forward slash in the file to stand in for
+                # whatever the OS's path separator is.
+                filename = filename.replace('/', os.path.sep)
+
                 pathname = os.path.join(dirname, filename)
                 file = self.filesByFullpath.get(pathname, None)
                 if file is None:

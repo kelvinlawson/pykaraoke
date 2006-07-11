@@ -503,8 +503,20 @@ class FileTree (wx.Panel):
     def CreateTreeRoot(self):
         # Get a drive list on Windows otherwise start at root
         if env == ENV_WINDOWS:
-            import win32api
-            drives = string.split(win32api.GetLogicalDriveStrings(),'\0')[:-1]
+            try:
+                import win32api
+                drives = string.split(win32api.GetLogicalDriveStrings(),'\0')[:-1]
+            except ImportError:
+                # No win32api installed.  Just look for all the likely drive
+                # names exhaustively, excluding A and B (which are
+                # usually floppy drives and cause an annoying dialog
+                # to pop up).
+                drives = []
+                for letter in 'CDEFGHIJKLMNOPQRSTUVWXYZ':
+                    drive = '%s:\\' % (letter)
+                    if os.path.isdir(drive):
+                        drives.append(drive)
+                    
             self.TreeRoot = self.FileTree.AddRoot("")
             self.RootFolder = ""
             for drive in drives:

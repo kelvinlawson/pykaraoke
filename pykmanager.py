@@ -71,14 +71,12 @@ class pykManager:
         # negative values delay them.
 
         # For some reason, an initial value of -250 ms seems about
-        # right empirically, on both Windows and Linux.  Maybe some
-        # delay built into the video libraries of SDL in conjunction
-        # with PC hardware?  It doesn't seem to be the case on the
+        # right empirically, on Linux, but not on Windows or on the
         # GP2X.
-        if env == ENV_GP2X:
-            self.UserOffsetTime = 0
-        else:
+        if env == ENV_LINUX:
             self.UserOffsetTime = -250
+        else:
+            self.UserOffsetTime = 0
 
     # Get the current display size
     def GetDisplaySize(self):
