@@ -39,7 +39,7 @@ data_files = [
     ('share/pykaraoke/fonts', [
     'fonts/DejaVuSans.ttf',
     'fonts/DejaVuSansCondensed.ttf',
-    'fonts/DejaVuSansCondensed-bold.ttf',
+    'fonts/DejaVuSansCondensed-Bold.ttf',
     ])]
 
 # These data files only make sense on Unix-like systems.
