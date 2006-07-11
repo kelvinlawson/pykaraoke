@@ -336,6 +336,12 @@ class SongDB:
         if env != ENV_WINDOWS:
             if os.path.exists('/tmp'):
                 return '/tmp/pykaraoke'
+        else:
+            try:
+                import win32api
+                return os.path.join(win32api.GetTempPath(), 'pykaraoke')
+            except:
+                pass
 
         # If we can't find a good temp directory, use our save directory.
         return self.getSaveDirectory()

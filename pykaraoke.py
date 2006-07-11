@@ -141,12 +141,6 @@ CONFIG_WINDOW_SIZE = (240,60)
 class wxAppYielder(pykdb.AppYielder):
     def Yield(self):
         wx.GetApp().Yield()
-  
-# Popup busy window with cancel button
-class wxBusyCancelDialog(wx.Frame, pykdb.BusyCancelDialog):
-    def __init__(self,parent,title):
-        pykdb.BusyCancelDialog.__init__(self)
-
 
 # Popup busy window with cancel button
 class wxBusyCancelDialog(wx.Frame, pykdb.BusyCancelDialog):
@@ -650,19 +644,78 @@ class FileTree (wx.Panel):
                 # Convert the song_struct to a string.
                 filename = self.FileTree.GetItemText(item)
                 full_path = self.GetFullPathForNode(item)
-                song_struct = SongStruct (full_path, filename)
-                song_struct_string = SongStructPickle(song_struct)
-                data = wx.PyTextDataObject()
-                data.SetText(song_struct_string)
+                song_struct = pykdb.SongStruct(full_path)
+                data = SongStructDataObject(song_struct)
+
+                # Also store this data object in the globalDragObject pointer,
+                # to work around a wxPython bug.
+                global globalDragObject
+                globalDragObject = data
 
                 # Create drop source and begin drag-and-drop.
                 dropSource = wx.DropSource(self.FileTree)
                 dropSource.SetData(data)
-                res = dropSource.DoDragDrop(flags=wx.Drag_CopyOnly)
+
+                # The docs say the parameter here should be one of
+                # wx.DragCopy/DragMove/etc., but in practice it appears that
+                # only wx.DragNone works on Windows.
+                if env == ENV_WINDOWS:
+                    res = dropSource.DoDragDrop(wx.DragNone)
+                else:
+                    res = dropSource.DoDragDrop(wx.DragCopy)
 
             # Can't call dropSource.DoDragDrop here..
             wx.CallAfter(DoDragDrop)
 
+
+# This defines a custom "format" for our local drag-and-drop data
+# type: a SongStruct object.
+songStructFormat = wx.CustomDataFormat('SongStruct')
+
+class SongStructDataObject(wx.PyDataObjectSimple):
+    """This class is used to encapsulate a SongStruct object, moving
+    through the drag-and-drop system.  We use a custom DataObject
+    class instead of using PyTextDataObject, so wxPython will know
+    that we are specifically dragging SongStruct objects only, and
+    won't crash if someone tries to drag an arbitrary text string into
+    the playlist window. """
+    
+    def __init__(self, songStruct = None):
+        wx.PyDataObjectSimple.__init__(self)
+        self.SetFormat(songStructFormat)
+        self.songStruct = songStruct
+        self.data = cPickle.dumps(self.songStruct)
+
+    def GetDataSize(self):
+        """Returns number of bytes required to store the data in the
+        object.  This must be defined so the C++ implementation can
+        reserve space before calling GetDataHere()."""
+        return len(self.data)
+
+    def GetDataHere(self):
+        """Returns the data in the object, encoded as a string. """
+        return self.data
+
+    def SetData(self, data):
+        """Accepts new data in the object, represented as a string. """
+
+        # Note that this method doesn't appear to be called by the
+        # current version of wxPython.  We work around this by also
+        # passing the current drag-and-drop object in the variable
+        # globalDragObject.
+
+        # Cast the data object explicitly to a str type, in case the
+        # drag-and-drop operation elevated it to a unicode string.
+        self.data = str(data)
+        self.songStruct = cPickle.loads(self.data)
+
+# We store the object currently being dragged here, to work around an
+# apparent bug in wxPython that does not call 
+# DataObject.SetData() for custom data object formats.  Or, maybe
+# I'm just misunderstanding some key interface, but documentation is
+# sparse.  In any case, this works fine, since we are only interested
+# in drag-and-drop within this process anyway.
+globalDragObject = None
 
 # Drag-and-drop target for lists. Code from WxPython Wiki
 class ListDrop(wx.PyDropTarget):
@@ -671,31 +724,33 @@ class ListDrop(wx.PyDropTarget):
         wx.PyDropTarget.__init__(self)
         self.setFn = setFn
 
-        # specify the type of data we will accept
-        self.data = wx.PyTextDataObject()
+        # Create a data object to receive drops (and also,
+        # incidentally, to specify the kind of data object we can
+        # receive).
+        self.data = SongStructDataObject()
         self.SetDataObject(self.data)
 
     # Called when OnDrop returns True.  We need to get the data and
     # do something with it.
-    def OnData(self, x, y, d):
+    def OnData(self, x, y, drag_result):
         # copy the data from the drag source to our data object
+        songStruct = None
         if self.GetData():
-            self.setFn(x, y, self.data.GetText())
+            songStruct = self.data.songStruct
+
+        if not songStruct:
+            # If GetData() failed, copy the data in by hand, working
+            # around that wxPython bug.
+            if globalDragObject:
+                songStruct = globalDragObject.songStruct
+
+        if songStruct:
+            self.setFn(x, y, songStruct)
 
         # what is returned signals the source what to do
         # with the original data (move, copy, etc.)  In this
         # case we just return the suggested value given to us.
-        return d
-
-def SongStructPickle(song_struct):
-    return cPickle.dumps(song_struct)
-
-def SongStructUnpickle(song_struct_pickled):
-    # The drag-and-drop operation upgrades the pickle string to a
-    # unicode string, which seems to confuse pickle.  The str()
-    # operator will convert it back correctly.
-    return cPickle.loads(str(song_struct_pickled))
-
+        return drag_result
 
 # Implement the Search Results panel and list box
 class SearchResultsPanel (wx.Panel):
@@ -917,26 +972,31 @@ class SearchResultsPanel (wx.Panel):
 
     # Put together a data object for drag-and-drop _from_ this list
     # Code from WxPython Wiki
-    def _startDrag(self, e):
-        # Convert the song_struct to a string.
-        song_struct_string = SongStructPickle(self.SongStructList[e.GetIndex()])
-        data = wx.PyTextDataObject()
-        data.SetText(song_struct_string)
+    def _startDrag(self, event):
+        # Wrap the song_struct in a DataObject.
+        idx = self.ListPanel.GetItemData(event.GetIndex())
+        song_struct = self.SongStructList[idx]
+        data = SongStructDataObject(song_struct)
+
+        # Also store this data object in the globalDragObject pointer,
+        # to work around a wxPython bug.
+        global globalDragObject
+        globalDragObject = data
 
         # Create drop source and begin drag-and-drop.
         dropSource = wx.DropSource(self.ListPanel)
         dropSource.SetData(data)
-        res = dropSource.DoDragDrop(flags=wx.Drag_CopyOnly)
 
-        # If move, we want to remove the item from this list.
-        if res == wx.DragMove:
-            # It's possible we are dragging/dropping from this 
-            # list to this list. In which case, the index we are
-            # removing may have changed...
+        # The docs say the parameter here should be one of
+        # wx.DragCopy/DragMove/etc., but in practice it appears that
+        # only wx.DragNone works on Windows.
+        if env == ENV_WINDOWS:
+            res = dropSource.DoDragDrop(wx.DragNone)
+        else:
+            res = dropSource.DoDragDrop(wx.DragCopy)
 
-            # Find correct position.
-            pos = self.ListPanel.FindItem(idx, text)
-            self.ListPanel.DeleteItem(pos)
+        # Let's not remove items from the search results list, even if
+        # the drag-and-drop says the user thought he was "moving" it.
 
         return True
 
@@ -1111,15 +1171,26 @@ class Playlist (wx.Panel):
     # Put together a data object for drag-and-drop _from_ this list
     # Code from WxPython Wiki
     def _startDrag(self, e):
-        # Convert the song_struct to a string.
-        song_struct_string = SongStructPickle(self.PlaylistSongStructList[e.GetIndex()])
-        data = wx.PyTextDataObject()
-        data.SetText(song_struct_string)
+        # Wrap the song_struct in a DataObject.
+        song_struct = self.PlaylistSongStructList[e.GetIndex()]
+        data = SongStructDataObject(song_struct)
+
+        # Also store this data object in the globalDragObject pointer,
+        # to work around a wxPython bug.
+        global globalDragObject
+        globalDragObject = data
 
         # Create drop source and begin drag-and-drop.
         dropSource = wx.DropSource(self.Playlist)
         dropSource.SetData(data)
-        res = dropSource.DoDragDrop(flags=wx.Drag_DefaultMove)
+
+        # The docs say the parameter here should be one of
+        # wx.DragCopy/DragMove/etc., but in practice it appears that
+        # only wx.DragNone works on Windows.
+        if env == ENV_WINDOWS:
+            res = dropSource.DoDragDrop(wx.DragNone)
+        else:
+            res = dropSource.DoDragDrop(wx.DragMove)
 
         # If move, we want to remove the item from this list.
         if res == wx.DragMove:
@@ -1129,17 +1200,15 @@ class Playlist (wx.Panel):
 
             # Find correct position.
             idx = e.GetIndex()
-            text = self.Playlist.GetItem(idx).GetText()
-            pos = self.Playlist.FindItem(idx, text)
-            self.DelItem(pos+1)
+            if self.Playlist.GetItem(idx).GetText() == song_struct.DisplayFilename:
+                self.DelItem(idx)
+            elif self.Playlist.GetItem(idx + 1).GetText() == song_struct.DisplayFilename:
+                self.DelItem(idx + 1)
+
 
     # Insert song from drag_index in search results, at given x,y coordinates,
     # used with drag-and-drop. Code from WxPython Wiki
-    def _insert(self, x, y, song_struct_pickled):
-        
-        # Get the song struct out of its pickled string
-        song_struct = SongStructUnpickle(song_struct_pickled)
-
+    def _insert(self, x, y, song_struct):
         # Find insertion point.
         index, flags = self.Playlist.HitTest((x, y))
         if index == wx.NOT_FOUND:
@@ -1263,6 +1332,10 @@ class PyKaraokeWindow (wx.Frame):
         # wrong and a window or thread might be left hanging.
         # Therefore, close the whole thing down forcefully.
         wx.Exit()
+
+        # We also explicitly close with sys.exit(), since we've forced
+        # the MainLoop to keep running.
+        sys.exit(0)
 
 
 # Subclass WxPyEvent to add storage for an extra data pointer
@@ -1458,7 +1531,15 @@ def main():
 
     if Mgr.gui:
         PyKaraokeApp.Bind(wx.EVT_IDLE, Mgr.handleIdle)
-        PyKaraokeApp.MainLoop()
+
+        # Normally, MainLoop() should only be called once; it will
+        # return when it receives WM_QUIT.  However, since pygame
+        # posts WM_QUIT when the user closes the pygame window, we
+        # need to keep running MainLoop indefinitely.  This means we
+        # need to force-quit the application when we really do intend
+        # to exit.
+        while True:
+            PyKaraokeApp.MainLoop()
 
 if __name__ == "__main__":
     sys.exit(main())

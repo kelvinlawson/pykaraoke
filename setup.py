@@ -154,9 +154,13 @@ if gotPy2exe:
         def finalize_options(self):
             py2exe.build_exe.py2exe.finalize_options(self)
             if self.makensis is None:
-                # Default path for makensis.  This is where it gets
-                # installed by default.
-                self.makensis = 'c:\\Program Files\\NSIS\\makensis'
+                try:
+                    import win32api
+                    self.makensis = win32api.FindExecutable('makensis')
+                except:
+                    # Default path for makensis.  This is where it gets
+                    # installed by default.
+                    self.makensis = os.path.join(os.environ['ProgramFiles'], 'NSIS\\makensis')
         
         def run(self):
             # Make sure the dist directory doesn't exist already--make

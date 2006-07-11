@@ -29,7 +29,7 @@ SetCompress auto
 ; Comment out this line to use the default compression instead during
 ; development, which is much faster, but doesn't do quite as good a
 ; job.
-SetCompressor lzma
+;SetCompressor lzma
 
 ;--------------------------------
 
@@ -60,11 +60,11 @@ Section "" ;No components page, name is not important
   ; Put the entire contents of the dist directory there.
   File /r "..\dist\*"
 
-  RMDir /r "$SMPROGRAMS\PyKaraoke"
-  CreateDirectory "$SMPROGRAMS\PyKaraoke"
-  CreateShortCut "$SMPROGRAMS\PyKaraoke\PyKaraoke.lnk" "$INSTDIR\pykaraoke.exe"
-  CreateShortCut "$SMPROGRAMS\PyKaraoke\PyKaraoke Mini.lnk" "$INSTDIR\pykaraoke_mini.exe"
-  WriteINIStr "$SMPROGRAMS\PyKaraoke\PyKaraoke on the Web.url" "InternetShortcut" "URL" "http://www.kibosh.org/pykaraoke/"
+  RMDir /r "$SMPROGRAMS\$STARTMENU_FOLDER"
+  CreateDirectory "$SMPROGRAMS\$STARTMENU_FOLDER"
+  CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\PyKaraoke.lnk" "$INSTDIR\pykaraoke.exe"
+  CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\PyKaraoke Mini.lnk" "$INSTDIR\pykaraoke_mini.exe"
+  WriteINIStr "$SMPROGRAMS\$STARTMENU_FOLDER\PyKaraoke on the Web.url" "InternetShortcut" "URL" "http://www.kibosh.org/pykaraoke/"
 
 SectionEnd ; end the section
 
@@ -74,14 +74,14 @@ Section -post
         WriteUninstaller "$INSTDIR\uninst.exe"
         WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PyKaraoke" "DisplayName" "PyKaraoke"
         WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PyKaraoke" "UninstallString" '"$INSTDIR\uninst.exe"'
-        CreateShortcut "$SMPROGRAMS\PyKaraoke\Uninstall PyKaraoke.lnk" "$INSTDIR\uninst.exe"
+        CreateShortcut "$SMPROGRAMS\$STARTMENU_FOLDER\Uninstall PyKaraoke.lnk" "$INSTDIR\uninst.exe"
 
 SectionEnd
 
 Section Uninstall
 
         Delete "$INSTDIR\uninst.exe"
-        RMDir /r "$SMPROGRAMS\PyKaraoke"
+        RMDir /r "$SMPROGRAMS\$STARTMENU_FOLDER"
         RMDir /r "$INSTDIR"
         DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PyKaraoke"
 
