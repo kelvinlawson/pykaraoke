@@ -62,9 +62,10 @@ Section "" ;No components page, name is not important
 
   RMDir /r "$SMPROGRAMS\PyKaraoke"
   CreateDirectory "$SMPROGRAMS\PyKaraoke"
-  CreateShortCut "$SMPROGRAMS\PyKaraoke\pykaraoke.lnk" "$INSTDIR\pykaraoke.exe"
-  CreateShortCut "$SMPROGRAMS\PyKaraoke\pykaraoke_mini.lnk" "$INSTDIR\pykaraoke_mini.exe"
-  
+  CreateShortCut "$SMPROGRAMS\PyKaraoke\PyKaraoke.lnk" "$INSTDIR\pykaraoke.exe"
+  CreateShortCut "$SMPROGRAMS\PyKaraoke\PyKaraoke Mini.lnk" "$INSTDIR\pykaraoke_mini.exe"
+  WriteINIStr "$SMPROGRAMS\PyKaraoke\PyKaraoke on the Web.url" "InternetShortcut" "URL" "http://www.kibosh.org/pykaraoke/"
+
 SectionEnd ; end the section
 
 Section -post
