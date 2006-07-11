@@ -34,7 +34,7 @@ data_files = [
       'icons/folder_close_16.png',
       'icons/folder_open_16.png', 
       'icons/note.ico',
-      #'icons/pykaraoke.xpm',
+      'icons/pykaraoke.xpm',
       'icons/splash.jpg']),
     ('share/pykaraoke/fonts', [
     'fonts/DejaVuSans.ttf',
