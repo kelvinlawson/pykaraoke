@@ -2,7 +2,7 @@
 ---------------------------------------------------------------------------
 
 Release:      pykaraoke v0.5
-Date:         10/07/2006
+Date:         12/07/2006
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
@@ -43,40 +43,6 @@ now runs on Windows, Linux, FreeBSD and GP2X.
 
 ---------------------------------------------------------------------------
 
-INSTALLATION (WINDOWS)
-
-Windows users can install PyKaraoke by simply downloading and running the
-installer executable. This installs all prerequisite libraries, and adds
-icons in your start menu to run PyKaraoke.
-
-If you prefer, you may choose to build the Windows version from source. We
-will assume you are familiar with the steps involved for installing a
-Python distribution from source on Windows; they are similar to those for
-the Linux installation, below. You will need to have pygame
-(www.pygame.org) installed. You will also need to download and unpack the
-SDL source distribution (www.libsdl.org) into the same directory with
-PyKaraoke, under its default name, which will be something like
-"SDL-1.2.11" (by default, setup.py will search for any directories named
-SDL* in the current directory). You will then invoke the command:
-
-python setup.py install
-
-You may also choose to unpack the source distribution elsewhere and
-specify its path with --sdl-location=/path/to/SDL on the above command.
-
-To build a Windows installer, you additionally need to have py2exe
-(www.py2exe.org) and NSIS (nsis.sourceforge.net) installed, and then you
-may invoke:
-
-python setup.py nsis
-
-This will create an executable called pykaraoke-<current_version>.exe
-in the current directory, which will be a standalone Windows installer
-program you may then distribute to other Windows users. You don't
-need to install PyKaraoke before building an installer for it.
-
----------------------------------------------------------------------------
-
 INSTALLATION (LINUX, SOURCE INSTALLS)
 
 PyKaraoke requires the following libraries to be installed:
@@ -84,20 +50,24 @@ PyKaraoke requires the following libraries to be installed:
  * Python (www.python.org)
  * Pygame (www.pygame.org)
  * WxPython (www.wxpython.org)
- * Numeric python module (numpy.sourceforge.net)
+ * SDL source distribution (www.libsdl.org)
+
+PyKaraoke now offers two builds: an ultra-portable Python version, and a
+highly optimised C version. The default install is to use the faster C 
+version which requires the SDL source distribution for compilation 
+purposes. All supported platforms should support compilation of the C
+version, but the portable Python-only version will continue to be 
+supported. Python-only installs do not require the SDL source 
+distribution, and instead require the Numeric Python module 
+(numpy.sourceforge.net).
 
 If these libraries are not already installed on your system, you can
 download them from the websites listed.
 
 Linux users may find these packages are available directly from their
-distro's package manager.
-
-Gentoo users can install all prerequisites using:
-	# emerge python pygame wxGTK wxpython numeric
-
-Debian users can install all prerequisites using:
-	# apt-get install python python-pygame libwxgtk-python 
-            libsdl-dev python-numeric
+distro's package manager. For example Debian users can install all
+prerequisites using:
+	# apt-get install python python-pygame libwxgtk-python libsdl-dev
 
 With the prerequisites installed, unzip the release and run the following
 as root:
@@ -109,6 +79,47 @@ PyKaraoke from anywhere using "pykaraoke".
 
 Alternatively you can run PyKaraoke without installing by simply
 unzipping and running "python pykaraoke.py" from the unzip location.
+Beware that this method requires the Numeric library, and runs the
+more portable but slower Python-only version of the CDG player.
+
+---------------------------------------------------------------------------
+
+INSTALLATION (WINDOWS)
+
+Windows users can install PyKaraoke by simply downloading and running the
+installer executable. This installs all prerequisite libraries, and adds
+icons in your start menu to run PyKaraoke.
+
+If you prefer, you may choose to build the Windows version from source. We
+will assume you are familiar with the steps involved for installing a
+Python distribution from source on Windows; they are similar to those for
+the Linux installation, below. You will need to have pygame
+(www.pygame.org) and wxpython (www.wxpython.org) installed. You will also
+need to download and unpack the SDL source distribution (www.libsdl.org) 
+into the same directory with PyKaraoke, under its default name, which will
+be something like "SDL-1.2.11" (by default, setup.py will search for any
+directories named SDL* in the current directory). You will then invoke the
+command:
+
+python setup.py install
+
+You may also choose to unpack the source distribution elsewhere and
+specify its path with --sdl-location=/path/to/SDL on the above command.
+
+---------------------------------------------------------------------------
+
+CREATING WINDOWS INSTALLERS
+
+To build a Windows installer, you additionally need to have py2exe
+(www.py2exe.org) and NSIS (nsis.sourceforge.net) installed, and then you
+may invoke:
+
+python setup.py nsis
+
+This will create an executable called pykaraoke-<current_version>.exe
+in the current directory, which will be a standalone Windows installer
+program you may then distribute to other Windows users. You don't
+need to install PyKaraoke before building an installer for it.
 
 ---------------------------------------------------------------------------
 
@@ -382,6 +393,15 @@ provided by a PyKaraoke user:
 SuSE users may also need to install the slang-devel package.
 
 
+LINUX: NO AVAILABLE AUDIO DEVICE
+
+Linux users may get the following error message:
+
+    pygame.error: No available audio device
+
+You should try switching between libsdl-oss and libsdl-alsa.
+
+
 AMD64 INSTALLATIONS
 
 If you are running on the AMD64 platform (and possibly others) you may see
@@ -393,7 +413,8 @@ Traceback (most recent call last):
 ValueError: unsupported datatype for array
 
 If this occurs, you need to download and install the latest development
-release of pygame. Follow the instructions at http://pygame.org/cvs.html to obtain the latest development release, then:
+release of pygame. Follow the instructions at http://pygame.org/cvs.html to
+obtain the latest development release, then:
 
 1. Build the new release by running:
    # python makeref.py
@@ -404,6 +425,17 @@ release of pygame. Follow the instructions at http://pygame.org/cvs.html to obta
    folder containing pycdg.py and the rest of the PyKaraoke files.
 
 The CDG player should then work properly.
+
+
+SLACKWARE AND TIMIDITY++
+
+Slackware users may find that the MIDI player cannot find the timidity 
+configuration files. You can fix this by creating a link from the PyKaraoke
+installation directory:
+
+    # cd pykaraoke_install_dir
+    # ln -s /usr/share/timidity/timidity.cfg .
+    # ln -s /usr/share/timidity/instruments 
 
 
 GP2X ISSUES
@@ -442,18 +474,6 @@ There are several possible workarounds to this.
     are using zip files for organization, use a subdirectory instead.
 
 We recommend approach (4).
-
----------------------------------------------------------------------------
-
-TEST SYSTEMS
-
-PyKaraoke has been tested on (at least) the following systems:
-
- * Gentoo Linux (python-2.3.4, wxGTK-2.4.2-r2, pygame-1.6,   numeric-23.1)
- * Windows 2000 (python-2.3,   wxPython-2.5,   pygame-1.6,   numeric-23.6)
- * Windows XP   (python-2.3,   wxPython-2.4,   pygame-1.6.2, numeric-23.7)
- * Windows XP   (python-2.4,   wxPython-2.5,   pygame-1.6,   numeric-23.7)
- * Windows 98   (python-2.3,   wxPython-2.4,   pygame-1.6,   numeric-23.7)
 
 ---------------------------------------------------------------------------
 
