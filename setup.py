@@ -128,6 +128,11 @@ class my_build_ext(build_ext):
             self.include_dirs.append(os.path.join(self.sdl_location, 'include'))
             self.library_dirs.append(os.path.join(self.sdl_location, 'lib'))
 
+            # Also put the lib dir on the PATH, so py2exe can find SDL.dll.
+            if env == ENV_WINDOWS:
+                libdir = os.path.join(self.sdl_location, 'lib')
+                os.environ["PATH"] = '%s;%s' % (libdir, os.environ["PATH"])
+
         
 cmdclass['build_ext'] = my_build_ext
         
@@ -154,9 +159,16 @@ if gotPy2exe:
                 self.makensis = 'c:\\Program Files\\NSIS\\makensis'
         
         def run(self):
-            # Make sure the dist directory is initially empty, since
-            # py2exe won't clean it out.
-            self.rm_rf(self.dist_dir)
+            # Make sure the dist directory doesn't exist already--make
+            # the user delete it first if it does.  (This is safer
+            # than calling rm_rf() on it, in case the user has
+            # specified '/' or some equally foolish directory as the
+            # dist directory.)
+            
+            if os.path.exists(self.dist_dir):
+                print "Error, the directory %s already exists." % (self.dist_dir)
+                print "Please remove it before starting this script."
+                sys.exit(1)
             
             # Build the .exe files, etc.
             py2exe.build_exe.py2exe.run(self)
