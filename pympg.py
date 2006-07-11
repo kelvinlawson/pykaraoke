@@ -175,14 +175,24 @@ class mpgPlayer(pykPlayer):
 
     # Internal. Only called by the pykManager.
     def doResize(self, newSize):
-        # The pygame library needs to be paused while resizing
-        if self.State == STATE_PLAYING:
-            self.Movie.pause()
         # Resize the screen.
         self.Movie.set_display(manager.display, (0, 0, manager.displaySize[0], manager.displaySize[1]))
-        # Unpause if it was playing
+
+    # Internal. Only called by the pykManager.
+    def doResizeBegin(self):
+        # The Movie player must be paused while resizing otherwise we
+        # get Xlib errors. pykmanager will call here before the resize
+        # so that we can do it.
+        if self.State == STATE_PLAYING:
+            self.Movie.pause()
+
+    # Internal. Only called by the pykManager.
+    def doResizeEnd(self):
+        # Called by pykmanager when resizing has finished.
+        # We only play if it was playing in the first place.
         if self.State == STATE_PLAYING:
             self.Movie.play()
+
 
 # Can be called from the command line with the MPG filepath as parameter
 def main():

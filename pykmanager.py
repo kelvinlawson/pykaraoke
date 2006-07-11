@@ -438,11 +438,24 @@ class pykManager:
         # window is opening. Give it some time to settle.
         player = self.player
         if event.type == pygame.VIDEORESIZE and pygame.time.get_ticks() - self.displayTime > 250:
+
+            # Tell the player we are about to resize. This is required
+            # for pympg.
+            if player:
+                player.doResizeBegin()
+
+            # Do the resize
             self.displaySize = event.size
             pygame.display.set_mode(event.size, self.displayFlags, self.displayDepth)
+
+            # Call any player-specific resize
             if player:
                 player.doResize(event.size)
 
+            # Tell the player we have finished resizing 
+            if player:
+                player.doResizeEnd()
+            
         elif env == ENV_GP2X and event.type == pygame.JOYBUTTONDOWN:
             if event.button == GP2X_BUTTON_VOLUP:
                 self.VolumeUp()

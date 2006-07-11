@@ -187,6 +187,18 @@ class pykPlayer:
         # window handles.
         pass
 
+    def doResizeBegin(self):
+        # This will be called internally before the screen is resized
+        # by pykmanager and doResize() is called. Not all players need
+        # to do anything here.
+        pass
+
+    def doResizeEnd(self):
+        # This will be called internally after the screen is resized
+        # by pykmanager and doResize() is called. Not all players need
+        # to do anything here.
+        pass
+
     def handleEvent(self, event):
         if event.type == pygame.USEREVENT:
             self.Close()
