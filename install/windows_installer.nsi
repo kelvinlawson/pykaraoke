@@ -29,7 +29,7 @@ SetCompress auto
 ; Comment out this line to use the default compression instead during
 ; development, which is much faster, but doesn't do quite as good a
 ; job.
-;SetCompressor lzma
+SetCompressor lzma
 
 ;--------------------------------
 
