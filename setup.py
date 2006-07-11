@@ -33,7 +33,7 @@ data_files = [
      ['icons/audio_16.png',
       'icons/folder_close_16.png',
       'icons/folder_open_16.png', 
-      'icons/note.ico',
+      'icons/microphone.ico',
       'icons/pykaraoke.xpm',
       'icons/splash.jpg']),
     ('share/pykaraoke/fonts', [
@@ -204,10 +204,10 @@ if gotPy2exe:
     # tell py2exe what the front end applications are.
     setupArgs['windows'] = [
         { "script": "pykaraoke.py",
-          "icon_resources" : [(0, "icons\\note.ico")],
+          "icon_resources" : [(0, "icons\\microphone.ico")],
           },
         { "script": "pykaraoke_mini.py",
-          "icon_resources" : [(0, "icons\\note.ico")],
+          "icon_resources" : [(0, "icons\\microphone.ico")],
           },
         ]
 
