@@ -128,6 +128,10 @@ class mpgPlayer(pykPlayer):
         manager.InitPlayer(self)
         manager.OpenDisplay(depth = DISPLAY_DEPTH)
 
+        # Close the mixer while using Movie
+        manager.CloseAudio()
+
+        # Open the Movie module
         filepath = self.SongDatas[0].GetFilepath()
         self.Movie = pygame.movie.Movie(filepath)
         self.Movie.set_display(manager.display, (0, 0, manager.displaySize[0], manager.displaySize[1]))
@@ -171,6 +175,8 @@ class mpgPlayer(pykPlayer):
         # immediately.
         if self.Movie:
             self.Movie.stop()
+        # Must remove the object before using pygame.mixer module again
+        self.Movie = None
         pykPlayer.shutdown(self)
 
     # Internal. Only called by the pykManager.
