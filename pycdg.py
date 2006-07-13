@@ -188,8 +188,8 @@ except ImportError:
     print "Using Python implementation of CDG interpreter."
     import pycdgAux as aux
 
-CDG_DISPLAY_WIDTH   = 294
-CDG_DISPLAY_HEIGHT  = 204
+CDG_DISPLAY_WIDTH   = 288
+CDG_DISPLAY_HEIGHT  = 192
 
 # Screen tile positions
 # The viewable area of the screen (294x204) is divided into 24 tiles
@@ -403,21 +403,27 @@ class cdgPlayer(pykPlayer):
             else:
                 scale = int(scale)
         self.displayScale = scale
-        
+
         scaledWidth = int(scale * CDG_DISPLAY_WIDTH)
         scaledHeight = int(scale * CDG_DISPLAY_HEIGHT)
+
+        if manager.options.zoom_mode == 'full':
+            # If we are allowing non-proportional scaling, allow
+            # scaledWidth and scaledHeight to be independent.
+            scaledWidth = winWidth
+            scaledHeight = winHeight
 
         # And the center of the display after letterboxing.
         self.displayRowOffset = (winWidth - scaledWidth) / 2
         self.displayColOffset = (winHeight - scaledHeight) / 2
 
         # Calculate the scaled width and height for each tile
-        if manager.options.zoom_mode == 'quick' or manager.options.zoom_mode == 'int':
-            self.displayTileWidth = scaledWidth / TILES_PER_ROW
-            self.displayTileHeight = scaledHeight / TILES_PER_COL
-        else:
+        if manager.options.zoom_mode == 'soft':
             self.displayTileWidth = CDG_DISPLAY_WIDTH / TILES_PER_ROW
             self.displayTileHeight = CDG_DISPLAY_HEIGHT / TILES_PER_COL
+        else:
+            self.displayTileWidth = scaledWidth / TILES_PER_ROW
+            self.displayTileHeight = scaledHeight / TILES_PER_COL
 
     def getAudioProperties(self, soundFileData):
         """ Attempts to determine the samplerate, etc., from the
@@ -496,6 +502,11 @@ class cdgPlayer(pykPlayer):
         #   an integer multiple or divisor of its original size, which
         #   may reduce artifacts somewhat.
 
+        # options.zoom_mode = 'full':
+        #   The same as 'quick', but the scaling is allowed to
+        #   completely fill the window in both x and y, regardless of
+        #   aspect ratio constraints.
+
         # options.zoom_mode = 'soft':
         #   Antialiased scaling.  We blit all tiles onto
         #   self.workingSurface, which is maintained as the non-scaled
@@ -536,7 +547,11 @@ class cdgPlayer(pykPlayer):
                 manager.display.blit(self.workingTile, rect)
                 rect_list.append(rect)
 
-            elif manager.options.zoom_mode == 'quick' or manager.options.zoom_mode == 'int':
+            elif manager.options.zoom_mode == 'soft':
+                # The soft-scale approach.
+                self.workingSurface.blit(self.workingTile, (self.displayTileWidth * row, self.displayTileHeight * col))
+
+            else:
                 # The quick-scale approach.
                 scaled = pygame.transform.scale(self.workingTile, (self.displayTileWidth,self.displayTileHeight))
                 rect = pygame.Rect(self.displayTileWidth * row + self.displayRowOffset,
@@ -544,10 +559,6 @@ class cdgPlayer(pykPlayer):
                                    self.displayTileWidth, self.displayTileHeight)
                 manager.display.blit(scaled, rect)
                 rect_list.append(rect)
-
-            else:
-                # The soft-scale approach.
-                self.workingSurface.blit(self.workingTile, (self.displayTileWidth * row, self.displayTileHeight * col))
 
         if manager.options.zoom_mode == 'soft':
             # Now scale and blit the whole screen.

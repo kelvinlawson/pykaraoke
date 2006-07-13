@@ -43,26 +43,23 @@ CDG_MASK            = 0x3F
 # This is the size of the display as defined by the CDG specification.
 # The pixels in this region can be painted, and scrolling operations
 # rotate through this number of pixels.
-CDG_SCROLL_WIDTH      = 300
-CDG_SCROLL_HEIGHT     = 216
+CDG_FULL_WIDTH      = 300
+CDG_FULL_HEIGHT     = 216
 
 # This is the size of the array that we operate on.  We add an
 # additional border on the right and bottom edge of 6 and 12 pixels,
 # respectively, to allow for display shifting.  (It's not clear from
 # the spec which colour should be visible when the display is shifted
 # to the right or down.  We say it should be the border colour.)
-CDG_FULL_WIDTH      = 306
-CDG_FULL_HEIGHT     = 228
 
 # This is the size of the screen that is actually intended to be
-# visible.  It is the center area of CDG_FULL.  In addition to hiding
-# our additional border on the right and bottom, there is an official
-# border area on the top and left that is not meant to be visible.
-CDG_DISPLAY_WIDTH   = 294
-CDG_DISPLAY_HEIGHT  = 204
+# visible.  It is the center area of CDG_FULL.  The remaining border
+# area surrounding it is not meant to be visible.
+CDG_DISPLAY_WIDTH   = 288
+CDG_DISPLAY_HEIGHT  = 192
 
 # Screen tile positions
-# The viewable area of the screen (294x204) is divided into
+# The viewable area of the screen (288x192) is divided into
 # 24 tiles (6x4 of 49x51 each). This is used to only update
 # those tiles which have changed on every screen update,
 # thus reducing the CPU load of screen updates. A bitmask of
@@ -143,7 +140,7 @@ class CdgPacketReader:
         # Build a 306x228 array for the actual RGB values. This will
         # be changed by the various commands, and blitted to the
         # screen now and again. But the border area will not be
-        # blitted, only the central 294x204 area.
+        # blitted, only the central 288x192 area.
         self.__cdgSurfarray = N.zeros((CDG_FULL_WIDTH, CDG_FULL_HEIGHT))
 
         # Start with all tiles requiring update
@@ -274,9 +271,10 @@ class CdgPacketReader:
         # the screen RGB surfarray.
 
         # NOTE: The preset area--that is, the visible area--starts at
-        # (6, 12) and extends all the way to the right and bottom of
-        # the screen.  The border area is the two stripes of 6 and 12
-        # pixels on the left and top of the screen.
+        # (6, 12) and extends to pixel (294, 204).  The border area is
+        # the two stripes of 6 pixels on the left and right of the
+        # screen, and the stripes of 12 pixels on the top and bottom
+        # of the screen.
         
         # The most efficient way of setting the values in a Numeric
         # array, is to create a zero array and do addition on the
@@ -372,34 +370,32 @@ class CdgPacketReader:
         # this efficient. A copy scroll (where the data scrolls round)
         # can be achieved by slicing and concatenating again.
         # For non-copy, the new slice is filled in with a new colour.
-
-        # Note that the scroll does not involve the right and bottom
-        # border edges, which are not part of the CDG
-        # specification--we put them there just so there will always
-        # be pixels of the border colour to draw from when the screen
-        # is shifted in that direction.
         if (copy == True):
             if (vScrollUpPixels > 0):
-                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[:,vScrollUpPixels:-12], self.__cdgPixelColours[:,:vScrollUpPixels], self.__cdgPixelColours[:,-12:]), 1)
+                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[:,vScrollUpPixels:], self.__cdgPixelColours[:,:vScrollUpPixels]), 1)
             elif (vScrollDownPixels > 0):
-                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[:,-vScrollDownPixels-12:-12], self.__cdgPixelColours[:,:-vScrollDownPixels-12], self.__cdgPixelColours[:,-12:]), 1)
+                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[:,-vScrollDownPixels:], self.__cdgPixelColours[:,:-vScrollDownPixels]), 1)
             elif (hScrollLeftPixels > 0):
-                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[hScrollLeftPixels:-6,:], self.__cdgPixelColours[:hScrollLeftPixels,:], self.__cdgPixelColours[-6:,:]), 0)
+                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[hScrollLeftPixels:,:], self.__cdgPixelColours[:hScrollLeftPixels,:]), 0)
             elif (hScrollRightPixels > 0):
-                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[-hScrollRightPixels-6:-6,:], self.__cdgPixelColours[:-hScrollRightPixels-6,:], self.__cdgPixelColours[-6:,:]), 0)
+                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[-hScrollRightPixels:,:], self.__cdgPixelColours[:-hScrollRightPixels,:]), 0)
         elif (copy == False):
             if (vScrollUpPixels > 0):
+                copyBlockActualColour = N.zeros([CDG_FULL_WIDTH,vScrollUpPixels]) + self.__cdgColourTable[colour]
                 copyBlockColourIndex = N.zeros([CDG_FULL_WIDTH,vScrollUpPixels]) + colour
-                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[:,vScrollUpPixels:-12], copyBlockColourIndex, self.__cdgPixelColours[:,-12:]), 1)
+                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[:,vScrollUpPixels:], copyBlockColourIndex), 1)
             elif (vScrollDownPixels > 0):
+                copyBlockActualColour = N.zeros([CDG_FULL_WIDTH,vScrollDownPixels]) + self.__cdgColourTable[colour]
                 copyBlockColourIndex = N.zeros([CDG_FULL_WIDTH,vScrollDownPixels]) + colour
-                self.__cdgPixelColours = N.concatenate((copyBlockColourIndex, self.__cdgPixelColours[:,:-vScrollDownPixels-12], self.__cdgPixelColours[:,-12:]), 1)
+                self.__cdgPixelColours = N.concatenate((copyBlockColourIndex, self.__cdgPixelColours[:,:-vScrollDownPixels]), 1)
             elif (hScrollLeftPixels > 0):
+                copyBlockActualColour = N.zeros([hScrollLeftPixels, CDG_FULL_HEIGHT]) + self.__cdgColourTable[colour]
                 copyBlockColourIndex = N.zeros([hScrollLeftPixels, CDG_FULL_HEIGHT]) + colour
-                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[hScrollLeftPixels:-6,:], copyBlockColourIndex, self.__cdgPixelColours[-6:,:]), 0)
+                self.__cdgPixelColours = N.concatenate((self.__cdgPixelColours[hScrollLeftPixels:,:], copyBlockColourIndex), 0)
             elif (hScrollRightPixels > 0):
+                copyBlockActualColour = N.zeros([hScrollRightPixels, CDG_FULL_HEIGHT]) + self.__cdgColourTable[colour]
                 copyBlockColourIndex = N.zeros([hScrollRightPixels, CDG_FULL_HEIGHT]) + colour
-                self.__cdgPixelColours = N.concatenate((copyBlockColourIndex, self.__cdgPixelColours[:-hScrollRightPixels-6,:], self.__cdgPixelColours[-6:,:]), 0)
+                self.__cdgPixelColours = N.concatenate((copyBlockColourIndex, self.__cdgPixelColours[:-hScrollRightPixels,:]), 0)
 
         # Now that we have scrolled the PixelColours, apply them to
         # the Surfarray.

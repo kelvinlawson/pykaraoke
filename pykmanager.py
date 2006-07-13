@@ -349,13 +349,10 @@ class pykManager:
                           help = 'specify the font scale factor; small numbers (between 0 and 1) make text smaller so more fits on the screen, while large numbers (greater than 1) make text larger so less fits on the screen.',
                           default = 1)
 
-        zoomDefault = "int"
-        if env == ENV_GP2X:
-            zoomDefault = "none"
         parser.add_option('', '--zoom', metavar='MODE', dest = 'zoom_mode', type = 'choice',
-                          choices = ['quick', 'int', 'soft', 'none'],
-                          help = 'specify the way in which graphics are scaled to fit the window.  The choices are "quick", "int", "soft", or "none".',
-                          default = zoomDefault)
+                          choices = ['quick', 'int', 'full', 'soft', 'none' ],
+                          help = 'specify the way in which graphics are scaled to fit the window.  The choices are "quick", "int", "full", "soft", or "none".',
+                          default = 'int')
 
         parser.add_option('', '--buffer', dest = 'buffer', metavar = 'MS', type = 'int',
                           help = 'buffer audio by the indicated number of milliseconds', 

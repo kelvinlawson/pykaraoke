@@ -151,14 +151,6 @@ FONT_SIZE = 50
 # into play when there is a large time gap between syllables.
 PARAGRAPH_LEAD_TIME = 5000
 
-# Unscaled screen size
-if env == ENV_GP2X:
-    UNSCALED_WIDTH = 320
-    UNSCALED_HEIGHT = 240
-else:        
-    UNSCALED_WIDTH = 640
-    UNSCALED_HEIGHT = 214
-
 # text types.
 TEXT_LYRIC  = 0
 TEXT_INFO   = 1

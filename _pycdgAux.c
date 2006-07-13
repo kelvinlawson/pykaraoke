@@ -56,23 +56,14 @@
 /* This is the size of the display as defined by the CDG specification.
    The pixels in this region can be painted, and scrolling operations
    rotate through this number of pixels. */
-#define CDG_SCROLL_WIDTH            300
-#define CDG_SCROLL_HEIGHT           216
-
-/* This is the size of the array that we operate on.  We add an
-   additional border on the right and bottom edge of 6 and 12 pixels,
-   respectively, to allow for display shifting.  (It's not clear from
-   the spec which colour should be visible when the display is shifted
-   to the right or down.  We say it should be the border colour.) */
-#define CDG_FULL_WIDTH              306
-#define CDG_FULL_HEIGHT             228
+#define CDG_FULL_WIDTH            300
+#define CDG_FULL_HEIGHT           216
 
 /* This is the size of the screen that is actually intended to be
-   visible.  It is the center area of CDG_FULL.  In addition to hiding
-   our additional border on the right and bottom, there is an official
-   border area on the top and left that is not meant to be visible. */
-#define CDG_DISPLAY_WIDTH           294
-#define CDG_DISPLAY_HEIGHT          204
+   visible.  It is the center area of CDG_FULL.  The remaining border
+   area surrounding it is not meant to be visible. */
+#define CDG_DISPLAY_WIDTH           288
+#define CDG_DISPLAY_HEIGHT          192
 
 
 #define TILES_PER_ROW    6
@@ -131,7 +122,7 @@ typedef struct {
   /* This is an array of the actual RGB values.  This will
      be changed by the various commands, and blitted to the
      screen now and again. But the border area will not be
-     blitted, only the central 294x204 area. */
+     blitted, only the central 288x192 area. */
   Uint32 __cdgSurfarray[CDG_FULL_WIDTH][CDG_FULL_HEIGHT];
 
   unsigned int __updatedTiles;
@@ -579,7 +570,7 @@ __cdgScrollCommon(CdgPacketReader *self, CdgPacket *packd, int copy) {
   int vScrollPixels, hScrollPixels;
   int vInc, hInc;
   int ri, ci;
-  unsigned char temp[CDG_SCROLL_WIDTH][CDG_SCROLL_HEIGHT];
+  unsigned char temp[CDG_FULL_WIDTH][CDG_FULL_HEIGHT];
 
   /* Decode the scroll command parameters */
   colour = packd->data[0] & 0x0F;
@@ -621,20 +612,14 @@ __cdgScrollCommon(CdgPacketReader *self, CdgPacket *packd, int copy) {
   /* Perform the actual scroll. */
 
   /* For the circular add, we add hScrollPixels and then modulo
-     CDG_SCROLL_WIDTH.  We also add CDG_SCROLL_WIDTH before the modulo to
+     CDG_FULL_WIDTH.  We also add CDG_FULL_WIDTH before the modulo to
      avoid a negative increment (which doesn't work properly with the
      C modulo operator).  A similar story in the vertical direction. */
-
-  /* Note that the scroll does not involve the right and bottom
-     border edges, which are not part of the CDG
-     specification--we put them there just so there will always
-     be pixels of the border colour to draw from when the screen
-     is shifted in that direction. */
-  hInc = hScrollPixels + CDG_SCROLL_WIDTH;
-  vInc = vScrollPixels + CDG_SCROLL_HEIGHT;
-  for (ri = 0; ri < CDG_SCROLL_WIDTH; ++ri) {
-    for (ci = 0; ci < CDG_SCROLL_HEIGHT; ++ci) {
-      temp[(ri + hInc) % CDG_SCROLL_WIDTH][(ci + vInc) % CDG_SCROLL_HEIGHT] = 
+  hInc = hScrollPixels + CDG_FULL_WIDTH;
+  vInc = vScrollPixels + CDG_FULL_HEIGHT;
+  for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
+    for (ci = 0; ci < CDG_FULL_HEIGHT; ++ci) {
+      temp[(ri + hInc) % CDG_FULL_WIDTH][(ci + vInc) % CDG_FULL_HEIGHT] = 
         self->__cdgPixelColours[ri][ci];
     }
   }
@@ -645,27 +630,27 @@ __cdgScrollCommon(CdgPacketReader *self, CdgPacket *packd, int copy) {
      colour.  Go back and do that now. */
   if (!copy) {
     if (vScrollPixels > 0) {
-      for (ri = 0; ri < CDG_SCROLL_WIDTH; ++ri) {
+      for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
         for (ci = 0; ci < vScrollPixels; ++ci) {
           temp[ri][ci] = colour;
         }
       }
     } else if (vScrollPixels < 0) {
-      for (ri = 0; ri < CDG_SCROLL_WIDTH; ++ri) {
-        for (ci = CDG_SCROLL_HEIGHT + vScrollPixels; ci < CDG_SCROLL_HEIGHT; ++ci) {
+      for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
+        for (ci = CDG_FULL_HEIGHT + vScrollPixels; ci < CDG_FULL_HEIGHT; ++ci) {
           temp[ri][ci] = colour;
         }
       }
     }
     if (hScrollPixels > 0) {
       for (ri = 0; ri < hScrollPixels; ++ri) {
-        for (ci = 0; ci < CDG_SCROLL_HEIGHT; ++ci) {
+        for (ci = 0; ci < CDG_FULL_HEIGHT; ++ci) {
           temp[ri][ci] = colour;
         }
       }
     } else if (hScrollPixels < 0) {
-      for (ri = CDG_SCROLL_WIDTH + hScrollPixels; ri < CDG_SCROLL_WIDTH; ++ri) {
-        for (ci = 0; ci < CDG_SCROLL_HEIGHT; ++ci) {
+      for (ri = CDG_FULL_WIDTH + hScrollPixels; ri < CDG_FULL_WIDTH; ++ri) {
+        for (ci = 0; ci < CDG_FULL_HEIGHT; ++ci) {
           temp[ri][ci] = colour;
         }
       }
@@ -674,8 +659,8 @@ __cdgScrollCommon(CdgPacketReader *self, CdgPacket *packd, int copy) {
 
   /* Now copy the temporary buffer back to our array, and also apply
      that to cdgSurfarray by reapplying the colour indices. */
-  for (ri = 0; ri < CDG_SCROLL_WIDTH; ++ri) {
-    for (ci = 0; ci < CDG_SCROLL_HEIGHT; ++ci) {
+  for (ri = 0; ri < CDG_FULL_WIDTH; ++ri) {
+    for (ci = 0; ci < CDG_FULL_HEIGHT; ++ci) {
       self->__cdgPixelColours[ri][ci] = temp[ri][ci];
       self->__cdgSurfarray[ri][ci] = self->__cdgColourTable[temp[ri][ci]];
     }
