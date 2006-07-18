@@ -621,10 +621,16 @@ class SongDB:
             LowerTitle = song.Title.lower()
             LowerArtist = song.Artist.lower()
             LowerPath = song.DisplayFilename.lower()
+            # If it's a zip file, also include the zip filename
+            if song.ZipStoredName:
+                LowerZipName = os.path.basename(song.Filepath).lower()
+            else:
+                LowerZipName = "" 
             misses = 0
             for term in TermsList:
                 if (term not in LowerTitle) and \
                    (term not in LowerArtist) and \
+                   (term not in LowerZipName) and \
                    (term not in LowerPath):
                     misses = misses + 1
             if misses == 0:
