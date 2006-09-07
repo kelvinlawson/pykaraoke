@@ -79,8 +79,9 @@ PyKaraoke from anywhere using "pykaraoke".
 
 Alternatively you can run PyKaraoke without installing by simply
 unzipping and running "python pykaraoke.py" from the unzip location.
-Beware that this method requires the Numeric library, and runs the
-more portable but slower Python-only version of the CDG player.
+Beware that the uninstalled version method requires the Numeric library,
+and runs the more portable but slower Python-only version of the CDG 
+player.
 
 ---------------------------------------------------------------------------
 

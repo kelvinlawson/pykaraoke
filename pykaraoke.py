@@ -121,7 +121,8 @@
 # usable while the songs are playing, allowing the user to
 # continue adding to the playlist etc.
 
-
+import wxversion
+wxversion.select('2.6')
 import os, string, wx, sys
 from pykconstants import *
 from pykenv import env
@@ -768,9 +769,14 @@ class SearchResultsPanel (wx.Panel):
         
         self.ListPanel = wx.ListCtrl(self, -1, style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.SUNKEN_BORDER)
         self.ListPanel.Show(True)
-        self.ListPanel.InsertColumn (0, "Filename", width=100)
-        self.ListPanel.InsertColumn (1, "Title", width=300)
-        self.ListPanel.InsertColumn (3, "Artist", width=200)
+
+	# Insert the Filename/Title/Artist columns
+        self.FilenameCol = 0 
+        self.TitleCol = 1
+        self.ArtistCol = 2
+ 	self.ListPanel.InsertColumn (self.FilenameCol, "Filename", width=100)
+        self.ListPanel.InsertColumn (self.TitleCol, "Title", width=100)
+        self.ListPanel.InsertColumn (self.ArtistCol, "Artist", width=100)
 
         wx.EVT_LIST_COL_CLICK(self.ListPanel, wx.ID_ANY, self.OnColumnClicked)
 
@@ -795,8 +801,10 @@ class SearchResultsPanel (wx.Panel):
 
         # Resize column width to the same as list width (or longest title, whichever bigger)
         wx.EVT_SIZE(self.ListPanel, self.onResize)
-        # Store the width (in pixels not chars) of the longest title
+        # Store the width (in pixels not chars) of the longest column entries
+        self.MaxFilenameWidth = 0
         self.MaxTitleWidth = 0
+        self.MaxArtistWidth = 0
  
         # Create IDs for popup menu
         self.menuPlayId = wx.NewId()
@@ -834,34 +842,36 @@ class SearchResultsPanel (wx.Panel):
         else:
             for index in range(self.ListPanel.GetItemCount()):
                 self.ListPanel.DeleteItem(0)
+            self.MaxFilenameWidth = 0
             self.MaxTitleWidth = 0
+            self.MaxArtistWidth = 0
             index = 0
             for song in songList:
                 # Add the three columns to the table.
                 item = wx.ListItem()
                 item.SetId(index)
-                item.SetColumn(0)
+                item.SetColumn(self.FilenameCol)
                 try:
                     item.SetText(song.DisplayFilename)
                 except UnicodeDecodeError:
                     # if we can't handle the name, ignore it
                     pass
+
                 item.SetData(index)
                 self.ListPanel.InsertItem(item)
-                
                 item = wx.ListItem()
                 item.SetId(index)
-                item.SetColumn(1)
+                item.SetColumn(self.TitleCol)
                 try:
                     item.SetText(song.Title)
                 except UnicodeDecodeError:
                     pass
                 item.SetData(index)
                 self.ListPanel.SetItem(item)
-                
+
                 item = wx.ListItem()
                 item.SetId(index)
-                item.SetColumn(2)
+                item.SetColumn(self.ArtistCol)
                 try:
                     item.SetText(song.Artist)
                 except UnicodeDecodeError:
@@ -871,8 +881,22 @@ class SearchResultsPanel (wx.Panel):
                 
                 index = index + 1
 
-                if (len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxTitleWidth:
-                    self.MaxTitleWidth = (len(song.DisplayFilename) * self.GetCharWidth())
+                # Adjust the max widths of each column
+                if (len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxFilenameWidth:
+                    self.MaxFilenameWidth = (len(song.DisplayFilename) * self.GetCharWidth())
+                if (len(song.Title) * self.GetCharWidth()) > self.MaxTitleWidth:
+                    self.MaxTitleWidth = (len(song.Title) * self.GetCharWidth())
+                if (len(song.Artist) * self.GetCharWidth()) > self.MaxArtistWidth:
+                    self.MaxArtistWidth = (len(song.Artist) * self.GetCharWidth())
+
+            # Make sure each column is at least wide enough to display the title
+            self.MaxFilenameWidth = max ([self.MaxFilenameWidth,
+                                         len("Filename") * self.GetCharWidth()])
+            self.MaxTitleWidth = max ([self.MaxTitleWidth,
+                                         len("Title") * self.GetCharWidth()])
+            self.MaxArtistWidth = max ([self.MaxArtistWidth,
+                                         len("Artist") * self.GetCharWidth()])
+
             # Keep a copy of all the SongStructs in a list, accessible via item index
             self.SongStructList = songList
             self.StatusBar.SetStatusText ("%d songs found" % index)
@@ -885,13 +909,13 @@ class SearchResultsPanel (wx.Panel):
         results list; sort the results by the indicated column. """
         
         column = event.GetColumn()
-        if column == 0:
+        if column == self.FilenameCol:
             # Sort by filename
             self.ListPanel.SortItems(lambda a, b: cmp(self.SongStructList[a].DisplayFilename.lower(), self.SongStructList[b].DisplayFilename.lower()))
-        elif column == 1:
+        elif column == self.TitleCol:
             # Sort by title
             self.ListPanel.SortItems(lambda a, b: cmp(self.SongStructList[a].Title.lower(), self.SongStructList[b].Title.lower()))
-        elif column == 2:
+        elif column == self.ArtistCol:
             # Sort by artist
             self.ListPanel.SortItems(lambda a, b: cmp(self.SongStructList[a].Artist.lower(), self.SongStructList[b].Artist.lower()))
 
@@ -929,11 +953,11 @@ class SearchResultsPanel (wx.Panel):
             wx.MessageBox(detailsString, song.DisplayFilename, wx.OK)
 
     def onResize(self, event):
-        self.doResize()
+        self.doResize(resize_event = True)
         event.Skip()
 
     # Common handler for SIZE events and our own resize requests
-    def doResize(self):
+    def doResize(self, resize_event = False):
         # Get the listctrl's width
         listWidth = self.ListPanel.GetClientSize().width
         # We're showing the vertical scrollbar -> allow for scrollbar width
@@ -944,13 +968,44 @@ class SearchResultsPanel (wx.Panel):
                 scrollWidth = wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
                 listWidth = listWidth - scrollWidth
 
-        # Only one column, set its width to list width, or the longest title if larger
-        if self.MaxTitleWidth > listWidth:
-            width = self.MaxTitleWidth
-        else:
-            width = listWidth
-        self.ListPanel.SetColumnWidth(0, width)
+        # Set up initial sizes when list is built, not when window is resized
+        if (resize_event == False):
 
+            # For some reason the last column becomes shorter than expected,
+            # so ask for a bit more from artist column than we need.
+            self.MaxArtistWidth = self.MaxArtistWidth + self.GetCharWidth()
+
+            # If we haven't filled the space, extend the filename (bias towards this)
+            totalWidth = (self.MaxFilenameWidth + self.MaxTitleWidth + self.MaxArtistWidth) 
+            if (totalWidth <= listWidth):
+                 padding = listWidth - totalWidth
+                 fileWidth = self.MaxFilenameWidth + padding
+                 titleWidth = self.MaxTitleWidth
+                 artistWidth = self.MaxArtistWidth
+
+            # If we have too much to fill the list space, then resize so that all columns
+            # can be seen on screen.
+            else:
+                fileWidth = max ([(listWidth / 2), \
+                                 (listWidth - self.MaxTitleWidth - self.MaxArtistWidth)])
+                fileWidth = min ([fileWidth, self.MaxFilenameWidth])
+                titleWidth = max ([(listWidth / 4), \
+                                  (listWidth - self.MaxFilenameWidth - self.MaxArtistWidth)])
+                titleWidth = min ([titleWidth, self.MaxTitleWidth])
+                artistWidth =  max ([(listWidth / 4), \
+                                    (listWidth - self.MaxFilenameWidth - self.MaxTitleWidth)])
+                artistWidth = min ([artistWidth, self.MaxArtistWidth])
+            self.ListPanel.SetColumnWidth(self.FilenameCol, fileWidth)
+            self.ListPanel.SetColumnWidth(self.TitleCol, titleWidth)
+            self.ListPanel.SetColumnWidth(self.ArtistCol, artistWidth)
+
+        # For resize events (user changed the window size) keep their column width
+        # settings, but resize the Artist column to match whatever space is left.
+        else:
+            fileWidth = self.ListPanel.GetColumnWidth(self.FilenameCol)
+            titleWidth = self.ListPanel.GetColumnWidth(self.TitleCol)
+            artistWidth = listWidth - fileWidth - titleWidth
+            self.ListPanel.SetColumnWidth(self.ArtistCol, artistWidth)
 
     # Not used yet. Return list of selected items.
     def GetSelections(self, state =  wx.LIST_STATE_SELECTED):

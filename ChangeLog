@@ -1,5 +1,10 @@
 Current version:
-	
+
+	* pykaraoke.py: More sensible sizing of column in search results
+	and made Title and Artist columns more visible.
+
+	* pykaraoke.py: Check for WxPython v2.6.
+
 	* Reduced size of visible display of CDG graphics from 294x204 to
 	288x192, based on a new understanding of a presumed typo in the
 	CDG document.  This appears to solve some minor scrolling issues.
