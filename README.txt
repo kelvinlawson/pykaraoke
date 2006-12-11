@@ -67,7 +67,7 @@ download them from the websites listed.
 Linux users may find these packages are available directly from their
 distro's package manager. For example Debian users can install all
 prerequisites using:
-	# apt-get install python python-pygame libwxgtk-python libsdl-dev
+	# apt-get install python-dev python-pygame libwxgtk-python libsdl-dev
 
 With the prerequisites installed, unzip the release and run the following
 as root:
