@@ -734,6 +734,13 @@ __cdgTileBlockCommon(CdgPacketReader *self, CdgPacket *packd, int xor) {
   column_index = ((packd->data[2] & 0x1f) * 12);
   row_index = ((packd->data[3] & 0x3f) * 6);
 
+  /* Range check row & column index in case a corrupted CDG sends us
+     to a pixel offset outside of the array. */
+  if (column_index > (CDG_FULL_HEIGHT - 12))
+    column_index = (CDG_FULL_HEIGHT - 12);
+  if (row_index > (CDG_FULL_WIDTH - 6))
+    row_index = (CDG_FULL_WIDTH - 6);
+
   firstRow = (row_index - 6 - self->__hOffset) / TILE_WIDTH;
   firstRow = (firstRow >= 0) ? firstRow : 0;
   lastRow = (row_index - 1 - self->__hOffset) / TILE_WIDTH;
