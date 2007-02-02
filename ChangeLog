@@ -1,7 +1,7 @@
 Current version:
 
-	* _pycdgAux.c: Fix potential array bounds problem with corrupt
-	CDG data.
+	* _pycdgAux.c, pycdgAux.py: Fix potential array bounds problem
+	with corrupt CDG data.
 
 	* pykaraoke.py: More sensible sizing of column in search results
 	and made Title and Artist columns more visible.

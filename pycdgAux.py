@@ -458,6 +458,13 @@ class CdgPacketReader:
         column_index = ((data_block[2] & 0x1F) * 12)
         row_index = ((data_block[3] & 0x3F) * 6)
 
+        # Sanity check the x,y offset read from the CDG in case a 
+        # corrupted CDG sends us outside of our array bounds
+        if (column_index > (CDG_FULL_HEIGHT - 12)):
+            column_index = (CDG_FULL_HEIGHT - 12)
+        if (row_index > (CDG_FULL_WIDTH - 6)):
+            row_index = (CDG_FULL_WIDTH - 6)
+
         # Set the tile update bitmasks.
         # Note that the screen update area only covers the non-border area
         # excluding the left 6 columns, and top 12 rows. Therefore when
