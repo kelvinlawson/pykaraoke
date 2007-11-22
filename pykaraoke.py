@@ -122,7 +122,7 @@
 # continue adding to the playlist etc.
 
 import wxversion
-wxversion.select('2.6')
+wxversion.select(['2.6', '2.8'])
 import os, string, wx, sys
 from pykconstants import *
 from pykenv import env
@@ -175,7 +175,7 @@ class DatabaseSetupWindow (wx.Frame):
         self.KaraokeMgr = KaraokeMgr
         
         # Help text
-        self.HelpText = wx.StaticText (self, wx.ID_ANY,
+        self._HelpText = wx.StaticText (self, wx.ID_ANY,
                 "\nAdd folders to build a searchable database of your karaoke songs\n",
                 style = wx.ALIGN_RIGHT) 
         
@@ -281,7 +281,7 @@ class DatabaseSetupWindow (wx.Frame):
         
         # Create the main sizer
         self.MainSizer = wx.BoxSizer(wx.VERTICAL)
-        self.MainSizer.Add(self.HelpText, 0, wx.EXPAND, 3)
+        self.MainSizer.Add(self._HelpText, 0, wx.EXPAND, 3)
         self.MainSizer.Add(self.FolderSizer, 1, wx.EXPAND, 3)
         self.MainSizer.Add(self.LowerSizer, 0, wx.ALL, 3)
         self.SetSizer(self.MainSizer)

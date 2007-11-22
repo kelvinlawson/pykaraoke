@@ -1,5 +1,7 @@
 Current version:
-
+        * pykaraoke.py: Allow WxPython v2.8, fix usage of system variable
+	name now used by Wx 2.8.
+ 
 	* _pycdgAux.c, pycdgAux.py: Fix potential array bounds problem
 	with corrupt CDG data.
 
