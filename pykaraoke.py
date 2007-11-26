@@ -123,7 +123,7 @@
 
 import wxversion
 wxversion.select(['2.6', '2.8'])
-import os, string, wx, sys
+import os, string, wx, sys, time
 from pykconstants import *
 from pykenv import env
 import pycdg, pympg, pykar, pykversion, pykdb
@@ -1580,21 +1580,48 @@ class PyKaraokeManager:
         if self.Player:
             wx.WakeUpIdle()
 
-def main():
-    PyKaraokeApp = wx.PySimpleApp()
-    Mgr = PyKaraokeManager()
+# Subclass wx.App so that we can override the normal Wx MainLoop().
+# We only have to do this because since Wx 2.8, the MainLoop()
+# appears to be stealing all time from Pygame, and we run Pygame
+# and Wx in the same process.
+class PyKaraokeApp(wx.App):
+    def MainLoop(self):
 
-    if Mgr.gui:
-        PyKaraokeApp.Bind(wx.EVT_IDLE, Mgr.handleIdle)
+        # Create an event loop and make it active.
+        evtloop = wx.EventLoop()
+        wx.EventLoop.SetActive(evtloop)
 
-        # Normally, MainLoop() should only be called once; it will
-        # return when it receives WM_QUIT.  However, since pygame
-        # posts WM_QUIT when the user closes the pygame window, we
-        # need to keep running MainLoop indefinitely.  This means we
-        # need to force-quit the application when we really do intend
-        # to exit.
+        # Loop forever.
         while True:
-            PyKaraokeApp.MainLoop()
+
+            # This inner loop will process any GUI events
+            # until there are no more waiting.
+            while evtloop.Pending():
+                evtloop.Dispatch()
+
+            # Send idle events to idle handlers. Sleep for plenty
+            # of time to give Pygame room to breathe.
+            time.sleep(0.200)
+            self.ProcessIdle()
+
+
+    def OnInit(self):
+        Mgr = PyKaraokeManager()
+        if Mgr.gui:
+            self.Bind(wx.EVT_IDLE, Mgr.handleIdle)
+        return True
+
+def main():
+    MyApp = PyKaraokeApp(False)
+
+    # Normally, MainLoop() should only be called once; it will
+    # return when it receives WM_QUIT.  However, since pygame
+    # posts WM_QUIT when the user closes the pygame window, we
+    # need to keep running MainLoop indefinitely.  This means we
+    # need to force-quit the application when we really do intend
+    # to exit.
+    while True:
+        MyApp.MainLoop()
 
 if __name__ == "__main__":
     sys.exit(main())
