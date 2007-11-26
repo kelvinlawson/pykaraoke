@@ -1,5 +1,7 @@
 v0.5.1:
 
+	* All: Update all copyright dates.
+	
 	* pykversion.py: Increase to v0.5.1.
 
 	* pykaraoke.py: Fix slow CDG playback with WxPython v2.8 by

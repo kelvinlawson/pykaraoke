@@ -1,8 +1,8 @@
 
 ---------------------------------------------------------------------------
 
-Release:      pykaraoke v0.5
-Date:         12/07/2006
+Release:      pykaraoke v0.5.1
+Date:         26/11/2007
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
@@ -27,19 +27,12 @@ needed to play your own karaoke song files.
 
 WHAT'S NEW
 
-PyKaraoke has undergone a major overhaul for this release thanks to the new
-developer on the project David Rose. David has made huge improvements to
-the performance of the CDG player, making it possible to run PyKaraoke on
-older, low end machines. The CDG player now offers smoother scrolling, and
-support for horizontal scrolling CDGs. The MIDI player has benefited from
-a number of improvements, including smooth font scaling at any window size,
-and word-wrapping for systems with a small screen size.
+PyKaraoke now works together with WxPython v2.8. Users with WxPython v2.6
+are, however, still supported.
 
-He has also added the pykaraoke_mini interface, suitable for environments
-lacking a keyboard/mouse, or home karaoke parties using a remote control.
-
-Finally PyKaraoke has also been ported to the handheld GP2X console, and
-now runs on Windows, Linux, FreeBSD and GP2X.
+There are also some other minor changes to the layout of the search results
+page, a change to the scrolling behaviour, and improved handling of corrupt
+CDG rip files.
 
 ---------------------------------------------------------------------------
 
