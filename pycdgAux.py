@@ -119,6 +119,7 @@ class CdgPacketReader:
         defaultColour = 0
         self.__cdgColourTable = [defaultColour] * COLOUR_TABLE_SIZE
 
+        self.__justClearedColourIndex = -1
         self.__cdgPresetColourIndex = -1
         self.__cdgBorderColourIndex = -1
         # Support only one transparent colour
@@ -254,7 +255,23 @@ class CdgPacketReader:
     def __cdgMemoryPreset (self, packd):
         colour = packd.data[0] & 0x0F
         repeat = packd.data[1] & 0x0F
-        # Ignore repeat because this is a reliable data stream
+
+        # The "repeat" flag is nonzero if this is a repeat of a
+        # previously-appearing preset command.  (Often a CDG will
+        # issue several copies of this command in case one gets
+        # corrupted.)
+
+        # We could ignore the entire command if repeat is nonzero, but
+        # our data stream is not 100% reliable, since it might have
+        # come from a bad rip.  So we should honor every preset
+        # command; but we shouldn't waste CPU time clearing the screen
+        # repeatedly, needlessly.  So we store a flag indicating the
+        # last color that we just cleared to, and don't bother
+        # clearing again if it hasn't changed.
+        
+        if colour == self.__justClearedColourIndex:
+            return
+        self.__justClearedColourIndex = colour
 
         # Our new interpretation of CD+G Revealed is that memory preset
         # commands should also change the border
@@ -292,6 +309,9 @@ class CdgPacketReader:
     # Border Preset (clear the border area only) 
     def __cdgBorderPreset (self, packd):
         colour = packd.data[0] & 0x0F
+        if colour == self.__cdgBorderColourIndex:
+            return
+        
         self.__cdgBorderColourIndex = colour
 
         # See cdgMemoryPreset() for a description of what's going on.
@@ -513,5 +533,10 @@ class CdgPacketReader:
                 # the colour indeces into our colour table.
                 self.__cdgSurfarray[(row_index + j), (column_index + i)] = self.__cdgColourTable[new_col]
                 self.__cdgPixelColours[(row_index + j), (column_index + i)] = new_col
+
+        # Now the screen has some data on it, so a subsequent clear
+        # should be respected.
+        self.__justClearedColourIndex = -1
+        
         # The changes to cdgSurfarray will be blitted on the next screen update
         return

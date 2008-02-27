@@ -1,0 +1,286 @@
+diff -ru --exclude=.svn mplayer/config.mak mplayer_cmdline/config.mak
+--- mplayer/config.mak	2008-02-17 13:59:30.000000000 -0800
++++ mplayer_cmdline/config.mak	2008-02-17 09:14:14.000000000 -0800
+@@ -3,12 +3,13 @@
+ # set by developer, godori(ghcstop@gmail.com)
+ # start =================================================================
+ 
+-AR = arm-linux-ar
+-CC = arm-linux-gcc
+-HOST_CC = arm-linux-gcc
++AR = arm-gp2x-linux-ar
++CC = arm-gp2x-linux-gcc
++STRIP = arm-gp2x-linux-strip
++BUILD_CC = gcc
+ 
+ # When I developed, use gcc-2.95.3 ==> release test: godori use gcc-3.3.4
+-TCDIR = /home/depss/DEPSS/library/image
++TCDIR = /gp2xsdk/Tools/arm-gp2x-linux
+ # end  ==================================================================
+ 
+ 
+@@ -29,7 +30,7 @@
+ AWK = 
+ RANLIB = true
+ INSTALL = install
+-EXTRA_INC = -I$(TCDIR)/include
++EXTRA_INC = -I$(TCDIR)/include -I$(TCDIR)/include/SDL
+ OPTFLAGS = -I../libvo -I../../libvo  -O4   -pipe -ffast-math -fomit-frame-pointer -D_REENTRANT $(EXTRA_INC)
+ STRIPBINARIES = yes
+ HELP_FILE = help/help_mp-en.h
+diff -ru --exclude=.svn mplayer/filelistview.c mplayer_cmdline/filelistview.c
+--- mplayer/filelistview.c	2008-02-17 13:59:30.000000000 -0800
++++ mplayer_cmdline/filelistview.c	2008-02-14 22:01:21.000000000 -0800
+@@ -12,21 +12,12 @@
+ 
+ #define IMAGEPATH			"./imgmovie/"
+ #define FILELIST_COUNT 		8
+-#define CLOCKADJUST_COUNT	3
+ #define IMG_BODY_MAIN 		IMAGEPATH"body.png"
+ #define IMG_FULL_ICON 		IMAGEPATH"full.png"
+ #define IMG_NORM_ICON 		IMAGEPATH"normal.png"
+ #define IMG_SAVE_ICON 		IMAGEPATH"save.png"
+ #define SHOWFILETYPE		FOLDER_AVI_MODE		
+ 
+-#define FCLK_200		10
+-#define FCLK_166		11
+-#define FCLK_133		12
+-#define FCLK_100		13
+-#define FCLK_78			14
+-#define FCLK_64			15
+-#define FCLK_DEFAULT	16
+-
+ SViewInfomation 		infoView;					
+ SDirInfomation 			infoDir;					
+ static SDL_Surface 		*pImgBackGround = NULL;		
+diff -ru --exclude=.svn mplayer/filelistview.h mplayer_cmdline/filelistview.h
+--- mplayer/filelistview.h	2008-02-17 13:59:30.000000000 -0800
++++ mplayer_cmdline/filelistview.h	2008-02-14 22:01:17.000000000 -0800
+@@ -24,4 +24,5 @@
+ void FileView_OnMoveHighFolder(SDL_Surface *pScreen);
+ void FileView_OnMoveSub_Execute(SDL_Surface *pScreen, SDL_Event *pOpenEvent);
+ 
+-#endif
+\ No newline at end of file
++#endif
++
+diff -ru --exclude=.svn mplayer/gv.c mplayer_cmdline/gv.c
+--- mplayer/gv.c	2008-02-17 13:59:30.000000000 -0800
++++ mplayer_cmdline/gv.c	2008-02-17 13:43:00.000000000 -0800
+@@ -22,6 +22,7 @@
+ #include "SDL_inifile.h"
+ 
+ #define IMG_RESUME	"./imgcommon/resume.png"
++#define PATH_MAX 4096
+ 
+ SDL_Surface 	*g_pScreen 			= NULL;		
+ SDL_Joystick 	*m_pJoy				= NULL;		
+@@ -37,6 +38,7 @@
+ float 		CurrentPlayTime		= 0.0f;
+ float 		g_fResumePlayTime	= 0.0f;
+ bool 		g_bResumePlay		= false;
++bool		g_bUseMenu			= true;
+ 
+ int 		g_Kbps			= 0;
+ int 		g_Khz			= 0;
+@@ -98,6 +100,8 @@
+ int SetMode(int argc, char *argv[]);
+ void OnExitClick();
+ 
++extern int AdjustClock[CLOCKADJUST_COUNT];
++
+ extern void volume_change(bool up_flag);
+ 
+ void InitApp()
+@@ -134,6 +138,11 @@
+ 
+ int main(int argc, char *argv[])
+ {
++	SDL_Event open_event;
++	char path[PATH_MAX];
++	char *filename = NULL;
++	unsigned int i;
++	
+ 	if(SetMode(argc, argv) != 0)		
+ 	{
+ 		printf("Display Mode Set failed!!\n");
+@@ -143,16 +152,72 @@
+     init_SDL_engine();          
+     InitApp();					
+     init_etc_setting();			
+-    osd_plane_open();			
+-
+-	
+-	
++    osd_plane_open();
+ 	
++	if(argc < 2) {
++		g_bUseMenu = true;
++		viewmode = FILE_VIEW;
++		FileView_Initialize();			
++		FileView_OnDraw(g_pScreen);	
++	} else if (argc >= 2) {
++		getcwd(path, PATH_MAX);
++		printf("cwd: %s\n", path );
++		printf("argv[1]: %s\n", argv[1]);
++		for( i = strlen(argv[1])-1; i >= 0; i -=1 ) {
++		//	printf("i: %d | c: %c === \n", i, argv[1][i]);
++			if (argv[1][i] == '/') break;
++			if (!i) break;
++		}
++		if (i) {
++          if (argv[1][0] == '/') {
++            // It's a full path.
++            strncpy(path, argv[1], i);
++            path[i] = '\0';
++          } else {
++            // It's a relative path.
++            strncat(path, "/", 1);
++            strncat(path, argv[1], i);
++          }
++        }
++        filename = argv[1];
++		printf("new path: %s\nnew filename: %s\n", path, filename);
++                fflush(stderr);
++
++		DeleteDirInfo(&infoDir);
++		GetDirInfo(&infoDir, path, FOLDER_AVI_MODE);
++		infoView.nStartCount 	= 0;
++		infoView.nPosition 		= 0;
++		infoView.nStatus 		= 1;
++		if(infoDir.nCount > 8)	infoView.nEndCount = 8;
++		else					infoView.nEndCount = infoDir.nCount;
++
++		while(1) {
++			if(strcmp(infoDir.pList[infoView.nPosition].szName, filename) == 0)	break;
++
++			if(infoView.nPosition >= infoDir.nCount -1)	break;
++			infoView.nPosition++;
++			if(infoView.nPosition >= infoView.nEndCount) {
++				infoView.nStartCount++;
++				infoView.nEndCount++;
++			}
++		}
++		
++		g_bUseMenu = false;
++        g_Command = EXIT_CMD;
++		
++		ifile = strdup(filename);
++		
++		viewmode = MOVIE_VIEW;
++		bFileSelect = 1;
++		
++		if(cpuclock < 0)cpuclock = CLOCKADJUST_COUNT - 1;
++		if(cpuclock >= CLOCKADJUST_COUNT)cpuclock = 0;
++		SDL_SYS_JoystickGp2xSys(m_pJoy, AdjustClock[cpuclock]); // FCLK_200
++		
++		open_event.type = EVENT_MOVIE_PLAY;
++		SDL_PushEvent(&open_event);
++	}
+ 	
+-	viewmode = FILE_VIEW;
+-    FileView_Initialize();			
+-	FileView_OnDraw(g_pScreen);		
+-
+     event_loop();               
+     
+ 	INI_Open("/usr/gp2x/common.ini");
+@@ -162,8 +227,8 @@
+ 
+ 	osd_plane_close();			
+     close_etc_setting();		
+-    
+-    ExitApp();					
++
++    ExitApp();
+ 
+     return 1;
+ }
+@@ -346,6 +411,7 @@
+ 
+ void OnToolBar_Open()
+ {
++	g_bUseMenu = true;
+ 	if(vstate == STOP_STATUS)			
+ 	{
+ 		switch_fb1_to_fb0();
+@@ -950,8 +1016,10 @@
+ 
+ 	g_fResumePlayTime = 0.0f;
+ 
+-	if(GetResumeInfomation(&g_fResumePlayTime, &resumepathname, &resumefilename) == true) {
++	if(GetResumeInfomation(&g_fResumePlayTime, &resumepathname, &resumefilename) == true
++	   && g_bUseMenu == true) {
+ 		if(g_fResumePlayTime != 0.0f && resumepathname != NULL && resumefilename != NULL) {
++			g_bResumePlay = false;
+ 			if(ifile != NULL) free(ifile);
+ 			ifile = (char*)malloc(strlen(resumepathname) + strlen(resumefilename) + 3);
+ 			sprintf(ifile, "%s/%s", resumepathname, resumefilename);
+@@ -1025,6 +1093,7 @@
+ 								volume_change(false);		
+ 							break;
+ 						case VK_START 	:			
++						case VK_SELECT 	:			
+ 							if(viewmode != FILE_VIEW)
+ 								SaveResumeInfo();
+ 							
+diff -ru --exclude=.svn mplayer/Makefile mplayer_cmdline/Makefile
+--- mplayer/Makefile	2008-02-17 13:59:30.000000000 -0800
++++ mplayer_cmdline/Makefile	2008-02-16 20:35:09.000000000 -0800
+@@ -37,7 +37,7 @@
+ default		: $(PRG_CFG) $(TGT_NAME)
+ 
+ $(PRG_CFG): version.h codec-cfg.c codec-cfg.h
+-	gcc -g codec-cfg.c mp_msg.c -o $(PRG_CFG) -DCODECS2HTML $(I18NLIBS)
++	$(BUILD_CC) -g codec-cfg.c mp_msg.c -o $(PRG_CFG) -DCODECS2HTML $(I18NLIBS)
+ 	./$(PRG_CFG) ./etc/codecs.conf > codecs.conf.h
+ 
+ 
+@@ -95,7 +95,7 @@
+ 		@$(RM) *.o
+ 		
+ install :
+-	arm-linux-strip $(TGT_NAME)
++	$(STRIP) $(TGT_NAME)
+ 
+ all		:
+ 		@make clean
+diff -ru --exclude=.svn mplayer/mplayer.c mplayer_cmdline/mplayer.c
+--- mplayer/mplayer.c	2008-02-17 14:08:54.000000000 -0800
++++ mplayer_cmdline/mplayer.c	2008-02-17 14:08:54.000000000 -0800
+@@ -946,7 +946,7 @@
+             {
+      			mixer.audio_out = audio_out;		
+         		mixer_setvolume(&mixer, leftVol, leftVol);	
+-        		hwEq_change(0);		
++        		mixer_hwEq(&mixer, 0);		
+             	
+                 inited_flags |= INITED_AO;
+ #if 0           
+@@ -1813,7 +1813,3 @@
+ 	if(bMenuStatus)	OnDraw_Volume(vol);
+ }
+ 
+-void hwEq_change(int eq_flag)
+-{
+-	mixer_hwEq(&mixer, eq_flag); 
+-}
+\ No newline at end of file
+diff -ru --exclude=.svn mplayer/typed.h mplayer_cmdline/typed.h
+--- mplayer/typed.h	2008-02-17 14:08:54.000000000 -0800
++++ mplayer_cmdline/typed.h	2008-02-17 14:08:54.000000000 -0800
+@@ -134,5 +134,14 @@
+ #define	false	0
+ typedef int bool;
+ //[*]----------------------------------------------------------------------------------------------------[*]
++#define CLOCKADJUST_COUNT        3
++#define FCLK_200		10
++#define FCLK_166		11
++#define FCLK_133		12
++#define FCLK_100		13
++#define FCLK_78			14
++#define FCLK_64			15
++#define FCLK_DEFAULT	16
++//[*]----------------------------------------------------------------------------------------------------[*]
+ #endif
+ //[*]----------------------------------------------------------------------------------------------------[*]

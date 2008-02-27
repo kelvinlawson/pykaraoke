@@ -7,6 +7,10 @@ import sys
 import glob
 from pykenv import *
 
+import wxversion
+wxversion.ensureMinimal('2.6')
+import wx
+
 # patch distutils if it can't cope with the "classifiers" or
 # "download_url" keywords
 if sys.version < '2.2.3':
@@ -25,7 +29,7 @@ if env == ENV_WINDOWS:
     except ImportError:
         pass
 
-# These are the data file that should be installed for all systems,
+# These are the data files that should be installed for all systems,
 # including Windows.
 
 data_files = [
@@ -35,7 +39,7 @@ data_files = [
       'icons/folder_open_16.png', 
       'icons/microphone.ico',
       'icons/pykaraoke.xpm',
-      'icons/splash.jpg']),
+      'icons/splash.png']),
     ('share/pykaraoke/fonts', [
     'fonts/DejaVuSans.ttf',
     'fonts/DejaVuSansCondensed.ttf',

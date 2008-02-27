@@ -31,6 +31,7 @@ STATE_PAUSED        = 2
 STATE_NOT_PLAYING   = 3
 STATE_CLOSING       = 4
 STATE_CLOSED        = 5
+STATE_CAPTURING     = 6
 
 # GP2X joystick button mappings
 GP2X_BUTTON_UP            = (0)

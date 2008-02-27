@@ -86,9 +86,10 @@ import pygame, sys, os, math, bisect
 # get resize callbacks, etc.
 class App(pykPlayer):
     def __init__(self):
-        pykPlayer.__init__(self, '', self.errorPopupCallback, self.songFinishedCallback,
-                           windowTitle = "PyKaraoke")
+        pykPlayer.__init__(self, '', None, self.errorPopupCallback,
+                           self.songFinishedCallback, windowTitle = "PyKaraoke")
         self.SupportsFontZoom = True
+        self.selectedSong = None
 
     def SetupOptions(self):
         """ Initialise and return optparse OptionParser object,
@@ -114,7 +115,7 @@ class App(pykPlayer):
 
         manager.OpenDisplay()
 
-        splashFilename = os.path.join(manager.IconPath, 'splash.jpg')
+        splashFilename = os.path.join(manager.IconPath, 'splash.png')
         try:
             splash = pygame.image.load(splashFilename)
         except:
@@ -163,14 +164,23 @@ class App(pykPlayer):
         winWidth, winHeight = manager.displaySize
         
         pygame.font.init()
-        fontSize = int(manager.GetFontScale() * winHeight / 18)
+        fontSize = int(manager.GetFontScale() * winHeight / 27)
         self.thinFont = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSansCondensed.ttf"), fontSize)
 
-        fontSize = int(manager.GetFontScale() * winHeight / 15)
+        fontSize = int(manager.GetFontScale() * winHeight / 22.5)
         self.boldFont = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSansCondensed-Bold.ttf"), fontSize)
+
+        fontSize = int(manager.GetFontScale() * winHeight / 15)
+        self.titleFont = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSansCondensed-Bold.ttf"), fontSize)
+        fontSize = int(manager.GetFontScale() * winHeight / 18)
+        self.subtitleFont = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSansCondensed.ttf"), fontSize)
+
         
         self.boldHeight = self.boldFont.get_linesize()
         self.thinHeight = self.thinFont.get_linesize()
+        self.titleHeight = self.titleFont.get_linesize()
+        self.subtitleHeight = self.subtitleFont.get_linesize()
+        
         self.rowHeight = self.boldHeight + (self.numSongInfoLines - 1) * self.thinHeight
 
         # Make sure the color highlight covers the bottom of the line.
@@ -182,27 +192,64 @@ class App(pykPlayer):
         self.xMargin = 5
         self.xIndent = 10
 
+        self.numSongWindowRows = max(int(winHeight / self.boldHeight), 1)
         self.centerRow = (self.numRows - 1) / 2
 
-    def paintScrollWindow(self):
+    def paintWindow(self):
+        if self.selectedSong:
+            self.paintSongWindow()
+        else:
+            self.paintMainWindow()
+
+    def paintSongWindow(self):
+        """ The user has already selected a song, and now has to
+        select the specific version of it he/she meant to play. """
+
+        manager.display.fill((0,0,0))
+        row = self.__writeSongTitle(self.selectedSong, 0)
+
+        self.startSongWindowRow = int((row + self.boldHeight - 1) / self.boldHeight)
+        numRows = self.numSongWindowRows - self.startSongWindowRow
+
+        for i in range(len(self.selectedSong.sameSongs)):
+            file = self.selectedSong.sameSongs[i]
+            fg = file.getTextColour(False)
+            y = (i + self.startSongWindowRow) * self.boldHeight
+            text = self.boldFont.render(file.DisplayFilename, True, fg)
+            manager.display.blit(text, (self.xMargin, y))
+
+        # Now go back and re-draw the highlighted song.
+        i = self.selectedSongRow
+        file = self.selectedSong.sameSongs[i]
+        fg = file.getTextColour(True)
+        bg = file.getBackgroundColour(True)
+        y = (i + self.startSongWindowRow) * self.boldHeight
+        text = self.boldFont.render(file.DisplayFilename, True, fg, bg)
+        manager.display.blit(text, (self.xMargin, y))
+
+        pygame.display.flip()
+
+    def paintMainWindow(self):
+        """ Paints the main 'select a song' index. """
+
         manager.display.fill((0,0,0))
 
-        # First, fill in the blue highlight bar in the center.
+        # First, fill in the colored highlight bar in the center.
         y = self.yMargin + self.centerRow * self.rowHeight + self.lineShift
         rect = pygame.Rect(0, y, manager.displaySize[0], self.rowHeight)
-        manager.display.fill((0, 0, 120), rect)
+
+        file = self.songDb.SongList[self.currentRow]
+        bg = file.getBackgroundColour(True)
+        manager.display.fill(bg, rect)
 
         # Now draw the text over everything.
         for i in range(self.numRows):
             y = self.yMargin + i * self.rowHeight
-            r = (self.currentRow + i - self.centerRow) % len(self.SongDB.SongList)
-            file = self.SongDB.SongList[r]
-            a, b, c = self.SongDB.GetSongTuple(file)
+            r = (self.currentRow + i - self.centerRow) % len(self.songDb.SongList)
+            file = self.songDb.SongList[r]
+            a, b, c = self.songDb.GetSongTuple(file)
 
-            fg = (180, 180, 180)
-            if i == self.centerRow:
-                fg = (255, 255, 255)
-
+            fg = file.getTextColour(i == self.centerRow)
             text = self.boldFont.render(a, True, fg)
             manager.display.blit(text, (self.xMargin, y))
             y += self.boldHeight
@@ -219,6 +266,9 @@ class App(pykPlayer):
     
     def start(self):
         self.appStart = pygame.time.get_ticks()
+        self.heldStartTicks = self.appStart
+        manager.OpenCPUControl()
+        manager.setCpuSpeed('startup')
 
         self.numSongInfoLines = 1
         
@@ -227,54 +277,60 @@ class App(pykPlayer):
         self.setupScrollWindow()
 
         self.screenDirty = True
-        self.SongDB = pykdb.globalSongDB
-        self.SongDB.LoadSettings(self.errorPopupCallback)
 
         needsSave = False
 
         if manager.options.scan_dir:
             # Replace the old scan list.
-            self.SongDB.Settings.FolderList = [ manager.options.scan_dir ]
+            self.songDb.Settings.FolderList = [ manager.options.scan_dir ]
             needsSave = True
 
         if manager.options.scan_dirs:
             # Add one or more new directories to the list.
-            self.SongDB.Settings.FolderList += manager.options.scan_dirs
+            self.songDb.Settings.FolderList += manager.options.scan_dirs
             needsSave = True
         
         if manager.options.scan:
             # Re-scan the files.
-            self.errorPopupCallback("Scanning:\n%s" % ('\n'.join(self.SongDB.Settings.FolderList)))
-            self.SongDB.BuildSearchDatabase(pykdb.AppYielder(), pykdb.BusyCancelDialog())
+            self.songDb.BuildSearchDatabase(pykdb.AppYielder(), MiniBusyCancelDialog(self))
             needsSave = True
+        else:
+            # Read the existing database.
+            self.songDb.LoadDatabase(self.errorPopupCallback)
 
+        if needsSave:
+            self.songDb.SaveSettings()
+            self.songDb.SaveDatabase()
 
-        if not self.SongDB.SongList:
+        if not self.songDb.FullSongList:
             # No files.
             self.errorPopupCallback("No songs in catalog.")
             return
 
-        if needsSave:
-            self.SongDB.SaveSettings()
+        if manager.options.validate:
+            manager.ValidateDatabase(self.songDb)
+            return
 
-        if self.SongDB.GotTitles:
+        if self.songDb.GotTitles:
             self.numSongInfoLines += 1
-        if self.SongDB.GotArtists:
+        if self.songDb.GotArtists:
             self.numSongInfoLines += 1
         self.setupScrollWindow()
 
-        if self.SongDB.GotTitles:
-            self.SongDB.SelectSort('title')
-        elif self.SongDB.GotArtists:
-            self.SongDB.SelectSort('artist')
+        if self.songDb.GotTitles:
+            self.songDb.SelectSort('title')
+        elif self.songDb.GotArtists:
+            self.songDb.SelectSort('artist')
         else:
-            self.SongDB.SelectSort('filename')
+            self.songDb.SelectSort('filename')
 
         self.currentRow = 0
         self.searchString = ''
         self.heldKey = None
         self.heldStartTicks = 0
         self.heldRepeat = 0
+
+        manager.setCpuSpeed('wait')
 
         # Now that we've finished loading, wait up a second and give
         # the user a chance to view the splash screen, in case we
@@ -286,43 +342,53 @@ class App(pykPlayer):
                 pygame.time.wait(remainingTime)
         
         self.running = True
+
+        manager.setCpuSpeed('menu_fast')
+        self.heldStartTicks = pygame.time.get_ticks()
         
         while self.running:
             manager.Poll()
 
     def selectSong(self):
-        file = self.SongDB.SongList[self.currentRow]
-        
+        """ The user has selected a song from the list.  There might
+        be an ambiguity, if there are multiple song files with the
+        same artist/title.  If so, present the new list to the user
+        and allow her to choose the specific file she meant. """
+
+        if self.selectedSong:
+            # We're already on the selected-a-particular-song index.
+            # Therefore, run with the one we've selected from that
+            # index.
+            file = self.selectedSong.sameSongs[self.selectedSongRow]
+            self.beginSong(file)
+            return
+
+        file = self.songDb.SongList[self.currentRow]
+
+        if len(file.sameSongs) == 1 or self.songDb.Sort == 'filename':
+            # No ambiguity.
+            self.beginSong(file)
+            return
+
+        manager.display.fill((0,0,0))
+
+        self.selectedSong = file
+        self.selectedSongRow = 0
+        self.screenDirty = True
+
+    def beginSong(self, file):
+        self.selectedSong = None
         manager.display.fill((0,0,0))
 
         winWidth, winHeight = manager.displaySize
         winCenter = winWidth / 2
 
         rowA = winHeight / 3
-        rowB = rowA + 10
         rowC = winHeight * 5 / 6
 
-        # Word-wrap the title
-        for line in manager.WordWrapText(file.Title, self.boldFont, winWidth):
-            line = line.strip()
-            text = self.boldFont.render(line, True, (255,255,255))
-            rect = text.get_rect()
-            rect = rect.move(winCenter - rect.centerx, rowA)
-            manager.display.blit(text, rect)
-            rowA += self.boldHeight
-            rowB += self.boldHeight
+        self.__writeSongTitle(file, rowA)
 
-        # Now word-wrap the artist
-        if file.Artist:
-            for line in manager.WordWrapText(file.Artist, self.thinFont, winWidth):
-                line = line.strip()
-                text = self.thinFont.render(line, True, (255,255,255))
-                rect = text.get_rect()
-                rect = rect.move(winCenter - rect.centerx, rowB)
-                manager.display.blit(text, rect)
-                rowB += self.thinHeight
-
-        text = self.thinFont.render("Loading", True, (255,255,255))
+        text = self.subtitleFont.render("Loading", True, (255,255,255))
         rect = text.get_rect()
         rect = rect.move(winCenter - rect.centerx, rowC)
         manager.display.blit(text, rect)
@@ -332,7 +398,10 @@ class App(pykPlayer):
         # This will call the songFinishedCallback, so call it early.
         self.shutdown()
 
-        player = file.MakePlayer(self.errorPopupCallback, self.songFinishedCallback)
+        manager.setCpuSpeed('load')
+
+        player = file.MakePlayer(
+            self.songDb, self.errorPopupCallback, self.songFinishedCallback)
         if player == None:
             return
         
@@ -352,6 +421,11 @@ class App(pykPlayer):
 
         # The song is over.  Now recover control and redisplay the
         # song list.
+
+        manager.OpenCPUControl()
+        manager.setCpuSpeed('menu_fast')
+        self.heldStartTicks = pygame.time.get_ticks()
+        
         manager.InitPlayer(self)
         manager.OpenDisplay()
 
@@ -360,12 +434,47 @@ class App(pykPlayer):
 
         self.screenDirty = True
 
+        # Discard any events that occurred while we were resetting the
+        # display.
+        for event in pygame.event.get():
+            pass
+        
+    def __writeSongTitle(self, file, row):
+        """ Renders the song title and artist onscreen, beginning at
+        the specified row. """
+        
+        winWidth, winHeight = manager.displaySize
+        winCenter = winWidth / 2
+
+        # Word-wrap the title
+        for line in manager.WordWrapText(file.Title, self.titleFont, winWidth):
+            line = line.strip()
+            text = self.titleFont.render(line, True, (255,255,255))
+            rect = text.get_rect()
+            rect = rect.move(winCenter - rect.centerx, row)
+            manager.display.blit(text, rect)
+            row += self.titleHeight
+
+        # Now word-wrap the artist
+        if file.Artist:
+            row += 10
+            for line in manager.WordWrapText(file.Artist, self.subtitleFont, winWidth):
+                line = line.strip()
+                text = self.subtitleFont.render(line, True, (255,255,255))
+                rect = text.get_rect()
+                rect = rect.move(winCenter - rect.centerx, row)
+                manager.display.blit(text, rect)
+                row += self.subtitleHeight
+
+        return row
+        
+
     def rowDown(self, count):
-        self.currentRow = (self.currentRow + count) % len(self.SongDB.SongList)
+        self.currentRow = (self.currentRow + count) % len(self.songDb.SongList)
         self.screenDirty = True
 
     def rowUp(self, count):
-        self.currentRow = (self.currentRow - count) % len(self.SongDB.SongList)
+        self.currentRow = (self.currentRow - count) % len(self.songDb.SongList)
         self.screenDirty = True
 
     def pageDown(self, count):
@@ -374,23 +483,61 @@ class App(pykPlayer):
     def pageUp(self, count):
         self.rowUp(count * self.numRows)
 
+    def letterDown(self, count):
+        # Go to the next "letter".
+        file = self.songDb.SongList[self.currentRow]
+        currentLetter = self.songDb.GetSongTuple(file)[0][0]
+        
+        row = (self.currentRow + 1) % len(self.songDb.SongList)
+        file = self.songDb.SongList[row]
+        letter = self.songDb.GetSongTuple(file)[0][0]
+        while row != self.currentRow and letter == currentLetter:
+            row = (row + 1) % len(self.songDb.SongList)
+            file = self.songDb.SongList[row]
+            letter = self.songDb.GetSongTuple(file)[0][0]
+        
+        self.currentRow = row
+        self.screenDirty = True
+
+    def letterUp(self, count):
+        # Go to the previous "letter".
+        file = self.songDb.SongList[self.currentRow]
+        currentLetter = self.songDb.GetSongTuple(file)[0][0]
+        
+        row = (self.currentRow - 1) % len(self.songDb.SongList)
+        file = self.songDb.SongList[row]
+        letter = self.songDb.GetSongTuple(file)[0][0]
+        while row != self.currentRow and letter == currentLetter:
+            row = (row - 1) % len(self.songDb.SongList)
+            file = self.songDb.SongList[row]
+            letter = self.songDb.GetSongTuple(file)[0][0]
+        
+        self.currentRow = row
+        self.screenDirty = True
+
     def changeSort(self):
-        file = self.SongDB.SongList[self.currentRow]
+        file = self.songDb.SongList[self.currentRow]
 
-        if self.SongDB.Sort == 'title':
-            if self.SongDB.GotArtists:
-                self.SongDB.SelectSort('artist')
+        if self.songDb.Sort == 'title':
+            if self.songDb.GotArtists:
+                self.songDb.SelectSort('artist')
             else:
-                self.SongDB.SelectSort('filename')
-        elif self.SongDB.Sort == 'artist':
-            self.SongDB.SelectSort('filename')
+                self.songDb.SelectSort('filename')
+        elif self.songDb.Sort == 'artist':
+            self.songDb.SelectSort('filename')
         else:  # 'filename'
-            if self.SongDB.GotTitles:
-                self.SongDB.SelectSort('title')
-            elif self.SongDB.GotArtists:
-                self.SongDB.SelectSort('artist')
+            if self.songDb.GotTitles:
+                self.songDb.SelectSort('title')
+            elif self.songDb.GotArtists:
+                self.songDb.SelectSort('artist')
 
-        self.currentRow = bisect.bisect_left(self.SongDB.SongList, file)
+        if file.sameSongs:
+            # If we were on the filename list, we might have been looking
+            # at a file that doesn't actually appear in the artist or
+            # title list.  Be sure we look up the one that does appear.
+            file = file.sameSongs[0]
+
+        self.currentRow = bisect.bisect_left(self.songDb.SongList, file)
         self.screenDirty = True
 
     def goToSearch(self, searchString):
@@ -398,9 +545,10 @@ class App(pykPlayer):
         searchString.  Assumes the FileList has previously been sorted
         by a call to SelectSort(). """
 
-        self.currentRow = bisect.bisect_left(self.SongDB.SongList,
-                                             pykdb.SongStruct(searchString, searchString, searchString, searchString))
-        if self.currentRow == len(self.SongDB.SongList):
+        ss = pykdb.SongStruct(searchString, self.songDb.Settings,
+                              searchString, searchString, searchString)
+        self.currentRow = bisect.bisect_left(self.songDb.SongList, ss)
+        if self.currentRow == len(self.songDb.SongList):
             self.currentRow = 0
 
         self.screenDirty = True
@@ -412,6 +560,10 @@ class App(pykPlayer):
                 self.rowDown(count)
             elif key == pygame.K_UP:
                 self.rowUp(count)
+            elif key == pygame.K_RIGHT:
+                self.letterDown(count)
+            elif key == pygame.K_LEFT:
+                self.letterUp(count)
             elif key == pygame.K_PAGEDOWN:
                 self.pageDown(count)
             elif key == pygame.K_PAGEUP:
@@ -419,19 +571,31 @@ class App(pykPlayer):
 
         elif type == pygame.JOYBUTTONDOWN:
             if key == GP2X_BUTTON_DOWN:
-                self.rowDown(count)
+                if self.ShoulderRHeld:
+                    self.pageDown(count)
+                elif self.ShoulderLHeld:
+                    pass
+                else:
+                    self.rowDown(count)
+                    
             elif key == GP2X_BUTTON_UP:
-                self.rowUp(count)
-            elif key == GP2X_BUTTON_R:
-                self.pageDown(count)
-            elif key == GP2X_BUTTON_L:
-                self.pageUp(count)
+                if self.ShoulderRHeld:
+                    self.pageUp(count)
+                elif self.ShoulderLHeld:
+                    pass
+                else:
+                    self.rowUp(count)
+
+            elif key == GP2X_BUTTON_RIGHT:
+                self.letterDown(count)
+            elif key == GP2X_BUTTON_LEFT:
+                self.letterUp(count)
 
     def doStuff(self):
         pykPlayer.doStuff(self)
 
         if self.screenDirty:
-            self.paintScrollWindow()
+            self.paintWindow()
             self.screenDirty = False
 
         if self.heldKey:
@@ -442,12 +606,83 @@ class App(pykPlayer):
             else:
                 repeat = int(math.pow((elapsed / 1000.), 4))
 
+            if elapsed > 1000:
+                manager.setCpuSpeed('menu_fast')
+            elif manager.cpuSpeed != 'menu_fast':
+                manager.setCpuSpeed('menu_slow')
+
             if repeat > self.heldRepeat:
                 self.handleRepeatable(self.heldKey[0], self.heldKey[1],
                                       repeat - self.heldRepeat)
                 self.heldRepeat = repeat
+        else:
+            elapsed = pygame.time.get_ticks() - self.heldStartTicks
+            if elapsed > 20000:
+                manager.setCpuSpeed('menu_idle')
+            elif elapsed > 2000:
+                manager.setCpuSpeed('menu_slow')
 
     def handleEvent(self, event):
+        if self.selectedSong:
+            self.handleSongEvent(event)
+        else:
+            self.handleMainEvent(event)
+
+    def handleSongEvent(self, event):
+        """ The user has already selected a song, and now has to
+        select the specific version of it he/she meant to play. """
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE or event.key == pygame.K_TAB:
+                # Back out to the main index.
+                self.selectedSong = None
+                self.screenDirty = True
+
+                # Don't continue.  If we call up to pykPlayer, it will
+                # shut us down with the escape key.
+                return
+
+            elif event.key == pygame.K_RETURN:
+                self.selectSong()
+
+            elif event.key == pygame.K_UP:
+                self.selectedSongRow = max(self.selectedSongRow - 1, 0)
+                self.screenDirty = True
+
+            elif event.key == pygame.K_DOWN:
+                self.selectedSongRow = min(self.selectedSongRow + 1, len(self.selectedSong.sameSongs) - 1)
+                self.screenDirty = True
+
+        elif event.type == pygame.QUIT:
+            self.running = False
+
+        elif env == ENV_GP2X and event.type == pygame.JOYBUTTONDOWN:
+            button = event.button
+
+            if button == GP2X_BUTTON_UPLEFT or button == GP2X_BUTTON_UPRIGHT:
+                button = GP2X_BUTTON_UP
+            elif button == GP2X_BUTTON_DOWNLEFT or button == GP2X_BUTTON_DOWNRIGHT:
+                button = GP2X_BUTTON_DOWN
+                
+            if button == GP2X_BUTTON_Y or button == GP2X_BUTTON_A or button == GP2X_BUTTON_SELECT:
+                self.selectedSong = None
+                self.screenDirty = True
+                return
+            elif button == GP2X_BUTTON_START or \
+                 button == GP2X_BUTTON_X or \
+                 button == GP2X_BUTTON_B:
+                self.selectSong()
+            elif button == GP2X_BUTTON_UP:
+                self.selectedSongRow = max(self.selectedSongRow - 1, 0)
+                self.screenDirty = True
+            elif button == GP2X_BUTTON_DOWN:
+                self.selectedSongRow = min(self.selectedSongRow + 1, len(self.selectedSong.sameSongs) - 1)
+                self.screenDirty = True
+
+        pykPlayer.handleEvent(self, event)
+
+    def handleMainEvent(self, event):
+        """ Handles events on the main 'select a song' index. """
         
         if event.type == pygame.KEYDOWN:
             if event.unicode and event.unicode[0] >= ' ':
@@ -487,36 +722,57 @@ class App(pykPlayer):
 
         elif event.type == pygame.KEYUP:
             self.heldKey = None
+            self.heldStartTicks = pygame.time.get_ticks()
 
         elif event.type == pygame.QUIT:
             self.running = False
 
         elif env == ENV_GP2X and event.type == pygame.JOYBUTTONDOWN:
-            self.heldKey = (pygame.JOYBUTTONDOWN, event.button)
+            button = event.button
+
+            # Map these diagonal buttons to the nearest up/down
+            # equivalent.  This helps avoid the interruption of
+            # scrolling because the GP2X joystick drifts too far left
+            # or right.
+            if button == GP2X_BUTTON_UPLEFT or button == GP2X_BUTTON_UPRIGHT:
+                button = GP2X_BUTTON_UP
+            elif button == GP2X_BUTTON_DOWNLEFT or button == GP2X_BUTTON_DOWNRIGHT:
+                button = GP2X_BUTTON_DOWN
+                
+            self.heldKey = (pygame.JOYBUTTONDOWN, button)
             self.heldStartTicks = pygame.time.get_ticks()
             self.heldRepeat = 0
 
-            if event.button == GP2X_BUTTON_Y:
+            if button == GP2X_BUTTON_Y:
                 self.running = False
-            elif event.button == GP2X_BUTTON_START or \
-                 event.button == GP2X_BUTTON_X or \
-                 event.button == GP2X_BUTTON_B:
+            elif button == GP2X_BUTTON_START or \
+                 button == GP2X_BUTTON_X or \
+                 button == GP2X_BUTTON_B:
                 self.selectSong()
-            elif event.button == GP2X_BUTTON_A:
+            elif button == GP2X_BUTTON_A:
                 self.changeSort()
-            elif event.button == GP2X_BUTTON_SELECT:
+            elif button == GP2X_BUTTON_SELECT:
                 # Break out so this one won't fall through to
                 # pykPlayer, which would shut us down.
                 return
             else:
-                self.handleRepeatable(pygame.JOYBUTTONDOWN, event.button, 1)
+                self.handleRepeatable(pygame.JOYBUTTONDOWN, button, 1)
 
         elif env == ENV_GP2X and event.type == pygame.JOYBUTTONUP:
-            self.heldKey = None
+            button = event.button
+
+            if button == GP2X_BUTTON_UPLEFT or button == GP2X_BUTTON_UPRIGHT:
+                button = GP2X_BUTTON_UP
+            elif button == GP2X_BUTTON_DOWNLEFT or button == GP2X_BUTTON_DOWNRIGHT:
+                button = GP2X_BUTTON_DOWN
+
+            if self.heldKey == (pygame.JOYBUTTONDOWN, button):
+                self.heldKey = None
+                self.heldStartTicks = pygame.time.get_ticks()
 
         pykPlayer.handleEvent(self, event)
 
-    def errorPopupCallback(self, errorString):
+    def errorPopupCallback(self, errorString, wait = True):
         print errorString
 
         manager.InitPlayer(self)
@@ -528,19 +784,22 @@ class App(pykPlayer):
         winWidth, winHeight = manager.displaySize
         winCenter = winWidth / 2
 
-        lines = manager.WordWrapText(errorString, self.thinFont, winWidth - X_BORDER * 2)
+        lines = manager.WordWrapText(errorString, self.subtitleFont, winWidth - X_BORDER * 2)
 
-        row = (winHeight - len(lines) * self.thinHeight) / 2
+        row = (winHeight - len(lines) * self.subtitleHeight) / 2
         for line in lines:
             line = line.strip()
-            text = self.thinFont.render(line, True, (255,255,255))
+            text = self.subtitleFont.render(line, True, (255,255,255))
             rect = text.get_rect()
             rect = rect.move(winCenter - rect.centerx, row)
             manager.display.blit(text, rect)
-            row += self.thinHeight
+            row += self.subtitleHeight
 
         pygame.display.flip()
         self.screenDirty = True
+
+        if not wait:
+            return
 
         # Now wait a certain amount of time--say 5 seconds.
         waitUntil = pygame.time.get_ticks() + 5000
@@ -563,8 +822,48 @@ class App(pykPlayer):
                     buttonPressed = True
                     break
 
+    def showProgressCallback(self, label, progress):
+        """ This is called by the MiniBusyCancelDialog to show
+        progress as we're scanning the database. """
+        
+        manager.InitPlayer(self)
+        manager.OpenDisplay()
+
+        manager.display.fill((0,0,0))
+
+        # Center the error message onscreen.
+        winWidth, winHeight = manager.displaySize
+        winCenter = winWidth / 2
+
+        lines = manager.WordWrapText(label, self.subtitleFont, winWidth - X_BORDER * 2)
+
+        row = winHeight / 2 - 2 * self.subtitleHeight
+        for line in lines:
+            line = line.strip()
+            text = self.subtitleFont.render(line, True, (255,255,255))
+            rect = text.get_rect()
+            rect = rect.move(winCenter - rect.centerx, row)
+            manager.display.blit(text, rect)
+            row += self.subtitleHeight
+
+        # Now draw the progress bar.
+        width = winWidth / 2
+        height = self.subtitleHeight
+
+        top = winHeight / 2
+        left = winWidth / 2 - width / 2
+        rect = pygame.Rect(left, top, width, height)
+        manager.display.fill((255, 255, 255), rect)
+
+        fill = int((width - 2) * progress + 0.5)
+        rect = pygame.Rect(left + 1 + fill, top + 1, width - 2 - fill, height - 2)
+        manager.display.fill((0, 0, 0), rect)
+
+        pygame.display.flip()
+        self.screenDirty = True
+
     def songFinishedCallback(self):
-        self.SongDB.CleanupTempFiles()
+        self.songDb.CleanupTempFiles()
 
     def doResize(self, newSize):
         # This will be called internally whenever the window is
@@ -573,7 +872,16 @@ class App(pykPlayer):
         # window handles.
         self.setupScrollWindow()
         self.screenDirty = True
+
     
+class MiniBusyCancelDialog(pykdb.BusyCancelDialog):
+    def __init__(self, app):
+        pykdb.BusyCancelDialog.__init__(self)
+        self.app = app
+        
+    def SetProgress(self, label, progress):
+        """ Update the progress label onscreen. """
+        self.app.showProgressCallback(label, progress)
 
 def main():
     app = App()

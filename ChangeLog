@@ -1,3 +1,58 @@
+v0.6:
+
+	* Reworked config page to add many more options.  Config options
+	are now respected by pykaraoke_mini as well as by pykaraoke
+	(though the config dialog itself is only accessible via
+	pykaraoke).
+
+	* Added support for an external movie player, for instance,
+	Windows Media Player or mplayer, to play video file formats not
+	supported directly by pygame, such as AVI.  Using this method,
+	full-motion video karaoke files can now be played on the GP2X.
+
+	* The search/playlist window now has a user-draggable splitter
+	handle to control the relative size of the search and playlist
+	sides.  It's also possible to configure whether they should be
+	split vertically (left/right) or horizontally (top/bottom).
+
+	* Added pulldown menus to the search/playlist window.  Moved some
+	of the buttons on that window into the menu.
+
+	* Added options to print or export the song list.
+
+	* Added the ability to edit a song's artist or title on-the-fly
+	from within the search window.  The changes are written back into
+	the appropriate titles*.txt file.
+
+	* Fixed international character support for kar files.
+
+	* Fixed a bug preventing loading titles*.txt files from nested
+	subdirectories within zip files.
+
+	* Changed the text colour on the pykaraoke_mini browser to
+	indicate the type of Karaoke file: kar, cdg, or mpg.
+
+	* Added left/right arrow keys to the pykaraoke_mini browser.
+	These skip to the next letter.
+
+	* The pykaraoke_mini browser will collapse multiple song files
+	sharing the same artist / title into a single line.
+	
+	* Changed sound-sync keys from left/right arrow to
+	control-left/right arrow, to reduce accidental use of these keys.
+
+	* Further minor performance improvements to CDG player.
+
+	* Added automatic control of GP2X CPU speed.  This improves both
+	response time and battery life on the GP2X.
+	
+	* Changed meaning of the shoulder buttons on GP2X.  Now right
+	button + joystick up/down means to skip a full page at a time;
+	left button + joystick left/right means to zoom the text smaller
+	or larger.
+
+	* New progress bar visible while scanning database.
+
 v0.5.1:
 
 	* All: Update all copyright dates.

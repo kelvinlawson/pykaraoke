@@ -22,7 +22,8 @@ from pykconstants import *
 from pykplayer import pykPlayer
 from pykenv import env
 from pykmanager import manager
-import pygame, sys, os, string
+import pygame, sys, os, string, subprocess
+import threading
 
 # OVERVIEW
 #
@@ -113,17 +114,24 @@ import pygame, sys, os, string
 # Display depth (bits)
 DISPLAY_DEPTH       = 32 
 
+# Check to see if the movie module is available.
+try:
+    import pygame.movie as movie
+except ImportError:
+    movie = None
 
 # mpgPlayer Class
 class mpgPlayer(pykPlayer):
     # Initialise the player instace
-    def __init__(self, song, errorNotifyCallback=None, doneCallback=None):
+    def __init__(self, song, songDb, errorNotifyCallback=None, doneCallback=None):
         """The first parameter, song, may be either a pykdb.SongStruct
         instance, or it may be a filename. """
 
-        pykPlayer.__init__(self, song, errorNotifyCallback, doneCallback)
+        pykPlayer.__init__(self, song, songDb, errorNotifyCallback, doneCallback)
 
         self.Movie = None
+
+        manager.setCpuSpeed('mpg')
 
         manager.InitPlayer(self)
         manager.OpenDisplay(depth = DISPLAY_DEPTH)
@@ -199,10 +207,102 @@ class mpgPlayer(pykPlayer):
         if self.State == STATE_PLAYING:
             self.Movie.play()
 
+class externalPlayer(pykPlayer):
+
+    """ This class is used to invoke an external command and wait for
+    it to finish.  It is usually used to play a video file using an
+    external player. """
+    
+    def __init__(self, song, songDb, errorNotifyCallback=None, doneCallback=None):
+        """The first parameter, song, may be either a pykdb.SongStruct
+        instance, or it may be a filename. """
+
+        pykPlayer.__init__(self, song, songDb, errorNotifyCallback, doneCallback)
+
+        self.Movie = None
+
+        manager.setCpuSpeed('mpg')
+        manager.InitPlayer(self)
+
+        # Close the audio and the display
+        manager.CloseAudio()
+        manager.CloseDisplay()
+        manager.CloseCPUControl()
+
+        self.procReturnCode = None
+        self.proc = None
+
+
+    def doPlay(self):
+        if self.procReturnCode != None:
+            # The movie is done.
+            self.__stop()
+
+        if not self.proc:
+            self.__start()
+
+    def doStuff(self):
+        if self.procReturnCode != None:
+            # The movie is done.
+            self.__stop()
+            self.Close()
+
+        pykPlayer.doStuff(self)
+
+    def __start(self):
+        filepath = self.SongDatas[0].GetFilepath()
+
+        external = manager.settings.MpgExternal
+        if '%' in external:
+            # Assume the filename parameter is embedded in the string.
+            cmd = external % {
+                'file' : filepath,
+                }
+
+        elif external:
+            # No parameter appears to be present; assume the program
+            # accepts the filename as the only parameter.
+            cmd = [external, filepath]
+            
+        shell = True
+        if env == ENV_WINDOWS:
+            # Don't try to open the process under a "shell" in
+            # Windows; that just breaks commands with spaces.
+            shell = False
+
+        assert self.procReturnCode == None
+        self.proc = subprocess.Popen(cmd, shell = shell)
+        if manager.settings.MpgExternalThreaded:
+            # Wait for it to complete in a thread.
+            self.thread = threading.Thread(target = self.__runThread)
+            self.thread.start()
+        else:
+            # Don't wait for it in a thread; wait for it here.
+            self.thread = None
+            self.__runThread()
+
+    def __stop(self):
+        if self.thread:
+            self.thread.join()
+        self.proc = None
+        self.procReturnCode = None
+        self.thread = None
+        
+
+    def __runThread(self):
+        """ This method runs in a sub-thread.  Its job is just to wait
+        for the process to finish. """
+
+        try:
+            self.procReturnCode = self.proc.wait()
+        except OSError:
+            self.procReturnCode = -1
+        
+        
 
 # Can be called from the command line with the MPG filepath as parameter
 def main():
-    player = mpgPlayer(None)
+    player = mpgPlayer(None, None)
     player.Play()
     manager.WaitForPlayer()
 

@@ -29,6 +29,9 @@ try:
 except:
     import Optik as optparse
 
+if env == ENV_GP2X:
+    import _cpuctrl as cpuctrl
+
 class pykManager:
 
     """ There is only one instance of this class in existence during
@@ -42,12 +45,13 @@ class pykManager:
         self.player = None
         self.options = None
         self.display = None
+        self.surface = None
         self.audioProps = None
 
         self.displaySize = None
         self.displayFlags = 0
         self.displayDepth = 0
-        self.gotDisplayDefaults = False
+        self.cpuSpeed = None
 
         # Find the correct font path. If fully installed on Linux this
         # will be sys.prefix/share/pykaraoke/fonts. Otherwise look for
@@ -59,57 +63,34 @@ class pykManager:
             self.FontPath = os.path.join(sys.prefix, "share/pykaraoke/fonts")
             self.IconPath = os.path.join(sys.prefix, "share/pykaraoke/icons")
 
+        if env == ENV_GP2X:
+            speed = cpuctrl.get_FCLK()
+            print "Initial CPU speed is %s" % (speed)
+
         # This factor may be changed by the user to make text bigger
         # or smaller on those players that support it.
         self.fontScale = None
 
-        # This value is a time in milliseconds that will be used to
-        # shift the time of the lyrics display relative to the video.
-        # It is adjusted by the user pressing the left and right
-        # arrows during singing, and is persistent during a session.
-        # Positive values make the lyrics anticipate the music,
-        # negative values delay them.
+    def setCpuSpeed(self, activityName):
+        """ Sets the CPU speed appropriately according to what the
+        current activity is.  At the moment, this is used only for the
+        GP2X. """
 
-        # For some reason, an initial value of -250 ms seems about
-        # right empirically, on Linux, but not on Windows or on the
-        # GP2X.
-        if env == ENV_LINUX:
-            self.UserOffsetTime = -250
-        else:
-            self.UserOffsetTime = 0
+        if self.cpuSpeed == activityName:
+            # No change.
+            return
+        self.cpuSpeed = activityName
+        
+        # The activityName directly hooks into a CPU speed indicated
+        # in the user settings.
 
-    # Get the current display size
-    def GetDisplaySize(self):
-        return self.displaySize
-
-    def SetDisplaySize(self, displaySize):
-        if not self.gotDisplayDefaults:
-            self.getDisplayDefaults()
-
-        if displaySize != self.displaySize:
-            if self.display != None:
-                self.OpenDisplay(displaySize)
-            else:
-                self.displaySize = displaySize
-
-            if self.player:
-                self.player.doResize(event.size)
-
-    def SetFullScreen(self, flag = True):
-        if not self.gotDisplayDefaults:
-            self.getDisplayDefaults()
-
-        isFullscreen = ((self.displayFlags & pygame.FULLSCREEN) != 0)
-        if isFullscreen != flag:
-            if flag:
-                self.displayFlags |= pygame.FULLSCREEN
-            else:
-                self.displayFlags &= ~pygame.FULLSCREEN
-                    
-            if self.display != None:
-                self.OpenDisplay()
-            if self.player:
-                self.player.doResize(event.size)
+        attr = 'CPUSpeed_%s' % (activityName)
+        speed = getattr(self.settings, attr, None)
+        if speed is not None:
+            self.OpenCPUControl()
+            if env == ENV_GP2X:
+                cpuctrl.set_FCLK(speed)
+                pass
 
     def VolumeUp(self):
         volume = pygame.mixer.music.get_volume()
@@ -164,8 +145,7 @@ class pykManager:
         """ Use this method to open a pygame display or set the
         display to a specific mode. """
 
-        if not self.gotDisplayDefaults:
-            self.getDisplayDefaults()
+        self.getDisplayDefaults()
 
         if displaySize == None:
             displaySize = self.displaySize
@@ -174,25 +154,41 @@ class pykManager:
         if depth == None:
             depth = self.displayDepth
 
-        pygame.display.init()
-        self.mouseVisible = not (env == ENV_GP2X or self.options.hide_mouse or (self.displayFlags & pygame.FULLSCREEN))
-        pygame.mouse.set_visible(self.mouseVisible)
+        if self.options.dump:
+            # We're just capturing frames offscreen.  In that case,
+            # just open an offscreen buffer as the "display".
+            self.display = None
+            self.surface = pygame.Surface(self.displaySize)
+            self.mouseVisible = False
+            self.displaySize = self.surface.get_size()
+            self.displayFlags = self.surface.get_flags()
+            self.displayDepth = self.surface.get_bitsize()
+        else:
+            # Open the onscreen display normally.
+            pygame.display.init()
+            self.mouseVisible = not (env == ENV_GP2X or self.options.hide_mouse or (self.displayFlags & pygame.FULLSCREEN))
+            pygame.mouse.set_visible(self.mouseVisible)
 
-        if self.displayTitle != None:
-            pygame.display.set_caption(self.displayTitle)
-        elif self.player != None:
-            pygame.display.set_caption(self.player.WindowTitle)
-        
+            if self.displayTitle != None:
+                pygame.display.set_caption(self.displayTitle)
+            elif self.player != None:
+                pygame.display.set_caption(self.player.WindowTitle)
+
+            if self.display == None or \
+               (self.displaySize, self.displayFlags, self.displayDepth) != (displaySize, flags, depth):
+                self.display = pygame.display.set_mode(displaySize, flags, depth)
+                self.displaySize = self.display.get_size()
+                self.displayFlags = flags
+                self.displayDepth = depth
+
+            self.surface = self.display
+
         self.displayTime = pygame.time.get_ticks()
 
-        if self.display == None or \
-           (self.displaySize, self.displayFlags, self.displayDepth) != (displaySize, flags, depth):
-            self.display = pygame.display.set_mode(displaySize, flags, depth)
-            self.displaySize = self.display.get_size()
-            self.displayFlags = flags
-            self.displayDepth = depth
-
-        return self.display
+    def Flip(self):
+        """ Call this method to make the displayed frame visible. """
+        if self.display:
+            pygame.display.flip()
 
     def CloseDisplay(self):
         """ Use this method to close the pygame window if it has been
@@ -203,34 +199,26 @@ class pykManager:
             pygame.display.init()
             self.display = None
 
-    def OpenAudio(self, suggestedProperties = None, requiredProperties = None):
+        self.surface = None
+
+    def OpenAudio(self, frequency = None, size = None, channels = None):
         """ Use this method to initialize or change the audio
-        parameters.
+        parameters."""
 
-        suggestedProperties and requiredProperties should be None or a
-        tuple of the form (frequency, size, channels).  The difference
-        is that requiredProperties will override the command-line
-        defaults, while suggestedProperties will not.
+        # We shouldn't mess with the CPU control while the audio is
+        # open.
+        self.CloseCPUControl()
 
-        The buffer size is specified in milliseconds; the
-        actual buffer size chosen will be close to this amount of
-        time."""
+        if frequency == None:
+            frequency = self.settings.SampleRate
 
-        if requiredProperties != None:
-            frequency, size, channels = requiredProperties
+        if size == None:
+            size = -16
 
-        else:
-            if suggestedProperties != None:
-                frequency, size, channels = suggestedProperties
-            else:
-                frequency, size, channels = 22050, -16, 2
+        if channels == None:
+            channels = self.settings.NumChannels
 
-            if self.options.sample_rate != None:
-                frequency = self.options.sample_rate
-            if self.options.num_channels != None:
-                channels = self.options.num_channels
-
-        bufferMs = self.options.buffer
+        bufferMs = self.settings.BufferMs
 
         # Compute the number of samples that would fill the indicated
         # buffer time.
@@ -260,12 +248,23 @@ class pykManager:
         pygame.mixer.quit()
         self.audioProps = None
 
+    def OpenCPUControl(self):
+        self.CloseAudio()
+        if env == ENV_GP2X:
+            cpuctrl.init()
+        
+    def CloseCPUControl(self):
+        if env == ENV_GP2X:
+            cpuctrl.shutdown()
+
     def GetAudioBufferMS(self):
         """ Returns the number of milliseconds it will take to
         completely empty a full audio buffer with the current
         settings. """
-        frequency, size, channels, bufferSamples = self.audioProps
-        return bufferSamples * 1000 / (frequency * channels)
+        if self.audioProps:
+            frequency, size, channels, bufferSamples = self.audioProps
+            return bufferSamples * 1000 / (frequency * channels)
+        return 0
             
     def Quit(self):
         if self.player:
@@ -278,13 +277,42 @@ class pykManager:
 
         pygame.quit()
 
+    def __errorCallback(self, message):
+        self.songValid = False
+        print message
+    def __doneCallback(self):
+        pass
+
+    def ValidateDatabase(self, songDb):
+        """ Validates all of the songs in the database. """
+
+        self.CloseDisplay()
+        invalidFile = open('invalid.txt', 'w')
+
+        songDb.SelectSort('filename')
+        for song in songDb.SongList[:1074]:
+            self.songValid = True
+            player = song.MakePlayer(songDb, self.__errorCallback, self.__doneCallback)
+            if not player:
+                self.songValid = False
+            else:
+                if not player.Validate():
+                    self.songValid = False
+
+            if self.songValid:
+                print '%s ok' % (song.DisplayFilename)
+            else:
+                print '%s invalid' % (song.DisplayFilename)
+                print >> invalidFile, '%s\t%s' % (song.Filepath, song.ZipStoredName)
+                invalidFile.flush()
+
     def Poll(self):
         """ Your application must call this method from time to
         time--ideally, within a hundred milliseconds or so--to perform
         the next quantum of activity. Alternatively, if the
         application does not require any cycles, you may just call
         WaitForPlayer() instead. """
-        
+
         if not self.initialized:
             self.pygame_init()
 
@@ -307,7 +335,7 @@ class pykManager:
         while self.player and self.player.State != STATE_CLOSED:
             self.Poll()
 
-    def SetupOptions(self, usage):
+    def SetupOptions(self, usage, songDb):
         """ Initialise and return optparse OptionParser object,
         suitable for parsing the command line options to this
         application.  This version of this method returns the options
@@ -315,24 +343,30 @@ class pykManager:
             
         version = "%prog " + pykversion.PYKARAOKE_VERSION_STRING
 
+        settings = songDb.Settings
+
         parser = optparse.OptionParser(usage = usage, version = version,
                                        conflict_handler = "resolve")
 
         if env != ENV_OSX and env != ENV_GP2X:
+            pos_x = None
+            pos_y = None
+            if settings.WinPos:
+                pos_x, pos_y = settings.WinPos
             parser.add_option('-x', '--window-x', dest = 'pos_x', type = 'int', metavar='X',
-                              help = 'position song window X pixels from the left edge of the screen', default = None)
+                              help = 'position song window X pixels from the left edge of the screen', default = pos_x)
             parser.add_option('-y', '--window-y', dest = 'pos_y', type = 'int', metavar='Y',
-                              help = 'position song window Y pixels from the top edge of the screen', default = None)
+                              help = 'position song window Y pixels from the top edge of the screen', default = pos_y)
 
         if env != ENV_GP2X:
             parser.add_option('-w', '--width', dest = 'size_x', type = 'int', metavar='X',
-                              help = 'draw song window X pixels wide', default = 640)
+                              help = 'draw song window X pixels wide', default = settings.WinSize[0])
             parser.add_option('-h', '--height', dest = 'size_y', type = 'int', metavar='Y',
-                              help = 'draw song window Y pixels high', default = 480)
+                              help = 'draw song window Y pixels high', default = settings.WinSize[1])
             parser.add_option('-t', '--title', dest = 'title', type = 'string', metavar='TITLE',
                               help = 'set song window title to TITLE', default = None)
             parser.add_option('-f', '--fullscreen', dest = 'fullscreen', action = 'store_true', 
-                              help = 'make song window fullscreen', default = False)
+                              help = 'make song window fullscreen', default = settings.FullScreen)
             parser.add_option('', '--hide-mouse', dest = 'hide_mouse', action = 'store_true', 
                               help = 'hide the mouse pointer', default = False)
             
@@ -341,28 +375,55 @@ class pykManager:
                           default = 30)
         parser.add_option('-r', '--sample-rate', dest = 'sample_rate', type = 'int',
                           help = 'specify the audio sample rate.  Ideally, this should match the recording.  For MIDI files, higher is better but consumes more CPU.',
-                          default = None)
+                          default = settings.SampleRate)
         parser.add_option('', '--num-channels', dest = 'num_channels', type = 'int',
                           help = 'specify the number of audio channels: 1 for mono, 2 for stereo.',
-                          default = None)
+                          default = settings.NumChannels)
         parser.add_option('', '--font-scale', metavar='SCALE', dest = 'font_scale', type = 'float',
                           help = 'specify the font scale factor; small numbers (between 0 and 1) make text smaller so more fits on the screen, while large numbers (greater than 1) make text larger so less fits on the screen.',
                           default = 1)
 
         parser.add_option('', '--zoom', metavar='MODE', dest = 'zoom_mode', type = 'choice',
-                          choices = ['quick', 'int', 'full', 'soft', 'none' ],
-                          help = 'specify the way in which graphics are scaled to fit the window.  The choices are "quick", "int", "full", "soft", or "none".',
-                          default = 'int')
+                          choices = settings.Zoom,
+                          help = 'specify the way in which graphics are scaled to fit the window.  The choices are %s.' % (', '.join(map(lambda z: '"%s"' % z, settings.Zoom))),
+                          default = settings.CdgZoom)
 
         parser.add_option('', '--buffer', dest = 'buffer', metavar = 'MS', type = 'int',
                           help = 'buffer audio by the indicated number of milliseconds', 
-                          default = 50)
+                          default = settings.BufferMs)
         parser.add_option('-n', '--nomusic', dest = 'nomusic', action = 'store_true',
                           help = 'disable music playback, just display graphics', default = False)
 
+        parser.add_option('', '--dump', dest = 'dump',
+                          help = 'dump output as a sequence of frame images, for converting to video',
+                          default = '')
+        parser.add_option('', '--dump-fps', dest = 'dump_fps', type = 'float',
+                          help = 'specify the number of frames per second of the sequence output by --dump',
+                          default = 29.97)
+
+        parser.add_option('', '--validate', dest = 'validate', action = 'store_true',
+                          help = 'validate that all songs contain lyrics and are playable')
+
         return parser
 
+    def ApplyOptions(self, songDb):
+        """ Copies the user-specified command-line options in
+        self.options to the settings in songDb.Settings. """
 
+        self.settings = songDb.Settings
+
+        self.settings.CdgZoom = self.options.zoom_mode
+
+        if hasattr(self.options, 'fullscreen'):
+            self.settings.FullScreen = self.options.fullscreen
+            self.settings.WinSize = (self.options.size_x, self.options.size_y)
+        if hasattr(self.options, 'pos_x') and \
+           self.options.pos_x != None and self.options.pos_y != None:
+            self.settings.WinPos = (self.options.pos_x, self.options.pos_y)
+
+        self.settings.NumChannels = self.options.num_channels
+        self.settings.SampleRate = self.options.sample_rate
+        self.settings.BufferMs = self.options.buffer
 
     def WordWrapText(self, text, font, maxWidth):
         """Folds the line (or lines) of text into as many lines as
@@ -421,10 +482,11 @@ class pykManager:
 
     def handleEvents(self):
         """ Handles the events returned from pygame. """
-            
-        # check for Pygame events
-        for event in pygame.event.get():
-            self.handleEvent(event)
+
+        if self.display:
+            # check for Pygame events
+            for event in pygame.event.get():
+                self.handleEvent(event)
 
 
     def handleEvent(self, event):
@@ -443,8 +505,8 @@ class pykManager:
 
             # Do the resize
             self.displaySize = event.size
+            self.settings.WinSize = tuple(self.displaySize)
             pygame.display.set_mode(event.size, self.displayFlags, self.displayDepth)
-
             # Call any player-specific resize
             if player:
                 player.doResize(event.size)
@@ -500,17 +562,15 @@ class pykManager:
 
         # Don't set the environment variable on OSX.
         if env != ENV_OSX:
-            x = self.options.pos_x
-            y = self.options.pos_y
-            if x != None and y != None:
+            if self.settings.WinPos:
+                x, y = self.settings.WinPos
                 os.environ['SDL_VIDEO_WINDOW_POS'] = "%s,%s" % (x, y)
 
-        w = self.options.size_x
-        h = self.options.size_y
+        w, h = self.settings.WinSize
         self.displaySize = (w, h)
 
         self.displayFlags = pygame.RESIZABLE | pygame.HWSURFACE
-        if self.options.fullscreen:
+        if self.settings.FullScreen:
             self.displayFlags |= pygame.FULLSCREEN
 
         self.displayDepth = 0
@@ -518,8 +578,6 @@ class pykManager:
 
         self.mouseVisible = not (env == ENV_GP2X or self.options.hide_mouse or (self.displayFlags & pygame.FULLSCREEN))
 
-        self.gotDisplayDefaults = True
-        
     
 # Now instantiate a global pykManager object.
 manager = pykManager()

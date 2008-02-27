@@ -18,7 +18,15 @@ PyKaraoke is a karaoke player for Linux, FreeBSD, Windows and GP2X.
 The following song formats are supported:
  * CDG (MP3+G, OGG+G)
  * MIDI/KAR
- * MPEG
+ * MPEG/AVI/Other video formats
+
+MPEG2 files can usually be played directly within the PyKaraoke
+framework.  Other file formats like AVI or QuickTime, or files which
+use more exotic codecs like XviD, can also be handled by PyKaraoke,
+but it will require an external program, such as mplayer or Windows
+Media Player to show them.  This is a little less tightly integrated,
+but it does work, and allows you to pick all your karaoke songs from
+one database.
 
 No song files are provided - this package provides you with the player
 needed to play your own karaoke song files.
@@ -33,6 +41,8 @@ are, however, still supported.
 There are also some other minor changes to the layout of the search results
 page, a change to the scrolling behaviour, and improved handling of corrupt
 CDG rip files.
+
+There are now vastly more options available on the Configure page.
 
 ---------------------------------------------------------------------------
 
@@ -139,31 +149,56 @@ To install Timidity++ on Gentoo together with Eric Welsh's patches use:
 INSTALLATION (GP2X)
 
 PyKaraoke can run on the GP2X handheld console, giving you a Karaoke
-machine that fits in your pocket. You may find it easiest simply to 
+machine that fits in your pocket. You may find it easiest simply to
 install the prebuilt binary version. The prebuilt version already
-includes Python and the necessary supporting libraries (except SDL, which
-you should already have installed on your GP2X). Simply unpack this
-archive onto your SD card; it will expand to a small hierarchy of files.
-One of these directory names is pykaraoke/songs, which will be empty; you
-should put your song files in this pykaraoke/songs directory. The first 
-time you install, and each time you add new song files to this directory,
-you should run the "rescan_songs" script to rebuild the database with the
-new song files; but most of the time, you should start PyKaraoke simply by
-running the script named "pykaraoke".
+includes Python and the necessary supporting libraries. Simply unpack
+this archive onto your SD card; it will expand to a small hierarchy of
+files.  One of these directory names is pykaraoke/songs, which will be
+empty; you should put your song files in this pykaraoke/songs
+directory (or in any nested directory structure within
+pykaraoke/songs). The first time you install, and each time you add
+new song files to this directory, you should run the "rescan_songs"
+script to rebuild the database with the new song files; but most of
+the time, you should start PyKaraoke simply by running the script
+named "pykaraoke".
 
-If, for some reason, you wish to build your own version for the GP2X, this
-is possible, but there will be a bit of work involved.  You will need to
-install the GP2X development kit, which includes a cross-compiler for the
-GP2X. You should next use this cross-compiler to build and install SDL and
-PyGame, so that you have the appropriate source headers and matching 
-binaries for these library. Note it may be necessary for you to apply 
-patches to SDL_mixer to support using tremor and libmad, which are 
-alternative libraries used for playing OGG and MP3 files, respectively.
-(The default OGG and MP3 implementations used by SDL_mixer make heavy use
-of floating-point arithmetic, which does not perform well on the GP2X.)
-You will also need to patch the timidity/config.h file to reduce the MIDI
-rendering demands on the CPU. All of these patches are available for 
-download elsewhere.
+As of PyKaraoke version 0.5.2, you can also play video karaoke files
+on your GP2X.  You should use your existing GP2X tools to convert
+these to AVI format, as supported by the GP2X version of mplayer, and
+put them under the songs directory with your other karaoke files.
+PyKaraoke will index them and present them along with all of your
+other songs.
+
+COMPILATION (GP2X)
+
+If, for some reason, you wish to build your own version for the GP2X,
+this is possible, but there will be a bit of work involved.  You will
+need to install the GP2X development kit, which includes a
+cross-compiler for the GP2X. You should next use this cross-compiler
+to build and install SDL and PyGame, so that you have the appropriate
+source headers and matching binaries for these library. Note it may be
+necessary for you to apply patches to SDL_mixer to support using
+tremor and libmad, which are alternative libraries used for playing
+OGG and MP3 files, respectively.  (The default OGG and MP3
+implementations used by SDL_mixer make heavy use of floating-point
+arithmetic, which does not perform well on the GP2X.)  You will also
+need to patch the timidity/config.h file to reduce the MIDI rendering
+demands on the CPU. All of these patches are available for download
+elsewhere.
+
+To play AVI files, you will need a version of mplayer that accepts the
+movie file on the command line (the default version supplied with the
+GP2X firmware ignores the command-line arguments and always presents a
+file-navigation GUI).  Use svn to obtain GPH's version of the mplayer
+source code from:
+
+http://svn.gp2x.com/gp2x/tag/application/2006.07.05/mplayer/
+
+And then apply the patches given within this source archive in
+install/mplayer-gp2x-cmdline-pykaraoke.diff .  This file combines the
+patches available from the wiki at http://wiki.gp2x.org/wiki/MPlayer ,
+but also adds a few fixes of my own (to fix relative avi files, and
+also to automatically exit the player when the song has finished).
 
 Once all that is done, you need to use the cross compiler to build
 _pycdgAux.so. A sample script called cross-build-gp2x.sh is provided to do
@@ -283,14 +318,23 @@ pykaraoke_mini --scan
 
 GP2X USAGE
 
-On the GP2X you will run PyKaraoke with the pykaraoke_mini interface (see
-above). This interface presents your song files in a long list. While 
-viewing this list, use the joystick up and down to navigate to a song, or
-hold it down to scroll very rapidly. Use the left and right shoulder
-buttons to move a page at a time. Press B or X to select a song, and Y
-to exit. If you have supplied song titles and artist names with a 
-titles.txt file (see below), you can change the sort order of the list
-with the A button.
+On the GP2X you will run PyKaraoke with the pykaraoke_mini interface
+(see above). This interface presents your song files in a long
+list. 
+
+While viewing this list, use the joystick up and down to navigate to a
+song, or hold it down to scroll very rapidly. Hold down the right
+shoulder buttons while you move the joystick up and down to move a
+page at a time.  Press the joystick left or right to jump quickly to
+the next letter.
+
+Press B or X to select a song, and Y to exit. If you have supplied
+song titles and artist names with a titles.txt file (see below), you
+can change the sort order of the list with the A button.
+
+To change the font size both for the index and for .kar files, hold
+down the left shoulder button while you push the joystick left or
+right.
 
 ---------------------------------------------------------------------------
 
@@ -465,7 +509,7 @@ There are several possible workarounds to this.
     the mp3 files in the directory, next to the zip file--PyKaraoke
     can still find them there. You won't get any compression benefit
     from storing the mp3 or ogg files in a zip file, anyway. If you
-    are using zip files for organization, use a subdirectory instead.
+    are using zip files for organisation, use a subdirectory instead.
 
 We recommend approach (4).
 
