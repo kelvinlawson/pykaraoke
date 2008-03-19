@@ -1,0 +1,46 @@
+#! /bin/sh
+
+# Sanity-check parameters.
+for cdg in "$@"; do
+  if [ `basename "$cdg" .cdg` == "$cdg" ]; then
+    echo "$cdg" does not end in .cdg.
+    exit 1
+  fi
+  if [ ! -f "$cdg" ]; then
+    echo "$cdg" does not exist.
+    exit 1
+  fi
+  wav=`dirname "$cdg"`/`basename "$cdg" .cdg`.wav
+  if [ ! -f "$wav" ]; then
+    echo "$wav" does not exist.
+    exit 1
+  fi
+done
+
+for cdg in "$@"; do
+  # Get temporary and output filenames, based on the input filename.
+  wav=`dirname "$cdg"`/`basename "$cdg" .cdg`.wav
+  ppm=`dirname "$cdg"`/`basename "$cdg" .cdg`.ppm
+  mpa=`dirname "$cdg"`/`basename "$cdg" .cdg`.mpa
+  mpv=`dirname "$cdg"`/`basename "$cdg" .cdg`.mpv
+  mpg=`dirname "$cdg"`/`basename "$cdg" .cdg`.mpg
+
+  # Use PyKaraoke to extract the frames.  We render into a slightly
+  # larger window than 288x192, to give room for a border and allow
+  # for TV overscan.
+  
+  python pycdg.py --dump="$ppm" --dump-fps=29.97 --zoom=none --width=320 --height=240 "$cdg" || exit
+
+  # Scale the video up to the DVD-sized screen, and convert it to mpeg.
+  ppmtoy4m -v0 -F30000:1001 "$ppm" | y4mscaler -v0 -O preset=dvd | mpeg2enc -v0 -f8 -b7500 -o "$mpv" || exit
+
+  # Convert the audio to mpeg.
+  mp2enc -v0 -b224 -r48000 -s -o "$mpa" <"$wav" || exit
+
+  # Multiplex the audio and the video together.
+  mplex -v0 -f8 "$mpa" "$mpv" -o "$mpg" || exit
+
+  # Clean up.
+  rm -f "$ppm" "$mpa" "$mpv"
+done
+

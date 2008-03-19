@@ -172,11 +172,34 @@ wrapper_get_FCLK() {
   }
 }
 
+/* Returns a 3-tuple (x, y, tvout) representing the current screen
+   width and height, and true if the screen is in tv-out mode. */
+static PyObject *
+get_screen_info() {
+  int x, y, tvout;
+
+  /* Implicitly initialise if necessary. */
+  init();
+  
+  x = gp2x_memregs[0x2816>>1] + 1;
+  y = gp2x_memregs[0x2818>>1] + 1;
+  tvout = (gp2x_memregs[0x2800>>1] & 0x100) != 0;
+
+  if (tvout && y < 400) {
+    /* Not sure why, but this is apparently off by a factor of two in
+       TV mode. */
+    y *= 2;
+  }
+
+  return Py_BuildValue("(iii)", x, y, tvout);
+}
+
 static PyMethodDef cpuctrl_methods[] = {
   {"init", (PyCFunction)wrapper_init, METH_NOARGS },
   {"shutdown", (PyCFunction)wrapper_shutdown, METH_NOARGS },
   {"set_FCLK", (PyCFunction)wrapper_set_FCLK, METH_VARARGS | METH_KEYWORDS },
   {"get_FCLK", (PyCFunction)wrapper_get_FCLK, METH_NOARGS },
+  {"get_screen_info", (PyCFunction)get_screen_info, METH_NOARGS },
   {NULL}  /* Sentinel */
 };
 

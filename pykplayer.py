@@ -237,6 +237,8 @@ class pykPlayer:
             return
             
         # Don't dump a video file; dump a sequence of frames instead.
+        self.dumpPPM = (ext_lower == '.ppm' or ext_lower == '.pnm')
+        self.dumpAppend = False
         
         # Convert the filename to a pattern.
         if '#' in filename:
@@ -247,10 +249,20 @@ class pykPlayer:
             count = end - hash
             filename = filename[:hash] + '%0' + str(count) + 'd' + filename[end:]
         else:
-            filename = base + '%04d' + ext
+            # There's no hash in the filename.
+            if self.dumpPPM:
+                # We can dump a series of frames all to the same file,
+                # if we're dumping ppm frames.  Mjpegtools likes this.
+                self.dumpAppend = True
+                try:
+                    os.remove(filename)
+                except OSError:
+                    pass
+            else:
+                # Implicitly append a frame number.
+                filename = base + '%04d' + ext
             
         self.dumpFilename = filename
-        self.dumpPPM = (ext_lower == '.ppm' or ext_lower == '.pnm')
 
     def doFrameDump(self):
         if self.dumpEncoder:
@@ -264,9 +276,12 @@ class pykPlayer:
             d = self.dumpEncoder.encode(yuvFrame)
             self.dumpFile.write(d.data)
             return
-            
-        filename = self.dumpFilename % self.PlayFrame
-        print filename
+
+        if self.dumpAppend:
+            filename = self.dumpFilename
+        else:
+            filename = self.dumpFilename % self.PlayFrame
+            print filename
 
         if self.dumpPPM:
             # Dump a PPM file.  We do PPM by hand since pygame
@@ -274,7 +289,10 @@ class pykPlayer:
             # useful.
             
             w, h = manager.surface.get_size()
-            f = open(filename, 'wb')
+            if self.dumpAppend:
+                f = open(filename, 'ab')
+            else:
+                f = open(filename, 'wb')
             f.write('P6\n%s %s 255\n' % (w, h))
             f.write(pygame.image.tostring(manager.surface, 'RGB'))
 

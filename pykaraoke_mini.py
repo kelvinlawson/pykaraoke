@@ -37,7 +37,7 @@
 # Unlike pykaraoke, pykaraoke_mini does not store a database of song
 # files, nor does it search around through different folders to find
 # your song files.  Instead, it is your responsibility to build a
-# catalog file, which is a text file that contains one line per each
+# titles file, which is a text file that contains one line per each
 # song.  Each line should be of the form:
 #
 # filename <tab> title <tab> artist
@@ -49,9 +49,8 @@
 #
 # If you like, you can maintain multiple different catalog files of
 # this form, which will allow you to run pykaraoke_mini with different
-# subsets of your song files.  Use the --catalog command-line option
-# to specify the full path to your catalog file; the default filename
-# is songs/catalog.txt.
+# subsets of your song files.  Each file should be named titles.txt,
+# or some variant on titles*.txt, such as titles_mysubdir.txt.
 #
 # While navigating the scrolling menu, the following keys are available:
 
@@ -85,6 +84,16 @@ import pygame, sys, os, math, bisect
 # on the menu, but because we want to hook up to the pykManager and
 # get resize callbacks, etc.
 class App(pykPlayer):
+
+    # This is the list of buttons that are always to be interpreted as
+    # special command keys, not as type-and-search keys.
+    CommandKeys = [ pygame.K_UP, pygame.K_DOWN,
+                    pygame.K_PAGEUP, pygame.K_PAGEDOWN,
+                    pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS,
+                    pygame.K_MINUS, pygame.K_UNDERSCORE, pygame.K_KP_MINUS,
+                    pygame.K_F1,
+                    ]
+               
     def __init__(self):
         pykPlayer.__init__(self, '', None, self.errorPopupCallback,
                            self.songFinishedCallback, windowTitle = "PyKaraoke")
@@ -164,10 +173,10 @@ class App(pykPlayer):
         winWidth, winHeight = manager.displaySize
         
         pygame.font.init()
-        fontSize = int(manager.GetFontScale() * winHeight / 27)
+        fontSize = int(manager.GetFontScale() * winHeight / 24)
         self.thinFont = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSansCondensed.ttf"), fontSize)
 
-        fontSize = int(manager.GetFontScale() * winHeight / 22.5)
+        fontSize = int(manager.GetFontScale() * winHeight / 20)
         self.boldFont = pygame.font.Font(os.path.join(manager.FontPath, "DejaVuSansCondensed-Bold.ttf"), fontSize)
 
         fontSize = int(manager.GetFontScale() * winHeight / 15)
@@ -182,6 +191,7 @@ class App(pykPlayer):
         self.subtitleHeight = self.subtitleFont.get_linesize()
         
         self.rowHeight = self.boldHeight + (self.numSongInfoLines - 1) * self.thinHeight
+        self.songWindowRowHeight = self.boldHeight * 1.2
 
         # Make sure the color highlight covers the bottom of the line.
         # Empirically, the DejaVu fonts want this much shift:
@@ -192,7 +202,7 @@ class App(pykPlayer):
         self.xMargin = 5
         self.xIndent = 10
 
-        self.numSongWindowRows = max(int(winHeight / self.boldHeight), 1)
+        self.numSongWindowRows = max(int(winHeight / self.songWindowRowHeight), 1)
         self.centerRow = (self.numRows - 1) / 2
 
     def paintWindow(self):
@@ -208,14 +218,19 @@ class App(pykPlayer):
         manager.display.fill((0,0,0))
         row = self.__writeSongTitle(self.selectedSong, 0)
 
-        self.startSongWindowRow = int((row + self.boldHeight - 1) / self.boldHeight)
+        self.startSongWindowRow = int((row + self.songWindowRowHeight - 1) / self.songWindowRowHeight)
         numRows = self.numSongWindowRows - self.startSongWindowRow
 
         for i in range(len(self.selectedSong.sameSongs)):
             file = self.selectedSong.sameSongs[i]
             fg = file.getTextColour(False)
-            y = (i + self.startSongWindowRow) * self.boldHeight
-            text = self.boldFont.render(file.DisplayFilename, True, fg)
+            y = (i + self.startSongWindowRow) * self.songWindowRowHeight
+
+            filename = file.DisplayFilename
+            if file in self.markedSongs:
+                filename = '* ' + filename
+
+            text = self.boldFont.render(filename, True, fg)
             manager.display.blit(text, (self.xMargin, y))
 
         # Now go back and re-draw the highlighted song.
@@ -223,8 +238,13 @@ class App(pykPlayer):
         file = self.selectedSong.sameSongs[i]
         fg = file.getTextColour(True)
         bg = file.getBackgroundColour(True)
-        y = (i + self.startSongWindowRow) * self.boldHeight
-        text = self.boldFont.render(file.DisplayFilename, True, fg, bg)
+        y = (i + self.startSongWindowRow) * self.songWindowRowHeight
+
+        filename = file.DisplayFilename
+        if file in self.markedSongs:
+            filename = '* ' + filename
+            
+        text = self.boldFont.render(filename, True, fg, bg)
         manager.display.blit(text, (self.xMargin, y))
 
         pygame.display.flip()
@@ -246,10 +266,13 @@ class App(pykPlayer):
         for i in range(self.numRows):
             y = self.yMargin + i * self.rowHeight
             r = (self.currentRow + i - self.centerRow) % len(self.songDb.SongList)
-            file = self.songDb.SongList[r]
-            a, b, c = self.songDb.GetSongTuple(file)
+            song = self.songDb.SongList[r]
+            a, b, c = self.songDb.GetSongTuple(song)
+                
+            if self.songIsMarked(song):
+                a = '* ' + a
 
-            fg = file.getTextColour(i == self.centerRow)
+            fg = song.getTextColour(i == self.centerRow)
             text = self.boldFont.render(a, True, fg)
             manager.display.blit(text, (self.xMargin, y))
             y += self.boldHeight
@@ -263,6 +286,71 @@ class App(pykPlayer):
                 y += self.thinHeight
 
         pygame.display.flip()
+
+    def songIsMarked(self, song):
+        """ If the song, or a different song with the same
+        artist/title has been marked, returns the marked song object.
+        If the song has not been marked, returns None. """
+
+        marked = False
+        if self.songDb.Sort == 'filename':            
+            # If we're sorting by filename, then every song is
+            # individually marked.
+            if song in self.markedSongs:
+                return song
+            
+        else:
+            # If we're sorting by title or artist, then the song
+            # line onscreen might correspond to multiple song
+            # files, and we should show the marked flag if any one
+            # of them is marked.
+            for file in song.sameSongs:
+                if file in self.markedSongs:
+                    return file
+
+        return None
+
+
+    def markCurrentSongFile(self):
+        """ Marks (or unmarks) the currently-highlighted song file.
+        In artist or title sort, this actually marks the first song
+        file with the matching artist /title. """
+
+        if self.selectedSong:
+            # Song window.  Only one filename can be highlighted, so
+            # it is unambiguous.
+            
+            i = self.selectedSongRow
+            file = self.selectedSong.sameSongs[i]
+            if file in self.markedSongs:
+                self.markedSongs.remove(file)
+            else:
+                self.markedSongs.append(file)
+
+        else:
+            # Main window.  This is unambiguous only in filename sort.
+            # In artist or title sort, we might be highlighting
+            # multiple song files at once.
+            
+            song = self.songDb.SongList[self.currentRow]
+            file = self.songIsMarked(song)
+            if file:
+                # Unmark this particular song file.
+                self.markedSongs.remove(file)
+
+                # In fact, unmark all of them with the same artist
+                # / title.
+                file = self.songIsMarked(song)
+                while file:
+                    self.markedSongs.remove(file)
+                    file = self.songIsMarked(song)
+
+            else:
+                # Mark this song file.
+                self.markedSongs.append(song)
+
+        self.markedSongsDirty = True
+        self.screenDirty = True
     
     def start(self):
         self.appStart = pygame.time.get_ticks()
@@ -317,6 +405,8 @@ class App(pykPlayer):
             self.numSongInfoLines += 1
         self.setupScrollWindow()
 
+        self.readMarkedSongs()
+
         if self.songDb.GotTitles:
             self.songDb.SelectSort('title')
         elif self.songDb.GotArtists:
@@ -348,6 +438,65 @@ class App(pykPlayer):
         
         while self.running:
             manager.Poll()
+
+        self.writeMarkedSongs()
+        manager.CloseDisplay()
+
+    def readMarkedSongs(self):
+        """ Reads marked.txt, which lists the files that have been
+        marked by the user for later inspection or adjustment (for
+        instance, to correct a title misspelling or something). """
+
+        self.markedSongs = []
+        self.markedSongsDirty = False
+
+        pathname = os.path.join (self.songDb.SaveDir, "marked.txt")
+        if not os.path.exists(pathname):
+            return
+
+        # We need to re-sort by filename in order to look up the
+        # songs properly.
+        self.songDb.SelectSort('filename')
+
+        file = open(pathname, 'r')
+        for line in file:
+            line = line.decode('utf-8').strip()
+            if line:
+                # Read a line from the list.  It describes a song, and
+                # includes filename, title, and artist, though we only
+                # really care about the filename.
+                filename = line.split('\t', 1)[0]
+
+                # Look up the song in the database.
+                song = pykdb.SongStruct(filename, self.songDb.Settings,
+                                        '', '', filename)
+                found = False
+                row = bisect.bisect_left(self.songDb.SongList, song)
+                if row != len(self.songDb.SongList):
+                    # If we found the song, record that it is marked.
+                    song = self.songDb.SongList[row]
+                    if song.DisplayFilename == filename:
+                        self.markedSongs.append(song)
+                        found = True
+
+                if not found:
+                    # If we didn't find the song, it follows that
+                    # marked.txt is out-of-sync with the database, and
+                    # needs to be rewritten.
+                    self.markedSongsDirty = True
+
+    def writeMarkedSongs(self):
+        """ Rewrites marked.txt, if it needs to be written. """
+        if not self.markedSongsDirty:
+            return
+
+        pathname = os.path.join (self.songDb.SaveDir, "marked.txt")
+        file = open(pathname, 'w')
+        for song in self.markedSongs:
+            line = '%s\t%s\t%s\n' % (song.DisplayFilename, song.Title, song.Artist)
+            file.write(line.encode('utf-8'))
+
+        self.markedSongsDirty = False
 
     def selectSong(self):
         """ The user has selected a song from the list.  There might
@@ -399,6 +548,7 @@ class App(pykPlayer):
         self.shutdown()
 
         manager.setCpuSpeed('load')
+        self.writeMarkedSongs()
 
         player = file.MakePlayer(
             self.songDb, self.errorPopupCallback, self.songFinishedCallback)
@@ -653,6 +803,10 @@ class App(pykPlayer):
                 self.selectedSongRow = min(self.selectedSongRow + 1, len(self.selectedSong.sameSongs) - 1)
                 self.screenDirty = True
 
+            elif event.key == pygame.K_F1:
+                # F1: mark song for later inspection.
+                self.markCurrentSongFile()
+
         elif event.type == pygame.QUIT:
             self.running = False
 
@@ -678,6 +832,9 @@ class App(pykPlayer):
             elif button == GP2X_BUTTON_DOWN:
                 self.selectedSongRow = min(self.selectedSongRow + 1, len(self.selectedSong.sameSongs) - 1)
                 self.screenDirty = True
+            elif button == GP2X_BUTTON_CLICK:
+                # F1: mark song for later inspection.
+                self.markCurrentSongFile()
 
         pykPlayer.handleEvent(self, event)
 
@@ -688,13 +845,9 @@ class App(pykPlayer):
             if event.unicode and event.unicode[0] >= ' ':
                 # The user has typed a keystroke that counts toward a
                 # search.
-                if event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS or \
-                   event.key == pygame.K_KP_PLUS or \
-                   event.key == pygame.K_MINUS or event.key == pygame.K_UNDERSCORE or \
-                   event.key == pygame.K_KP_MINUS:
-
+                if event.key in self.CommandKeys:
                     # Except any one of these keys, which are reserved
-                    # for font zoom.
+                    # for font zoom and other command navigation.
                     pass
                 else:
                     self.searchString += event.unicode
@@ -717,6 +870,9 @@ class App(pykPlayer):
                 self.selectSong()
             elif event.key == pygame.K_TAB:
                 self.changeSort()
+            elif event.key == pygame.K_F1:
+                # F1: mark song for later inspection.
+                self.markCurrentSongFile()
             else:
                 self.handleRepeatable(pygame.KEYDOWN, event.key, 1)
 
@@ -755,6 +911,9 @@ class App(pykPlayer):
                 # Break out so this one won't fall through to
                 # pykPlayer, which would shut us down.
                 return
+            elif button == GP2X_BUTTON_CLICK:
+                # F1: mark song for later inspection.
+                self.markCurrentSongFile()
             else:
                 self.handleRepeatable(pygame.JOYBUTTONDOWN, button, 1)
 

@@ -56,12 +56,12 @@ PyKaraoke requires the following libraries to be installed:
  * SDL source distribution (www.libsdl.org)
 
 PyKaraoke now offers two builds: an ultra-portable Python version, and a
-highly optimised C version. The default install is to use the faster C 
-version which requires the SDL source distribution for compilation 
+highly optimised C version. The default install is to use the faster C
+version which requires the SDL source distribution for compilation
 purposes. All supported platforms should support compilation of the C
-version, but the portable Python-only version will continue to be 
-supported. Python-only installs do not require the SDL source 
-distribution, and instead require the Numeric Python module 
+version, but the portable Python-only version will continue to be
+supported. Python-only installs do not require the SDL source
+distribution, and instead require the Numeric Python module
 (numpy.sourceforge.net).
 
 If these libraries are not already installed on your system, you can
@@ -75,7 +75,7 @@ prerequisites using:
 With the prerequisites installed, unzip the release and run the following
 as root:
 
-# python setup.py install
+	# python setup.py install
 
 This installs the executables into /usr/bin, and you can then run
 PyKaraoke from anywhere using "pykaraoke".
@@ -83,7 +83,7 @@ PyKaraoke from anywhere using "pykaraoke".
 Alternatively you can run PyKaraoke without installing by simply
 unzipping and running "python pykaraoke.py" from the unzip location.
 Beware that the uninstalled version method requires the Numeric library,
-and runs the more portable but slower Python-only version of the CDG 
+and runs the more portable but slower Python-only version of the CDG
 player.
 
 ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ will assume you are familiar with the steps involved for installing a
 Python distribution from source on Windows; they are similar to those for
 the Linux installation, below. You will need to have pygame
 (www.pygame.org) and wxpython (www.wxpython.org) installed. You will also
-need to download and unpack the SDL source distribution (www.libsdl.org) 
+need to download and unpack the SDL source distribution (www.libsdl.org)
 into the same directory with PyKaraoke, under its default name, which will
 be something like "SDL-1.2.11" (by default, setup.py will search for any
 directories named SDL* in the current directory). You will then invoke the
@@ -202,7 +202,7 @@ also to automatically exit the player when the song has finished).
 
 Once all that is done, you need to use the cross compiler to build
 _pycdgAux.so. A sample script called cross-build-gp2x.sh is provided to do
-this. Then it is simply a matter of copying this file, along with all of 
+this. Then it is simply a matter of copying this file, along with all of
 the .py files, to the GP2X.
 
 ---------------------------------------------------------------------------
@@ -222,7 +222,7 @@ up your searchable song database, however, by clicking "Add Songs".
 
 On the Add Songs popup you can add the folders containing your karaoke
 songs, and perform your initial scan. This can be slow if you have a lot
-of files, so PyKaraoke searches the disk once to build the database, and 
+of files, so PyKaraoke searches the disk once to build the database, and
 actual searches in the search engine only do a fast search in the database.
 
 Once the scan is performed, you can save your database so that it will
@@ -314,13 +314,48 @@ pykaraoke_mini --scan
 
    Actually rescans all of the recorded directories into the database.
 
+
+Keys available in the mini version:
+
+Escape                   Exit the program
+Enter (Return)           Play the current song
+Tab                      Change the sort order: artist, title, filename
+F1                       Mark the song for later editing (see below)
+Up/Down                  Advance the highlight one line
+Page Up/Page Down        Advance the highlight one page
++/-                      Change the font size
+
+On the GP2X:
+
+Y                        Exit the program
+X, B, Start              Play the current song
+A                        Change the sort order: artist, title, filename
+Joystick click           Mark the song for later editing (see below)
+Up/Down                  Advance the highlight one line
+ShoulderRight+Up,Down    Advance the highlight one page
+ShoulderRight+Left,Right Change the font size
+
+
+Marking a Song
+
+The full PyKaraoke version allows you to edit song titles or artists
+on-the-fly, which is very useful when you discover an error in the
+field.  However, the mini version does not support this editing.
+However, you can "mark" a song with the F1 key (Or a click in on the
+joystick on the GP2X), which is intended to serve as a helpful
+reminder to you to go back and edit the song later.  You can find the
+list of marked songs listed in the filename marked.txt, which is
+stored in the PyKaraoke datafiles directory (e.g., ~/.pykaraoke on
+Linux).
+
+
 ---------------------------------------------------------------------------
 
 GP2X USAGE
 
 On the GP2X you will run PyKaraoke with the pykaraoke_mini interface
 (see above). This interface presents your song files in a long
-list. 
+list.
 
 While viewing this list, use the joystick up and down to navigate to a
 song, or hold it down to scroll very rapidly. Hold down the right
@@ -369,13 +404,22 @@ using the utf-8 encoding.
 Once you have created this file, re-scan the directory to read it into
 the database.
 
+The file need not strictly be named titles.txt.  In general, it may be
+named anything that *ends* with titles.txt, for instance,
+cdg_titles.txt or MySubDirtitles.txt.  You may include multiple of
+these *titles.txt files scattered throughout your song directories;
+each one should reference song filenames relative to itself.  It may
+be simplest just to put each *titles.txt in the same directory with
+the song files it describes, though it is also possible to put it in a
+parent directory.
+
 ---------------------------------------------------------------------------
 
 COMMAND LINE VERSION
 
 PyKaraoke is actually a GUI frontend which controls three libraries, pycdg
-for CDG files, pykar for MIDI/KAR files, and pympg for MPEG files. If you 
-do not wish to use the GUI you can actually start a player directly from 
+for CDG files, pykar for MIDI/KAR files, and pympg for MPEG files. If you
+do not wish to use the GUI you can actually start a player directly from
 the command-line (or by associating file-types in your operating system).
 
 You can play MP3+G or OGG+G files using:
@@ -395,6 +439,85 @@ using "pycdg", "pykar" or "pympg" from anywhere.
 
 ---------------------------------------------------------------------------
 
+CONVERTING CDG/KAR TO MPEG
+
+It is possible to use PyKaraoke to convert CDG files to MPEG files.
+They can then be burned to DVD-R or Video CD, for playback on standard
+DVD players.
+
+Although it is not trivial to do this, it is not really difficult
+either.  Depending on your libraries installed, PyKaraoke can either
+write a series of numbered frame images, or a single video-only MPEG
+file; you must then use additional software to convert this to the
+final output form including audio.  On Linux, we recommend mjpegtools
+for this.
+
+This kind of conversion can only be done via the command-line
+interface.  Use the --dump and/or --dump-fps command-line options, for
+instance:
+
+python pycdg.py --dump=frame_####.png --dump-fps=29.97 songfilename.cdg
+
+The above command will generate a sequence of numbered images, one for
+each frame of the video, with the filenames frame_0000.png,
+frame_0001.png, frame_0002.png, and so on.  It is then your
+responsibility to use external software to assemble these frames
+together into an MPEG file, along with the audio track.
+
+The parameter to --dump is the filename pattern of each frame image.
+A sequence of hash marks (#) is replaced with the frame number.  The
+filename extension you specify determines the type of image file
+written; the supported file extensions include .ppm, .png, .bmp, and
+.tga.  If you use the .ppm extension, you may omit the hash marks; in
+this case, the frames are all appended together into the same file.
+
+The parameter to --dump-fps specifies the number of frames per second
+that are written.  NTSC video uses 29.97 frames per second, while PAL
+uses 25 frames per second.  Whichever frame rate you request, you
+should specify the same value to the software you use when you
+assemble the frames into an MPEG file, to ensure the timing remains in
+sync.
+
+If you have the pymedia library installed, PyKaraoke can use it to
+generate an MPEG video file directly.  However, due to limitations in
+the currently available version of pymedia, it cannot include the
+audio--the generated MPEG file will be silent, and you must multiplex
+the audio in separately (mjpegtools can do this easily).
+
+To write out an MPEG file, omit the hash marks and specify a filename
+that ends in the extension .mpg, for instance:
+
+python pycdg.py --dump=movie.mpg --dump-fps=29.97 songfilename.cdg
+
+When converting CDG files, you might also wish to specify --zoom=soft
+to give the best possible quality for the resulting output.  Or you
+might choose to specify --zoom=none with a window size of 288x192
+(e.g. --width=288 --height=192) and then scale the images to the
+appropriate video size using external software.
+
+
+It is also possible to convert KAR files to a numbered image sequence,
+or to MPEG, in a similar way:
+
+python pykar.py --dump=frame_####.png --dump-fps=29.97 songfilename.kar
+
+Once again, the output from PyKaraoke will lack audio, which you must
+multiplex in separately.  In order to multiplex the MIDI audio, you
+will need to convert the MIDI file to WAV, for instance via timidity.
+
+THE CDG2MPG SCRIPT
+
+There is a script, cdg2mpg, available within the PyKaraoke source
+distribution, and automatically installed by the Linux distribution.
+On Linux, if you have mjpegtools installed, it can be used to
+automatically convert an entire directory of cdg+wav files to mpg
+format, using the NTSC convention.  Consider it a sample script that
+you may need to modify to suit your particular needs.  For instance,
+feel free to modify the script to support kar, cdg+mp3, or cdg+ogg, or
+to generate PAL or VCD format output.
+
+---------------------------------------------------------------------------
+
 COMMON INSTALLATION ISSUES
 
 LINUX DISTROS WITHOUT MP3 SUPPORT
@@ -408,7 +531,7 @@ will see the following message when attempting to play an MP3+G track:
 
 To rebuild SDL_mixer with MP3 support, you need to install the smpeg-devel
 package, and download and build SDL_mixer from source. The source tarball
-for SDL_mixer can be downloaded from 
+for SDL_mixer can be downloaded from
 http://www.libsdl.org/projects/SDL_mixer/ and should be built as follows:
 
     # ./configure --prefix=/usr --enable-music-mp3
@@ -418,7 +541,7 @@ You may need to modify the --prefix option depending on where
 libSDL_mixer.so is installed on your distro. The above example assumes it
 will be installed to /usr/lib/libSDL_mixer.so.
 
-A full example SDL_mixer build procedure for Fedora Core has been 
+A full example SDL_mixer build procedure for Fedora Core has been
 provided by a PyKaraoke user:
 
     # rpm -ivh smpeg-devel-0.4.4-0.rhfc1.dag.i386.rpm
@@ -467,13 +590,13 @@ The CDG player should then work properly.
 
 SLACKWARE AND TIMIDITY++
 
-Slackware users may find that the MIDI player cannot find the timidity 
+Slackware users may find that the MIDI player cannot find the timidity
 configuration files. You can fix this by creating a link from the PyKaraoke
 installation directory:
 
     # cd pykaraoke_install_dir
     # ln -s /usr/share/timidity/timidity.cfg .
-    # ln -s /usr/share/timidity/instruments 
+    # ln -s /usr/share/timidity/instruments
 
 
 GP2X ISSUES
@@ -487,7 +610,7 @@ However, on the GP2X the /tmp directory is mounted as a 5MB Ramdisk. This
 is good, because it's very fast; but it means you can't unpack a file
 larger than about 5MB. Many mp3 and ogg files are smaller than 5MB, but
 depending on the bitrate you used to encode them, you may also have some
-that are larger than this. This means you cannot play these large song 
+that are larger than this. This means you cannot play these large song
 files on your GP2X if they are stored within a zip file.
 
 There are several possible workarounds to this.

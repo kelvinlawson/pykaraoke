@@ -271,6 +271,7 @@ class externalPlayer(pykPlayer):
             shell = False
 
         assert self.procReturnCode == None
+        sys.stdout.flush()
         self.proc = subprocess.Popen(cmd, shell = shell)
         if manager.settings.MpgExternalThreaded:
             # Wait for it to complete in a thread.

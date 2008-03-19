@@ -66,6 +66,10 @@ class pykManager:
         if env == ENV_GP2X:
             speed = cpuctrl.get_FCLK()
             print "Initial CPU speed is %s" % (speed)
+            x, y, tvout = cpuctrl.get_screen_info()
+            print "Initial screen size is %s, %s" % (x, y)
+            if tvout:
+                print "TV-Out mode is enabled."
 
         # This factor may be changed by the user to make text bigger
         # or smaller on those players that support it.
@@ -93,13 +97,19 @@ class pykManager:
                 pass
 
     def VolumeUp(self):
-        volume = pygame.mixer.music.get_volume()
+        try:
+            volume = pygame.mixer.music.get_volume()
+        except pygame.error:
+            return
         volume = min(volume + 0.1, 1.0)
 
         pygame.mixer.music.set_volume(volume)
 
     def VolumeDown(self):
-        volume = pygame.mixer.music.get_volume()
+        try:
+            volume = pygame.mixer.music.get_volume()
+        except pygame.error:
+            return
         volume = max(volume - 0.1, 0.0)
 
         pygame.mixer.music.set_volume(volume)
@@ -166,6 +176,7 @@ class pykManager:
         else:
             # Open the onscreen display normally.
             pygame.display.init()
+
             self.mouseVisible = not (env == ENV_GP2X or self.options.hide_mouse or (self.displayFlags & pygame.FULLSCREEN))
             pygame.mouse.set_visible(self.mouseVisible)
 
@@ -284,7 +295,8 @@ class pykManager:
         pass
 
     def ValidateDatabase(self, songDb):
-        """ Validates all of the songs in the database. """
+        """ Validates all of the songs in the database, to ensure they
+        are playable and contain lyrics. """
 
         self.CloseDisplay()
         invalidFile = open('invalid.txt', 'w')
@@ -542,8 +554,14 @@ class pykManager:
         if env == ENV_GP2X:
             # The GP2x has no control over its window size or
             # placement.  You'll get fullscreen and like it.
+
+            # Unfortunately, it appears that pygame--or maybe our SDL,
+            # even though we'd compiled with paeryn's HW SDL--doesn't
+            # allow us to open a TV-size window, so we have to settle
+            # for the standard (320, 240) size and let the hardware
+            # zooming scale it for TV out.
             self.displaySize = (320, 240)
-            self.displayFlags = pygame.HWSURFACE
+            self.displayFlags = pygame.HWSURFACE | pygame.FULLSCREEN
             self.displayDepth = 0
             self.displayTitle = None
             self.mouseVisible = False

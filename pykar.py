@@ -163,8 +163,6 @@ debug = False
 class midiFile:
     def __init__(self):
         self.trackList = []         # List of TrackDesc track descriptors
-        self.text_events = Lyrics()       # Lyrics (0x1 events)
-        self.lyric_events = Lyrics()      # Lyrics (0x5 events)
 
         # Chosen lyric list from above.  It is converted by
         # computeTiming() from a list of (clicks, text) into a list of
@@ -205,6 +203,9 @@ class TrackDesc:
         self.LyricsTrack = False        # This track contains lyrics
         self.RunningStatus = 0          # MIDI Running Status byte
 
+        self.text_events = Lyrics()       # Lyrics (0x1 events)
+        self.lyric_events = Lyrics()      # Lyrics (0x5 events)
+
 
 class MidiTimestamp:
     """ This class is used to apply the tempo changes to the click
@@ -227,7 +228,7 @@ class MidiTimestamp:
         
         while clicks > 0 and self.i < len(self.Tempo):
             # How many clicks remain at the current tempo?
-            clicksRemaining = self.Tempo[self.i][0] - self.click
+            clicksRemaining = max(self.Tempo[self.i][0] - self.click, 0)
             clicksUsed = min(clicks, clicksRemaining)
             if clicksUsed != 0:
                 self.ms += self.getTimeForClicks(clicksUsed, self.Tempo[self.i - 1][1])
@@ -344,12 +345,31 @@ class Lyrics:
             # but with an extra blank line.
             self.line += 2
         
-        elif text == '\r':
+        elif text == '\r' or text == '\r\n':
             # Line break.
             self.line += 1
 
         elif text:
-            self.list.append(LyricSyllable(click, text, self.line))
+            text = text.replace('\r', '')
+
+            if text[0] == '\\':
+                # Paragraph break.  This is a text event convention, not a
+                # lyric event convention, but some midi files don't play
+                # by the rules.
+                self.line += 2
+                text = text[1:]
+            elif text[0] == '/':
+                # Line break.  A text convention, but see above.
+                self.line += 1
+                text = text[1:]
+
+            # Lyrics aren't supposed to include embedded newlines, but
+            # sometimes they do anyway.
+            lines = text.split('\n')
+            self.list.append(LyricSyllable(click, lines[0], self.line))
+            for line in lines[1:]:
+                self.line += 1
+                self.list.append(LyricSyllable(click, line, self.line))
 
     def computeTiming(self, midifile):
         # Walk through the lyrics and convert the click information to
@@ -373,6 +393,53 @@ class Lyrics:
             if track_desc.LastNoteClick != None:
                 ts.advanceToClick(track_desc.LastNoteClick)
                 track_desc.LastNoteMs = ts.ms
+
+    def analyzeSpaces(self):
+        """ Checks for a degenerate case: no (or very few) spaces
+        between words.  Sometimes Karaoke writers omit the spaces
+        between words, which makes the text very hard to read.  If we
+        detect this case, repair it by adding spaces back in. """
+
+        # First, group the syllables into lines.
+        lineNumber = None
+        lines = []
+        currentLine = []
+
+        for syllable in self.list:
+            if syllable.line != lineNumber:
+                if currentLine:
+                    lines.append(currentLine)
+                currentLine = []
+                lineNumber = syllable.line
+            currentLine.append(syllable)
+
+        if currentLine:
+            lines.append(currentLine)
+
+        # Now, count the spaces between the syllables of the lines.
+        totalNumSyls = 0
+        totalNumGaps = 0
+        for line in lines:
+            numSyls = len(line) - 1
+            numGaps = 0
+            for i in range(numSyls):
+                if line[i].text.rstrip() != line[i].text or \
+                   line[i + 1].text.lstrip() != line[i + 1].text:
+                    numGaps += 1
+
+            totalNumSyls += numSyls
+            totalNumGaps += numGaps
+
+        if totalNumSyls and float(totalNumGaps) / float(totalNumSyls) < 0.1:
+            # Too few spaces.  Insert more.
+            for line in lines:
+                for syllable in line[:-1]:
+                    if syllable.text.endswith('-'):
+                        # Assume a trailing hyphen means to join syllables.
+                        syllable.text = syllable.text[:-1]
+                    else:
+                        syllable.text += ' '
+            
 
     def wordWrapLyrics(self, font):
         # Walks through the lyrics and folds each line to the
@@ -463,7 +530,7 @@ class Lyrics:
     def write(self):
         # Outputs the lyrics, one line at a time.
         for syllable in self.list:
-            print "%s %s %s" % (syllable.ms, syllable.line, syllable.text.encode('utf-8'))
+            print "%s(%s) %s %s" % (syllable.ms, syllable.click, syllable.line, repr(syllable.text))
         
 def midiParseData(midiData, ErrorNotifyCallback, Encoding):
     
@@ -519,21 +586,42 @@ def midiParseData(midiData, ErrorNotifyCallback, Encoding):
     # Close the open file
     filehdl.close()
 
-    # Decide which list of lyric events to choose. There may be text events (0x01),
-    # lyric events (0x05) or sometimes both for compatibility. If both are
-    # available, we choose text events.
-    if midifile.text_events.hasAny() and midifile.lyric_events.hasAny():
-        midifile.lyrics = midifile.text_events
-        #midifile.lyrics = midifile.lyric_events
-    elif midifile.text_events.hasAny():
-        midifile.lyrics = midifile.text_events
-    elif midifile.lyric_events.hasAny():
-        midifile.lyrics = midifile.lyric_events
-    else:
+    # Get the lyrics from the best track.  We prefer any tracks that
+    # are "lyrics" tracks.  Failing that, we get the track with the
+    # most number of syllables.
+    bestSortKey = None
+    midifile.lyrics = None
+    
+    for track_desc in midifile.trackList:
+        lyrics = None
+        
+        # Decide which list of lyric events to choose. There may be
+        # text events (0x01), lyric events (0x05) or sometimes both
+        # for compatibility. If both are available, we choose the one
+        # with the most syllables, or text if they're the same.
+        if track_desc.text_events.hasAny() and track_desc.lyric_events.hasAny():
+            if len(track_desc.lyric_events.list) > len(track_desc.text_events.list):
+                lyrics = track_desc.lyric_events
+            else:
+                lyrics = track_desc.text_events
+        elif track_desc.text_events.hasAny():
+            lyrics = track_desc.text_events
+        elif track_desc.lyric_events.hasAny():
+            lyrics = track_desc.lyric_events
+
+        if not lyrics:
+            continue
+        sortKey = (track_desc.LyricsTrack, len(lyrics.list))
+        if sortKey > bestSortKey:
+            bestSortKey = sortKey
+            midifile.lyrics = lyrics
+            
+    if not midifile.lyrics:
         ErrorNotifyCallback ("No lyrics in the track")
         return None
 
     midifile.lyrics.computeTiming(midifile)
+    midifile.lyrics.analyzeSpaces()
 
     # Calculate the song start (earliest note event in all tracks), as
     # well as the song end (last note event in all tracks).
@@ -645,9 +733,9 @@ def midiProcessEvent (filehdl, track_desc, midifile, ErrorNotifyCallback):
                 # Take out any Sysex text events, and append to the lyrics list
                 if (" SYX" not in text) and ("Track-" not in text) \
                     and ("%-" not in text) and ("%+" not in text):
-                    midifile.text_events.recordText(track_desc.TotalClicksFromStart, text)
+                    track_desc.text_events.recordText(track_desc.TotalClicksFromStart, text)
                 if debug:
-                    print ("Text: %s" % (text.encode('utf-8')))
+                    print ("Text: %s" % (repr(text)))
         elif event == 0x02:
             # Copyright (discard)
             Length, varBytes = varLength(filehdl)
@@ -661,7 +749,7 @@ def midiProcessEvent (filehdl, track_desc, midifile, ErrorNotifyCallback):
             title = filehdl.read(Length)
             bytesRead = bytesRead + Length
             if debug:
-                print ("Track Title: " + title.encode('utf-8'))
+                print ("Track Title: " + repr(title))
             if title == "Words":
                 track_desc.LyricsTrack = True
         elif event == 0x04:
@@ -681,9 +769,9 @@ def midiProcessEvent (filehdl, track_desc, midifile, ErrorNotifyCallback):
             # Take out any Sysex text events, and append to the lyrics list
             if (" SYX" not in lyric) and ("Track-" not in lyric) \
                 and ("%-" not in lyric) and ("%+" not in lyric):
-                midifile.lyric_events.recordLyric(track_desc.TotalClicksFromStart, lyric)
+                track_desc.lyric_events.recordLyric(track_desc.TotalClicksFromStart, lyric)
             if debug:
-                print ("Lyric: %s" % (lyric.encode('utf-8')))
+                print ("Lyric: %s" % (repr(lyric)))
         elif event == 0x06:
             # Marker (discard)
             Length, varBytes = varLength(filehdl)
@@ -881,6 +969,7 @@ class midPlayer(pykPlayer):
         settings = self.songDb.Settings
 
         self.SupportsFontZoom = True
+        self.isValid = False
 
         # Parse the MIDI file
         self.midifile = midiParseData(self.SongDatas[0].GetData(), self.ErrorNotifyCallback, settings.KarEncoding)
@@ -892,6 +981,8 @@ class midPlayer(pykPlayer):
             ErrorString = "ERROR: Could not get any lyric data from file"
             self.ErrorNotifyCallback (ErrorString)
             return
+
+        self.isValid = True
 
         # Debug out the found lyrics
         if debug:
@@ -920,8 +1011,17 @@ class midPlayer(pykPlayer):
         # there.  On timidity-based platforms, we anticipate our
         # lyrics display by the time of the first note.
         if env != ENV_WINDOWS:
-            print "offset %s" % (self.midifile.earliestNoteMS)
             self.InternalOffsetTime += self.midifile.earliestNoteMS
+            
+        if env == ENV_LINUX:
+            # For some reason, a further offset of -250 ms seems about
+            # right empirically, on Linux, but not on Windows or on
+            # the GP2X.
+
+            # Actually, on further experimentation, this seems to be
+            # specific to my particular machine.  Leave it out.
+            #self.InternalOffsetTime -= 250
+            pass
 
         # Now word-wrap the text to fit our window.
         self.lyrics = self.midifile.lyrics.wordWrapLyrics(self.font)
@@ -1310,8 +1410,9 @@ def usage():
 # Can be called from the command line with the CDG filepath as parameter
 def main():
     player = midPlayer(None, None)
-    player.Play()
-    manager.WaitForPlayer()
+    if player.isValid:
+        player.Play()
+        manager.WaitForPlayer()
 
 if __name__ == "__main__":
     sys.exit(main())

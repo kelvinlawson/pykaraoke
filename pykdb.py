@@ -23,6 +23,7 @@ from pykconstants import *
 from pykenv import env
 import pykar, pycdg, pympg
 import os, cPickle, zipfile, codecs, sys, time
+import md5
 from cStringIO import StringIO
 
 # The amount of time to wait, in milliseconds, before yielding to the
@@ -36,7 +37,7 @@ MAX_ZIP_FILES = 10
 # Increment this version number whenever the settings version changes
 # (which may not necessarily change with each PyKaraoke release).
 # This will force users to re-enter their configuration information.
-SETTINGS_VERSION = 1
+SETTINGS_VERSION = 2
 
 # Increment this version number whenever the database version changes
 # (which will also hopefully be infrequently).
@@ -86,7 +87,7 @@ class BusyCancelDialog:
         pass
 
 class SongData:
-    """This class is returned by SongStruct.GetSongData(), below.  It
+    """This class is returned by SongStruct.GetSongDatas(), below.  It
     represents either a song file that exists on disk (and must still
     be read), or it is a song file that was found in a zip archive
     (and its data is available now)."""
@@ -142,12 +143,10 @@ class SongData:
 # no facility to receive a key parameter, like sort does.
 fileSortKey = None
 
-# SongStruct is used to store song details for the database. Separate
-# Titles allow us to cut off the pathname, use ID3 tags (when
-# supported) etc. For ZIP files there is an extra member - for the
-# stored filename, which might be different from the title if the
-# stored file is in a stored sub-dir, or is an ID tag.
 class SongStruct:
+    """ This corresponds to a single song file entry, e.g. a .kar
+    file, or a .mp3/.cdg filename pair.  The file might correspond to
+    a physical file on disk, or to a file within a zip file. """
 
     # Type codes.
     T_KAR = 0
@@ -168,7 +167,7 @@ class SongStruct:
         # This is a pointer to the TitleStruct object that defined
         # this song file, or None if it was not defined.
         self.titles = None
-        
+
         # If the file ends in '.', assume we got it via tab-completion
         # on a filename, and it really is meant to end in '.cdg'.
         if self.Filepath != '' and self.Filepath[-1] == '.':
@@ -605,6 +604,7 @@ class SettingsStruct:
     # This is the list of the encoding strings we offer the user to
     # select from.  You can also type your own.
     Encodings = [
+        'cp1252',
         'iso-8859-1',
         'iso-8859-2',
         'iso-8859-5',
@@ -644,6 +644,9 @@ class SettingsStruct:
         self.IgnoredExtensions = []
         self.LookInsideZips = True
         self.ReadTitlesTxt = True
+        self.CheckHashes = False
+        self.DeleteIdentical = False
+        
         self.FullScreen = False
         self.WinSize = (640, 480)
         self.WinPos = None
@@ -662,7 +665,7 @@ class SettingsStruct:
         # negative values delay them.
         self.SyncDelayMs = 0
 
-        self.KarEncoding = "iso-8859-1"	# Default text encoding in karaoke files
+        self.KarEncoding = 'cp1252'  # Default text encoding in karaoke files
         self.KarFont = FontData("DejaVuSans.ttf")
         self.KarBackgroundColour = (0, 0, 0)
         self.KarReadyColour = (255,50,50)
@@ -699,12 +702,6 @@ class SettingsStruct:
             self.CPUSpeed_cdg = 200
             self.CPUSpeed_kar = 200
             self.CPUSpeed_mpg = 200
-            
-        elif env == ENV_LINUX:
-            # For some reason, an initial value of -250 ms seems about
-            # right empirically, on Linux, but not on Windows or on the
-            # GP2X.
-            self.SyncDelayMs = -250
 
 # This is a trivial class used to wrap the song database with a
 # version number.
@@ -1140,6 +1137,9 @@ class SongDB:
                     self.lastBusyUpdate = now
                 self.TitlesFiles[i].read(self)
 
+        if self.Settings.CheckHashes:
+            self.checkFileHashes(yielder)
+
         self.BusyDlg.SetProgress("Finalizing", 1.0)
         yielder.Yield()
 
@@ -1465,6 +1465,68 @@ class SongDB:
                 name = file.ZipStoredName.replace('/', os.path.sep)
                 fullpath = os.path.join(fullpath, name)
             self.filesByFullpath[fullpath] = file
+
+    def checkFileHashes(self, yielder):
+        """ Walks through self.FullSongList, checking for md5 hashes
+        to see if any files are duplicated. """
+
+        self.BusyDlg.SetProgress("Checking file hashes", 0.0)
+        yielder.Yield()
+        self.lastBusyUpdate = time.time()
+        numDuplicates = 0
+
+        # Check the md5's of each file, to see if there are any
+        # duplicates.
+        fileHashes = {}
+        numFiles = len(self.FullSongList)
+        for i in range(numFiles):
+            now = time.time()
+            if now - self.lastBusyUpdate > 0.1:
+                # Every so often, update the progress bar.
+                label = "Checking file hashes"
+                if numDuplicates:
+                    label = "%s duplicates found" % (numDuplicates)
+                self.BusyDlg.SetProgress(
+                    label, float(i) / float(numFiles))
+                yielder.Yield()
+                self.lastBusyUpdate = now
+
+            if self.BusyDlg.Clicked:
+                return
+
+            song = self.FullSongList[i]
+            m = md5.md5()
+            m.update(song.GetSongDatas()[0].GetData())
+            list = fileHashes.setdefault(m.digest(), [])
+            if list:
+                numDuplicates += 1
+            list.append(i)
+
+        # Remove the identical files from the database.  If specified,
+        # remove them from disk too.
+        removeIndexes = {}
+        for list in fileHashes.values():
+            if len(list) > 1:
+                filenames = map(lambda i: self.FullSongList[i].DisplayFilename, list)
+                print "Identical songs: %s" % (', '.join(filenames))
+                for i in list[1:]:
+                    extra = self.FullSongList[i]
+                    removeIndexes[i] = True
+                    if extra.titles:
+                        extra.titles.dirty = True
+                    if self.Settings.DeleteIdentical:
+                        if extra.ZipStoredName:
+                            # Can't delete a song within a zip, sorry.
+                            pass
+                        else:
+                            os.remove(extra.Filepath)
+
+        # Now rebuild the FullSongList without the removed files.
+        newSongList = []
+        for i in range(numFiles):
+            if i not in removeIndexes:
+                newSongList.append(self.FullSongList[i])
+        self.FullSongList = newSongList
 
     def makeUniqueSongs(self):
         """ Walks through self.FullSongList, and builds up

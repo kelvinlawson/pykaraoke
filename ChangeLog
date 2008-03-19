@@ -1,10 +1,13 @@
 v0.6:
-
+	
 	* Reworked config page to add many more options.  Config options
 	are now respected by pykaraoke_mini as well as by pykaraoke
 	(though the config dialog itself is only accessible via
 	pykaraoke).
 
+	* Added capability to convert cdg files to mpg, via the --dump
+	command-line option.
+	
 	* Added support for an external movie player, for instance,
 	Windows Media Player or mplayer, to play video file formats not
 	supported directly by pygame, such as AVI.  Using this method,
@@ -26,6 +29,8 @@ v0.6:
 
 	* Fixed international character support for kar files.
 
+	* Fixed some incorrect lyrics detection in kar file parsing.
+	
 	* Fixed a bug preventing loading titles*.txt files from nested
 	subdirectories within zip files.
 

@@ -234,6 +234,16 @@ class DatabaseSetupWindow (wx.Frame):
         self.TitlesSizer.Add (self.titlesCheckBox, 0, wx.ALL)
         wx.EVT_CHECKBOX (self, self.titlesID, self.OnTitlesChanged)
 
+        # Create the hash-check options
+        self.hashCheckBox = wx.CheckBox(self.panel, -1, "Check for identical files (by comparing MD5 hash)")
+        self.hashCheckBox.SetValue(self.KaraokeMgr.SongDB.Settings.CheckHashes)
+        self.Bind(wx.EVT_CHECKBOX, self.OnHashChanged, self.hashCheckBox)
+        self.deleteIdenticalCheckBox = wx.CheckBox(self.panel, -1, "Delete duplicate identical files from disk")
+        self.deleteIdenticalCheckBox.SetValue(self.KaraokeMgr.SongDB.Settings.DeleteIdentical)
+        self.deleteIdenticalCheckBox.Enable(self.KaraokeMgr.SongDB.Settings.CheckHashes)
+        self.Bind(wx.EVT_CHECKBOX, self.OnDeleteIdenticalChanged, self.deleteIdenticalCheckBox)
+
+
         # Create the scan folders button
         self.ScanText = wx.StaticText (self.panel, wx.ID_ANY, "Rescan all folders: ")
         self.ScanFoldersButtonID = wx.NewId()
@@ -254,6 +264,10 @@ class DatabaseSetupWindow (wx.Frame):
         self.LowerSizer.Add(self.ZipSizer, 1, wx.ALL, 3)
         self.LowerSizer.Add(self.titlesText, 0, wx.ALL, 3)
         self.LowerSizer.Add(self.TitlesSizer, 1, wx.ALL, 3)
+        self.LowerSizer.Add((0, 0))
+        self.LowerSizer.Add(self.hashCheckBox, 1, wx.LEFT | wx.RIGHT | wx.TOP, 3)
+        self.LowerSizer.Add((0, 0))
+        self.LowerSizer.Add(self.deleteIdenticalCheckBox, 1, wx.LEFT | wx.RIGHT | wx.BOTTOM, 3)
         self.LowerSizer.Add(self.ScanText, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         self.LowerSizer.Add(self.ScanFoldersButton, 1, wx.ALL, 3)
         self.LowerSizer.Add(self.SaveText, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
@@ -358,6 +372,19 @@ class DatabaseSetupWindow (wx.Frame):
     # User changed the titles.txt checkbox, enable it
     def OnTitlesChanged(self, event):
         self.KaraokeMgr.SongDB.Settings.ReadTitlesTxt = self.titlesCheckBox.IsChecked()
+        self.ScanNeeded = True
+        self.SaveNeeded = True
+
+    # User changed the hash checkbox, enable it
+    def OnHashChanged(self, event):
+        self.KaraokeMgr.SongDB.Settings.CheckHashes = self.hashCheckBox.IsChecked()
+        self.deleteIdenticalCheckBox.Enable(self.KaraokeMgr.SongDB.Settings.CheckHashes)
+        self.ScanNeeded = True
+        self.SaveNeeded = True
+
+    # User changed the delete identical checkbox, enable it
+    def OnDeleteIdenticalChanged(self, event):
+        self.KaraokeMgr.SongDB.Settings.DeleteIdentical = self.deleteIdenticalCheckBox.IsChecked()
         self.ScanNeeded = True
         self.SaveNeeded = True
 
@@ -2244,15 +2271,9 @@ class PrintSongListWindow(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.clickedPageSetup, b)
         hsizer.Add(b, flag = 0)
 
-        b = wx.Button(self.panel, -1, 'Printer Setup')
-        self.Bind(wx.EVT_BUTTON, self.clickedPrintSetup, b)
-        hsizer.Add(b, flag = wx.LEFT, border = 10)
-        vsizer.Add(hsizer, flag = wx.ALIGN_CENTER | wx.TOP, border = 10)
-
-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
         b = wx.Button(self.panel, -1, 'Preview')
         self.Bind(wx.EVT_BUTTON, self.clickedPreview, b)
-        hsizer.Add(b, flag = 0)
+        hsizer.Add(b, flag = wx.LEFT, border = 10)
 
         b = wx.Button(self.panel, wx.ID_OK, 'Print')
         self.Bind(wx.EVT_BUTTON, self.clickedOK, b)
@@ -2315,14 +2336,16 @@ class PrintSongListWindow(wx.Frame):
                                    data.GetMarginBottomRight())
         dlg.Destroy()
 
-    def clickedPrintSetup(self, event):
-        data = wx.PrintDialogData(self.parent.pdata)
-        #data.EnablePageNumbers(False)
-        dlg = wx.PrintDialog(self, data)
-        dlg.ShowModal()
-        data = dlg.GetPrintDialogData()
-        self.parent.pdata = wx.PrintData(data.GetPrintData()) # force a copy
-        dlg.Destroy()
+    # Explicit printer setup seems to be crashy on Linux.  We
+    # don't use it.
+##     def clickedPrintSetup(self, event):
+##         data = wx.PrintDialogData(self.parent.pdata)
+##         #data.EnablePageNumbers(False)
+##         dlg = wx.PrintDialog(self, data)
+##         dlg.ShowModal()
+##         data = dlg.GetPrintDialogData()
+##         self.parent.pdata = wx.PrintData(data.GetPrintData()) # force a copy
+##         dlg.Destroy()
 
     def clickedPreview(self, event):
         title = self.__selectSort()
@@ -2351,7 +2374,7 @@ class PrintSongListWindow(wx.Frame):
 
         data = wx.PrintDialogData(self.parent.pdata)
         printer = wx.Printer(data)
-        useSetupDialog = False
+        useSetupDialog = True
         if not printer.Print(self, printout, useSetupDialog) \
            and printer.GetLastError() == wx.PRINTER_ERROR:
             wx.MessageBox(
@@ -2397,7 +2420,7 @@ class SongListPrintout(wx.Printout):
         # the screen scaling.
         ppiPrinterX, ppiPrinterY = self.GetPPIPrinter()
         ppiScreenX, ppiScreenY = self.GetPPIScreen()
-        logScale = float(ppiPrinterX)/float(ppiScreenX)
+        logScale = float(ppiPrinterX) / float(ppiScreenX)
 
         if env == ENV_LINUX:
             # For some reason on Linux this scale seems to come out a
@@ -2418,7 +2441,7 @@ class SongListPrintout(wx.Printout):
         # issues on Linux platforms (it keeps things at integer
         # values, which means at large scale factors they get all
         # wonky), we'll perform the scaling explicitly.
-        self.scale = logScale * float(dw)/float(pw)
+        self.scale = logScale * float(dw) / float(pw)
 
         # Find the logical units per millimeter (for calculating the
         # margins)
@@ -2466,8 +2489,8 @@ class SongListPrintout(wx.Printout):
         
         self.font = wx.Font(self.fontSize, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
         dc.SetFont(self.font)
-        self.lineHeight = dc.GetCharHeight() 
-        self.linesPerPage = int(self.pageHeight/self.lineHeight)
+        self.lineHeight = dc.GetCharHeight()
+        self.linesPerPage = int(self.pageHeight / self.lineHeight)
 
         # Normalize so we don't end up with a little extra whitespace
         # on the bottom
@@ -2935,10 +2958,8 @@ class PyKaraokeManager:
                 manager.ValidateDatabase(self.SongDB)
                 sys.exit(0)
             else:
-                self.EVT_SONG_FINISHED = wx.NewId()
                 self.EVT_ERROR_POPUP = wx.NewId()
                 self.Frame = PyKaraokeWindow(None, -1, "PyKaraoke " + pykversion.PYKARAOKE_VERSION_STRING, self)
-                self.Frame.Connect(-1, -1, self.EVT_SONG_FINISHED, self.SongFinishedEventHandler)
                 self.Frame.Connect(-1, -1, self.EVT_ERROR_POPUP, self.ErrorPopupEventHandler)
                 self.SongDB.LoadDatabase(self.ErrorPopupCallback)
 
@@ -3002,20 +3023,12 @@ class PyKaraokeManager:
             self.PlayingIndex = song_index - 1
             self.Player.Close() 
         
-    # The callback is in the player thread context, so need to post an event
-    # for the GUI thread, actually handled by SongFinishedEventHandler()
     def SongFinishedCallback(self):
         if not self.gui:
             self.SongDB.CleanupTempFiles()
             return
         manager.CloseDisplay()
-        event = PyKaraokeEvent(self.EVT_SONG_FINISHED, None)
-        wx.PostEvent (self.Frame, event)
-    
-    # Handle the song finished event. This is triggered by the callback but
-    # runs in the GUI thread, instead of the player thread which the callback
-    # runs in.
-    def SongFinishedEventHandler(self, event):
+
         # Set the status bar
         self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Not playing")
         next_index = self.PlayingIndex + 1

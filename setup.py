@@ -53,7 +53,8 @@ if env != ENV_WINDOWS:
                  'install/pykaraoke_mini',
                  'install/pycdg',
                  'install/pykar',
-                 'install/pympg']),
+                 'install/pympg',
+                 'install/cdg2mpg']),
         ('share/applications', ['install/pykaraoke.desktop',
                                 'install/pykaraoke_mini.desktop'])]
 

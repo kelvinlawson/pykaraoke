@@ -391,7 +391,7 @@ class cdgPlayer(pykPlayer):
             if numPackets > 0:
                 if not self.packetReader.DoPackets(numPackets):
                     # End of file.
-                    print "End of file on cdg."
+                    #print "End of file on cdg."
                     self.Close()
                 self.cdgReadPackets += numPackets
 
