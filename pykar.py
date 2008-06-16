@@ -1010,7 +1010,7 @@ class midPlayer(pykPlayer):
         # to the first note), so no need for the earliest note hack
         # there.  On timidity-based platforms, we anticipate our
         # lyrics display by the time of the first note.
-        if env != ENV_WINDOWS:
+        if env != ENV_WINDOWS and env != ENV_OSX:
             self.InternalOffsetTime += self.midifile.earliestNoteMS
             
         if env == ENV_LINUX:
