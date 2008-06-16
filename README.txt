@@ -340,13 +340,12 @@ Marking a Song
 
 The full PyKaraoke version allows you to edit song titles or artists
 on-the-fly, which is very useful when you discover an error in the
-field.  However, the mini version does not support this editing.
-However, you can "mark" a song with the F1 key (Or a click in on the
-joystick on the GP2X), which is intended to serve as a helpful
-reminder to you to go back and edit the song later.  You can find the
-list of marked songs listed in the filename marked.txt, which is
-stored in the PyKaraoke datafiles directory (e.g., ~/.pykaraoke on
-Linux).
+field.  The mini version does not support this editing.  However, you
+can "mark" a song with the F1 key (Or a click in on the joystick on
+the GP2X), which is intended to serve as a helpful reminder to you to
+go back and edit the song later.  You can find the list of marked
+songs listed in the filename marked.txt, which is stored in the
+PyKaraoke datafiles directory (e.g., ~/.pykaraoke on Linux).
 
 
 ---------------------------------------------------------------------------
