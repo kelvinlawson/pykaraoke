@@ -655,7 +655,8 @@ CPUSpeed_mpg = 200
     modes.  Set the number higher to improve performance (decrease
     audio pops), or lower to improve battery life.  In theory, 240 is
     the highest safe number, though you can try to push it higher if
-    you want to try overclocking your CPU.
+    you want to try overclocking your CPU (see STUTTERING MIDI FILES,
+    below).
 
     The operation modes are:
 
@@ -766,7 +767,7 @@ installation directory:
     # ln -s /usr/share/timidity/instruments
 
 
-GP2X ISSUES
+GP2X: ZIP ARCHIVES
 
 When you store your Karaoke files within a zip archive, PyKaraoke has
 to unpack them to a temporary file in order to play them. This all
@@ -802,6 +803,74 @@ There are several possible workarounds to this.
     are using zip files for organisation, use a subdirectory instead.
 
 We recommend approach (4).
+
+
+GP2X: STUTTERING MIDI FILES
+
+The GP2X has no hardware to perform MIDI synthesis, so it must perform
+this work on the CPU (it uses the Timidity software MIDI player to do
+this).  Unfortunately, Timidity requires lots of floating-point
+calculations, and the GP2X also lacks hardware to perform
+floating-point arithmetic, so this kind of work is hard for the GP2X
+to do.  Consequently, MIDI playback requires a lot of CPU power.
+
+The default parameters that ship with PyKaraoke are sufficient to play
+most MIDI karaoke files acceptably well.  You may, however, come
+across the occasional MIDI file that gives the GP2X a hard time.  This
+is especially likely if the MIDI file uses lots of voices
+(simultaneous notes), with complex patches (timbres), like strings or
+trumpets or certain percussion instruments.  You will know you have
+found a MIDI file like this when you hear it stutter and appear to
+slow down a little bit, as it plays through the difficult passages.
+
+You have several choices in this case.
+
+(1) Edit your settings.dat file (described above) and change the line:
+
+    CPUSpeed_kar = 240
+
+    To some higher value, such as 260 or higher.  This means you are
+    overclocking your GP2X's CPU, asking it to run faster than its
+    certified maximum speed.  This won't hurt your CPU, but it might
+    fail to work--different chips have different effective maximum
+    speeds, and the only thing that the CPU manufacturer guarantees is
+    that all of them can do at *least* 240 MHz.  Most can also do 260,
+    some can do 280, and a lucky few can go as high as 300 reliably.
+    If you ask for a speed your particular CPU can't do, your GP2X
+    will freeze up when you start to play a song; if this happens,
+    simply reset it (turn it off) and set this value lower until it
+    doesn't freeze up any more.
+
+(2) Edit your settings.dat file and change the line:
+
+    MIDISampleRate = 11025
+
+    To some lower value, such as 5512.  This will reduce the sound
+    quality of the instruments, but it will be easier for the GP2X to
+    play it at full speed.  (The song will just sound uniformly bad
+    instead of bad in places.)
+
+(3) Use a MIDI editor program (there are many free programs available)
+    to simplify your troublesome .kar files.  Either delete some of
+    the tracks, or change their patches to something simpler, like
+    piano or flute.  Or even just delete a few notes out of the
+    more complex passages.
+
+(4) Use PyKaraoke (on your PC) to convert your troublesome .kar files
+    to AVI format.  See CONVERTING CDG/KAR TO MPEG, above.  The new
+    AVI files will be a *lot* bigger than the original KAR files, but
+    they should play without popping.
+
+(5) Use some other third-party software to convert your troublesome
+    .kar files to CDG+MP3 format.  These will not be nearly as large
+    as AVI files (though still larger than the original KAR), and they
+    will be easier for PyKaraoke to play.  However, there don't appear
+    to be any free tools that will make this conversion.  Prepare to
+    spend some money.
+
+(6) Simply remove the troublesome .kar files from your database and
+    forget about them.  Look for simpler versions to replace them if
+    desired; many songs have multiple versions on the internet.
 
 ---------------------------------------------------------------------------
 

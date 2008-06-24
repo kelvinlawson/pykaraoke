@@ -691,8 +691,12 @@ class SettingsStruct:
             self.MIDISampleRate = 11025
             self.MpgExternal = './mplayer_cmdline "%(file)s"'
             self.MpgExternalThreaded = False
+            self.BufferMs = 250
 
-            # Define the CPU speed to set for various activities.
+            # Define the CPU speed for various activities.  We're
+            # conservative here and avoid overclocking by default.
+            # The user can push these values higher if he knows his
+            # GP2X can handle it.
             self.CPUSpeed_startup = 240
             self.CPUSpeed_wait = 33
             self.CPUSpeed_menu_idle = 33
