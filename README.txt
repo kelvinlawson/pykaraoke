@@ -804,6 +804,54 @@ There are several possible workarounds to this.
 We recommend approach (4).
 
 
+GP2X: MIDI ISSUES (dropped notes, or stuttering / slow playback)
+
+The GP2X has no hardware to perform MIDI synthesis, so it must perform
+this work on the CPU (it uses the Timidity software MIDI player to do
+this). Unfortunately, Timidity requires lots of floating-point
+calculations, and the GP2X also lacks hardware to perform
+floating-point arithmetic, so this kind of work is hard for the GP2X
+to do. Consequently, MIDI playback requires a lot of CPU power.
+
+The default parameters that ship with PyKaraoke are sufficient to play
+most MIDI karaoke files acceptably well. You may, however, come across
+the occasional MIDI file that gives the GP2X a hard time. There are
+two different kinds of problems: you may get stuttering or slow
+playback if the song or its patches are too complex, or you may get
+omitted notes if the song uses too many simultaneous voices.
+
+For stuttering playback, you can try editing your settings file to
+increase the CPU speed reserved for playing kar files, as described
+above.  Edit your settings.dat file and change the line:
+
+CPUSpeed_kar = 240
+
+To some higher value, such as 260 or higher.
+
+For dropped notes, you will need to edit the troublesome MIDI file
+with a MIDI editor program (there are many free programs available) to
+simplify it.  Remove some of the filler notes in complex chords, or
+remove some unneeded background instruments, to bring the total
+polyphony count to 16 or lower (this is the maximum number of notes
+that PyKaraoke's Timidity library is configured to play simultaneously
+on the GP2X).
+
+Alternatively, for either problem you can:
+
+(1) Use PyKaraoke (on your PC) to convert your troublesome .kar files
+to AVI format. See CONVERTING CDG/KAR TO MPEG, above. The new
+AVI files will be a *lot* bigger than the original KAR files, but
+they should play without popping.
+
+or
+
+(2) Use some other third-party software to convert your troublesome
+.kar files to CDG+MP3 format. These will not be nearly as large
+as AVI files (though still larger than the original KAR), and they
+will be easier for PyKaraoke to play. However, there don't appear
+to be any free tools that will make this conversion. Prepare to
+spend some money.
+
 ---------------------------------------------------------------------------
 
 SUGGESTIONS
