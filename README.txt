@@ -2,7 +2,7 @@
 ---------------------------------------------------------------------------
 
 Release:      pykaraoke v0.6
-Date:         23/06/2008
+Date:         24/06/2008
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
@@ -632,7 +632,7 @@ run PyKaraoke.  At that time, a default settings.dat file is created.
 The most interesting settings that you might want to change on the
 GP2X are:
 
-MIDISampleRate = 12000
+MIDISampleRate = 11025
 
     This is the sample rate, in Hz, of the synthesized music generated
     for .kar files.  Since this is CPU-intensive, you may need to
