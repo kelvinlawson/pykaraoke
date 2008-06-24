@@ -199,9 +199,17 @@ if gotPy2exe:
             if os.path.isdir(dirname):
                 for root, dirs, files in os.walk(dirname, topdown=False):
                     for name in files:
-                        os.remove(os.path.join(root, name))
+                        pathname = os.path.join(root, name)
+                        try:
+                            os.remove(pathname)
+                        except:
+                            # Try to make it writable first, then remove it.
+                            os.chmod(pathname, 0666)
+                            os.remove(pathname)
+                            
                     for name in dirs:
-                        os.rmdir(os.path.join(root, name))
+                        pathname = os.path.join(root, name)
+                        os.rmdir(pathname)
                 os.rmdir(dirname)
 
     cmdclass['nsis'] = BuildInstaller
