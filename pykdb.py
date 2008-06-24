@@ -688,7 +688,7 @@ class SettingsStruct:
             self.WinSize = (320, 240)
             self.CdgZoom = 'none'
             # Reduce the default sample rate on the GP2x to save time.
-            self.MIDISampleRate = 12000
+            self.MIDISampleRate = 11025
             self.MpgExternal = './mplayer_cmdline "%(file)s"'
             self.MpgExternalThreaded = False
 
@@ -700,7 +700,7 @@ class SettingsStruct:
             self.CPUSpeed_menu_fast = 240
             self.CPUSpeed_load = 240
             self.CPUSpeed_cdg = 200
-            self.CPUSpeed_kar = 200
+            self.CPUSpeed_kar = 240
             self.CPUSpeed_mpg = 200
 
 # This is a trivial class used to wrap the song database with a

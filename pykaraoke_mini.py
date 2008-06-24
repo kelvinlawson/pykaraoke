@@ -636,15 +636,15 @@ class App(pykPlayer):
     def letterDown(self, count):
         # Go to the next "letter".
         file = self.songDb.SongList[self.currentRow]
-        currentLetter = self.songDb.GetSongTuple(file)[0][0]
+        currentLetter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
         
         row = (self.currentRow + 1) % len(self.songDb.SongList)
         file = self.songDb.SongList[row]
-        letter = self.songDb.GetSongTuple(file)[0][0]
+        letter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
         while row != self.currentRow and letter == currentLetter:
             row = (row + 1) % len(self.songDb.SongList)
             file = self.songDb.SongList[row]
-            letter = self.songDb.GetSongTuple(file)[0][0]
+            letter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
         
         self.currentRow = row
         self.screenDirty = True
@@ -652,15 +652,15 @@ class App(pykPlayer):
     def letterUp(self, count):
         # Go to the previous "letter".
         file = self.songDb.SongList[self.currentRow]
-        currentLetter = self.songDb.GetSongTuple(file)[0][0]
+        currentLetter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
         
         row = (self.currentRow - 1) % len(self.songDb.SongList)
         file = self.songDb.SongList[row]
-        letter = self.songDb.GetSongTuple(file)[0][0]
+        letter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
         while row != self.currentRow and letter == currentLetter:
             row = (row - 1) % len(self.songDb.SongList)
             file = self.songDb.SongList[row]
-            letter = self.songDb.GetSongTuple(file)[0][0]
+            letter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
         
         self.currentRow = row
         self.screenDirty = True
