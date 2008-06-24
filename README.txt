@@ -648,7 +648,7 @@ CPUSpeed_menu_slow = 100
 CPUSpeed_menu_fast = 240
 CPUSpeed_load = 240
 CPUSpeed_cdg = 200
-CPUSpeed_kar = 200
+CPUSpeed_kar = 240
 CPUSpeed_mpg = 200
 
     This configures the CPU speed setting during various operation

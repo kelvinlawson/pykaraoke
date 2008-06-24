@@ -704,7 +704,7 @@ class SettingsStruct:
             self.CPUSpeed_menu_fast = 240
             self.CPUSpeed_load = 240
             self.CPUSpeed_cdg = 200
-            self.CPUSpeed_kar = 200
+            self.CPUSpeed_kar = 240
             self.CPUSpeed_mpg = 200
 
 # This is a trivial class used to wrap the song database with a
