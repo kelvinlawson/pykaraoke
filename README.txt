@@ -55,14 +55,14 @@ PyKaraoke requires the following libraries to be installed:
  * WxPython (www.wxpython.org)
  * SDL source distribution (www.libsdl.org)
 
-PyKaraoke now offers two builds: an ultra-portable Python version, and a
-highly optimised C version. The default install is to use the faster C
-version which requires the SDL source distribution for compilation
+PyKaraoke now offers two builds: an ultra-portable Python version, and
+a highly optimised C version. The default install is to use the faster
+C version which requires the SDL source distribution for compilation
 purposes. All supported platforms should support compilation of the C
 version, but the portable Python-only version will continue to be
 supported. Python-only installs do not require the SDL source
-distribution, and instead require the Numeric Python module
-(numpy.sourceforge.net).
+distribution, and instead require the NumPy Python module
+(numpy.scipy.org).
 
 If these libraries are not already installed on your system, you can
 download them from the websites listed.
@@ -82,9 +82,100 @@ PyKaraoke from anywhere using "pykaraoke".
 
 Alternatively you can run PyKaraoke without installing by simply
 unzipping and running "python pykaraoke.py" from the unzip location.
-Beware that the uninstalled version method requires the Numeric library,
-and runs the more portable but slower Python-only version of the CDG
-player.
+Beware that the uninstalled version method requires the NumPy (or the
+older Numeric) library, and runs the more portable but slower
+Python-only version of the CDG player.
+
+---------------------------------------------------------------------------
+
+INSTALLATION (OS X)
+
+PyKaraoke is known to work well on Macintosh OS X.  It has been tested
+on OS X versions 10.3, 10.4, and 10.5.  On this platform, you must
+install from source, similar to the Linux platforms, as described
+above, since we do not presently provide a binary OS X installation.
+
+Unfortunately, there are several supporting packages you must install
+first in order to run PyKaraoke on OS X.
+
+The biggest troublemaker in the mix is Pygame.  Pygame is available
+via fink, MacPorts, and via precompiled versions.  If you are already
+familiar with using fink or MacPorts, you may find one of these the
+easiest way to install it.  However, we will leave this as your own
+exercise; we describe below the process of installing it via the
+precompiled version.
+
+Unfortunately, installing the precompiled version of Pygame also
+requires installing the latest version of Python from python.org,
+instead of relying on the version of Python that comes pre-installed
+with OS X.  This means you must visit:
+
+http://www.pygame.org/download.shtml
+
+  Follow the link for "Pygame OSX PackageManager Site".  Verify the
+  version of Python that the binaries here are compiled for.  At the
+  time of this writing, this was python version 2.5.
+
+http://www.python.org/download/
+
+  Follow the link for "Python 2.5.2 for Macintosh OS X", or whatever
+  the version requested by pygame.org.  Note that the minor version
+  (the final .2 in this example) doesn't matter; just get whichever
+  minor version is offered that matches the major version required by
+  pygame.org.
+
+http://www.pygame.org/download.shtml
+
+  Once you have installed the proper version of Python, go back to
+  this site and install both pygame and pyobjc.
+
+http://www.wxpython.org/
+
+  Even though wxPython was already installed for your system default
+  version of Python, you must now install a new version of wxPython to
+  go with the custom version of Python you just installed.  Scroll
+  down to "OS X Binaries" and install the latest version of wxPython
+  runtime under the version of Python that you installed (e.g. under
+  the Python 2.5 column).  We recommend picking the osx-unicode
+  version, though this doesn't really matter much.
+
+That will be all you need to install in order to play .kar files.  In
+order to play .cdg files as well, you will also need to install the
+NumPy package:
+
+http://www.scipy.org/Download
+
+
+Now you have everything installed that you need in order to play .kar
+and .cdg files.  In order to launch PyKaraoke, open a terminal window
+and type the command:
+
+/Library/Frameworks/Python.framework/Versions/Current/bin/pythonw pykaraoke.py
+
+You can use Platypus ( http://www.sveinbjorn.org/platypus ) to hide
+this ugly command inside a convenient application icon, so you don't
+have to type it every time.  For now, just type the command exactly as
+shown above.  This accesses the version of Python that you have just
+installed, as opposed to the version that is already pre-installed
+with OS X.
+
+Test everything that you have installed.  If your CPU is fast enough
+(iMacs seem to do just fine), it will be able to play CDG files
+smoothly using the native Python version, without requiring you to
+build the optimised C version.  If, on the other hand, you observe a
+lot of stuttering or sluggish graphic updates while playing CDG files,
+then you will need to go a little bit further to compile the C
+version.  This will require installing the XCode development suite,
+and the SDL header files that match the version of SDL installed
+automatically by pygame, above.  The details of this process are out
+of the scope of this installation guide.
+
+If you wish to play .avi files, .mov files, or .mpg files via an
+external player, you will need to install a player that can be
+launched via the command line, and which exits automatically when the
+video is finished.  One such application is mplayer, which you can
+install via MacPorts or fink.  There is also a precompiled version
+available.  This is again beyond the scope of this installation guide.
 
 ---------------------------------------------------------------------------
 
@@ -514,6 +605,85 @@ format, using the NTSC convention.  Consider it a sample script that
 you may need to modify to suit your particular needs.  For instance,
 feel free to modify the script to support kar, cdg+mp3, or cdg+ogg, or
 to generate PAL or VCD format output.
+
+---------------------------------------------------------------------------
+
+THE SETTINGS.DAT FILE
+
+When you use the configure dialog to customize your settings and
+preferences, the settings you choose are saved in the file
+settings.dat, in the PyKaraoke database directory (the particular
+directory name varies according to the platform).  For the most part,
+you don't need to worry about the contents of this file, since it's
+more convenient to change it via the configure dialog.
+
+However, there may be occasions that you need to edit it directly.
+For instance, on the GP2X, there is no configure dialog available.  In
+order to edit the settings.dat file on the GP2X, therefore, you can
+either (a) copy your settings.dat to a PC-based version of PyKaraoke,
+and run the configure dialog there, then copy it back, or (b) simply
+hand-edit the settings.dat file to your liking.  Some of the
+GP2X-specific settings, such as CPU speed controls, can only be
+changed by hand-editing the settings.dat file.
+
+There may not be a settings.dat file at all until the first time you
+run PyKaraoke.  At that time, a default settings.dat file is created.
+
+The most interesting settings that you might want to change on the
+GP2X are:
+
+MIDISampleRate = 12000
+
+    This is the sample rate, in Hz, of the synthesized music generated
+    for .kar files.  Since this is CPU-intensive, you may need to
+    tweak this setting down somewhat if you are experience many clicks
+    and pops when you are playing .kar files.  You can also tweak it
+    down to allow you to set the CPU speed, below, lower (thus saving
+    battery power).  On the other hand, you can increase it to improve
+    the overall sound quality of your MIDI music.
+
+CPUSpeed_startup = 266
+CPUSpeed_menu_idle = 33
+CPUSpeed_menu_slow = 100
+CPUSpeed_menu_fast = 240
+CPUSpeed_load = 240
+CPUSpeed_cdg = 200
+CPUSpeed_kar = 200
+CPUSpeed_mpg = 200
+
+    This configures the CPU speed setting during various operation
+    modes.  Set the number higher to improve performance (decrease
+    audio pops), or lower to improve battery life.  In theory, 266 is
+    the highest safe number, though you might need to use a lower
+    number if you experience frequent lockups.  Setting all the
+    numbers to the same value is another way to reduce risk of
+    lockups.
+
+    The operation modes are:
+
+      startup - initial loading, from splash screen to first display
+        of the song list.
+      menu_idle - when the menu screen has been idle for more than 20
+        seconds.
+      menu_slow - when the user is slowly scrolling the menu screen.
+      menu_fast - when the user is rapidly scrolling the menu screen.
+      load - after selecting a song, but before it starts to play.
+      cdg, kar, mpg - while playing a song of the indicated type.
+
+KarEncoding = 'cp1252'
+KarFont = FontData("DejaVuSans.ttf")
+KarBackgroundColour = (0, 0, 0)
+KarReadyColour = (255, 50, 50)
+KarSweepColour = (255, 255, 255)
+KarInfoColour = (0, 0, 200)
+KarTitleColour = (100, 100, 255)
+
+    These control the appearance of the text for .kar files.  You can
+    change the encoding, font, and colours of the text during
+    playback.
+
+For the complete list of configurable options, see the source code of
+pykdb.py, in the definition of the SettingsStruct class.
 
 ---------------------------------------------------------------------------
 

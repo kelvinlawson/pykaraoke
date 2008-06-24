@@ -21,7 +21,10 @@ On the off-chance a C compiler is not available or not reliable for
 some reason, you can use this implementation instead. """
 
 import pygame
-import Numeric as N
+try:
+    import Numeric as N
+except ImportError:
+    import numpy.oldnumeric as N
 
 # CDG Command Code
 CDG_COMMAND             = 0x09
