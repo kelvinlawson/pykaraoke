@@ -693,7 +693,7 @@ class SettingsStruct:
             self.MpgExternalThreaded = False
 
             # Define the CPU speed to set for various activities.
-            self.CPUSpeed_startup = 266
+            self.CPUSpeed_startup = 240
             self.CPUSpeed_wait = 33
             self.CPUSpeed_menu_idle = 33
             self.CPUSpeed_menu_slow = 100
@@ -1214,7 +1214,12 @@ class SongDB:
             
         # Recurse into subdirectories
         if os.path.isdir(full_path):
-            self.folderScan(full_path, progress, yielder)
+            basename = os.path.split(full_path)[1]
+            if basename == 'CVS' or basename == '.svn':
+                # But skip over these bogus directories.
+                pass
+            else:
+                self.folderScan(full_path, progress, yielder)
             if self.BusyDlg.Clicked:
                 return
         # Store file details if it's a file type we're interested in

@@ -1,8 +1,8 @@
 
 ---------------------------------------------------------------------------
 
-Release:      pykaraoke v0.5.1
-Date:         26/11/2007
+Release:      pykaraoke v0.6
+Date:         23/06/2008
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
@@ -253,10 +253,10 @@ script to rebuild the database with the new song files; but most of
 the time, you should start PyKaraoke simply by running the script
 named "pykaraoke".
 
-As of PyKaraoke version 0.5.2, you can also play video karaoke files
-on your GP2X.  You should use your existing GP2X tools to convert
-these to AVI format, as supported by the GP2X version of mplayer, and
-put them under the songs directory with your other karaoke files.
+As of PyKaraoke version 0.6, you can also play video karaoke files on
+your GP2X.  You should use your existing GP2X tools to convert these
+to AVI format, as supported by the GP2X version of mplayer, and put
+them under the songs directory with your other karaoke files.
 PyKaraoke will index them and present them along with all of your
 other songs.
 
@@ -642,7 +642,7 @@ MIDISampleRate = 12000
     battery power).  On the other hand, you can increase it to improve
     the overall sound quality of your MIDI music.
 
-CPUSpeed_startup = 266
+CPUSpeed_startup = 240
 CPUSpeed_menu_idle = 33
 CPUSpeed_menu_slow = 100
 CPUSpeed_menu_fast = 240
@@ -653,16 +653,14 @@ CPUSpeed_mpg = 200
 
     This configures the CPU speed setting during various operation
     modes.  Set the number higher to improve performance (decrease
-    audio pops), or lower to improve battery life.  In theory, 266 is
-    the highest safe number, though you might need to use a lower
-    number if you experience frequent lockups.  Setting all the
-    numbers to the same value is another way to reduce risk of
-    lockups.
+    audio pops), or lower to improve battery life.  In theory, 240 is
+    the highest safe number, though you can try to push it higher if
+    you want to try overclocking your CPU.
 
     The operation modes are:
 
       startup - initial loading, from splash screen to first display
-        of the song list.
+        of the song list, including scan if running rescan_songs.
       menu_idle - when the menu screen has been idle for more than 20
         seconds.
       menu_slow - when the user is slowly scrolling the menu screen.
