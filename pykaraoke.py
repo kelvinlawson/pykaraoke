@@ -234,6 +234,17 @@ class DatabaseSetupWindow (wx.Frame):
         self.TitlesSizer.Add (self.titlesCheckBox, 0, wx.ALL)
         wx.EVT_CHECKBOX (self, self.titlesID, self.OnTitlesChanged)
 
+        # Create the filesystem and zip file coding boxes.
+        fsCodingText = wx.StaticText(self.panel, -1, "System filename encoding:")
+        self.fsCoding = wx.ComboBox(
+            self.panel, -1, value = settings.FilesystemCoding,
+            choices = settings.Encodings)
+        zipCodingText = wx.StaticText(self.panel, -1, "Filename encoding within zips:")
+        self.zipCoding = wx.ComboBox(
+            self.panel, -1, value = settings.ZipfileCoding,
+            choices = settings.Encodings)
+        
+
         # Create the hash-check options
         self.hashCheckBox = wx.CheckBox(self.panel, -1, "Check for identical files (by comparing MD5 hash)")
         self.hashCheckBox.SetValue(self.KaraokeMgr.SongDB.Settings.CheckHashes)
@@ -264,6 +275,10 @@ class DatabaseSetupWindow (wx.Frame):
         self.LowerSizer.Add(self.ZipSizer, 1, wx.ALL, 3)
         self.LowerSizer.Add(self.titlesText, 0, wx.ALL, 3)
         self.LowerSizer.Add(self.TitlesSizer, 1, wx.ALL, 3)
+        self.LowerSizer.Add(fsCodingText, 0, wx.ALL, 3)
+        self.LowerSizer.Add(self.fsCoding, 1, wx.ALL, 3)
+        self.LowerSizer.Add(zipCodingText, 0, wx.ALL, 3)
+        self.LowerSizer.Add(self.zipCoding, 1, wx.ALL, 3)
         self.LowerSizer.Add((0, 0))
         self.LowerSizer.Add(self.hashCheckBox, 1, wx.LEFT | wx.RIGHT | wx.TOP, 3)
         self.LowerSizer.Add((0, 0))
@@ -324,10 +339,28 @@ class DatabaseSetupWindow (wx.Frame):
         self.FolderList.Delete(index)
         self.ScanNeeded = True
         self.SaveNeeded = True
-        
+
+    def __getCodings(self):
+        # Extract the filesystem and zip file encodings.  These aren't
+        # captured as they are changed, unlike the other parameters
+        # here, because that's just a nuisance.
+        settings = self.KaraokeMgr.SongDB.Settings        
+
+        FilesystemCoding = self.fsCoding.GetValue()
+        if FilesystemCoding != settings.FilesystemCoding:
+            settings.FilesystemCoding = FilesystemCoding
+            self.ScanNeeded = True
+            self.SaveNeeded = True
+            
+        ZipfileCoding = self.zipCoding.GetValue()
+        if ZipfileCoding != settings.ZipfileCoding:
+            settings.ZipfileCoding = ZipfileCoding
+            self.ScanNeeded = True
+            self.SaveNeeded = True
+
     # User wants to rescan all folders
     def OnScanFoldersClicked(self, event):
-
+        self.__getCodings()
         # Create a temporary SongDatabase we can use to initiate the
         # scanning.  This way, if the user cancels out halfway
         # through, we can abandon it instead of being stuck with a
@@ -347,6 +380,7 @@ class DatabaseSetupWindow (wx.Frame):
 
     # User wants to save all settings
     def OnSaveSettingsClicked(self, event):
+        self.__getCodings()
         self.Show(False)
         self.KaraokeMgr.SongDB.SaveSettings()
         self.KaraokeMgr.SongDB.SaveDatabase()
@@ -390,6 +424,7 @@ class DatabaseSetupWindow (wx.Frame):
 
     # Popup asking if want to rescan the database after changing settings
     def ExitHandler(self, event):
+        self.__getCodings()
         if self.ScanNeeded:
             changedString = "You have changed settings, would you like to rescan your folders now?"
             answer = wx.MessageBox(changedString, "Rescan folders now?", wx.YES_NO | wx.ICON_QUESTION)
@@ -1352,12 +1387,26 @@ class FileTree (wx.Panel):
                     file_list.append(item)
         dir_list.sort()
         file_list.sort()
+
+        settings = self.KaraokeMgr.SongDB.Settings
+
         # Populate the tree control, directories then files
         for item in dir_list:
-            node = self.FileTree.AppendItem(root_node, item, image=self.FolderClosedIconIndex)   
+            if isinstance(item, types.StringType):
+                item = item.decode(settings.FilesystemCoding)
+            try:
+                node = self.FileTree.AppendItem(root_node, item, image=self.FolderClosedIconIndex)
+            except UnicodeDecodeError:
+                node = self.FileTree.AppendItem(root_node, item.encode('ascii', 'replace'), image=self.FolderClosedIconIndex)
+                
             self.FileTree.SetItemHasChildren(node, True)
         for item in file_list:
-            node = self.FileTree.AppendItem(root_node, item, image=self.FileIconIndex) 
+            if isinstance(item, types.StringType):
+                item = item.decode(settings.FilesystemCoding)
+            try:
+                node = self.FileTree.AppendItem(root_node, item, image=self.FileIconIndex) 
+            except UnicodeDecodeError:
+                node = self.FileTree.AppendItem(root_node, item.encode('ascii', 'replace'), image=self.FileIconIndex) 
             self.FileTree.SetItemBold(node)
 
     def getSelectedSongs(self):

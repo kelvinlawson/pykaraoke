@@ -24,6 +24,7 @@ from pykenv import env
 import pykar, pycdg, pympg
 import os, cPickle, zipfile, codecs, sys, time
 import md5
+import types
 from cStringIO import StringIO
 
 # The amount of time to wait, in milliseconds, before yielding to the
@@ -37,7 +38,7 @@ MAX_ZIP_FILES = 10
 # Increment this version number whenever the settings version changes
 # (which may not necessarily change with each PyKaraoke release).
 # This will force users to re-enter their configuration information.
-SETTINGS_VERSION = 2
+SETTINGS_VERSION = 3
 
 # Increment this version number whenever the database version changes
 # (which will also hopefully be infrequently).
@@ -175,8 +176,12 @@ class SongStruct:
 
         if ZipStoredName:
             self.DisplayFilename = os.path.basename(ZipStoredName)
+            if isinstance(self.DisplayFilename, types.StringType):
+                self.DisplayFilename = self.DisplayFilename.decode(settings.ZipfileCoding)
         else:
             self.DisplayFilename = os.path.basename(Filepath)
+            if isinstance(self.DisplayFilename, types.StringType):
+                self.DisplayFilename = self.DisplayFilename.decode(settings.FilesystemCoding)
 
         # Check the file type based on extension.
         self.Type = None
@@ -646,6 +651,11 @@ class SettingsStruct:
         self.ReadTitlesTxt = True
         self.CheckHashes = False
         self.DeleteIdentical = False
+        if env == ENV_WINDOWS:
+            self.FilesystemCoding = 'cp1252'
+        else:
+            self.FilesystemCoding = 'iso-8859-1'
+        self.ZipfileCoding = 'cp1252'
         
         self.FullScreen = False
         self.WinSize = (640, 480)
