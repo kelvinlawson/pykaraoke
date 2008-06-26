@@ -419,9 +419,9 @@ class pykPlayer:
 
         # If the caller gave us a callback, let them know we're finished
         if self.State != STATE_CLOSED:
+            self.State = STATE_CLOSED
             if self.SongFinishedCallback != None:
                 self.SongFinishedCallback()
-            self.State = STATE_CLOSED
 
 
     def __defaultErrorPrint(self, ErrorString):
