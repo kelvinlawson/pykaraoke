@@ -150,9 +150,7 @@ class pykManager:
         if self.display != None and self.displayTitle == None:
             try:
                 pygame.display.set_caption(player.WindowTitle)
-            except UnicodeEncodeError:
-                pygame.display.set_caption(player.WindowTitle.encode('ascii', 'replace'))
-            except UnicodeDecodeError:
+            except UnicodeError:
                 pygame.display.set_caption(player.WindowTitle.encode('ascii', 'replace'))
 
 
@@ -190,9 +188,7 @@ class pykManager:
             elif self.player != None:
                 try:
                     pygame.display.set_caption(self.player.WindowTitle)
-                except UnicodeEncodeError:
-                    pygame.display.set_caption(self.player.WindowTitle.encode('ascii', 'replace'))
-                except UnicodeDecodeError:
+                except UnicodeError:
                     pygame.display.set_caption(self.player.WindowTitle.encode('ascii', 'replace'))
 
             if self.display == None or \

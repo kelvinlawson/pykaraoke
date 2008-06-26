@@ -1242,7 +1242,7 @@ class EditTitlesWindow(wx.Frame):
             item.SetColumn(searchPanel.TitleCol)
             try:
                 item.SetText(song.Title)
-            except UnicodeDecodeError:
+            except UnicodeError:
                 item.SetText(song.Title.encode('ascii', 'replace'))
             item.SetData(si)
             searchPanel.ListPanel.SetItem(item)
@@ -1250,7 +1250,7 @@ class EditTitlesWindow(wx.Frame):
             item.SetColumn(searchPanel.ArtistCol)
             try:
                 item.SetText(song.Artist)
-            except UnicodeDecodeError:
+            except UnicodeError:
                 item.SetText(song.Artist.encode('ascii', 'replace'))
             item.SetData(si)
             searchPanel.ListPanel.SetItem(item)
@@ -1396,7 +1396,7 @@ class FileTree (wx.Panel):
                 item = item.decode(settings.FilesystemCoding)
             try:
                 node = self.FileTree.AppendItem(root_node, item, image=self.FolderClosedIconIndex)
-            except UnicodeDecodeError:
+            except UnicodeError:
                 node = self.FileTree.AppendItem(root_node, item.encode('ascii', 'replace'), image=self.FolderClosedIconIndex)
                 
             self.FileTree.SetItemHasChildren(node, True)
@@ -1405,7 +1405,7 @@ class FileTree (wx.Panel):
                 item = item.decode(settings.FilesystemCoding)
             try:
                 node = self.FileTree.AppendItem(root_node, item, image=self.FileIconIndex) 
-            except UnicodeDecodeError:
+            except UnicodeError:
                 node = self.FileTree.AppendItem(root_node, item.encode('ascii', 'replace'), image=self.FileIconIndex) 
             self.FileTree.SetItemBold(node)
 
@@ -1707,7 +1707,7 @@ class SearchResultsPanel (wx.Panel):
                 item.SetColumn(self.FilenameCol)
                 try:
                     item.SetText(song.DisplayFilename)
-                except UnicodeDecodeError:
+                except UnicodeError:
                     item.SetText(song.DisplayFilename.encode('ascii', 'replace'))
                 item.SetData(index)
                 self.ListPanel.InsertItem(item)
@@ -1716,7 +1716,7 @@ class SearchResultsPanel (wx.Panel):
                 item.SetColumn(self.TitleCol)
                 try:
                     item.SetText(song.Title)
-                except UnicodeDecodeError:
+                except UnicodeError:
                     item.SetText(song.Title.encode('ascii', 'replace'))
                 item.SetData(index)
                 self.ListPanel.SetItem(item)
@@ -1726,7 +1726,7 @@ class SearchResultsPanel (wx.Panel):
                 item.SetColumn(self.ArtistCol)
                 try:
                     item.SetText(song.Artist)
-                except UnicodeDecodeError:
+                except UnicodeError:
                     item.SetText(song.Artist.encode('ascii', 'replace'))
                 item.SetData(index)
                 self.ListPanel.SetItem(item)
@@ -2099,7 +2099,7 @@ class Playlist (wx.Panel):
         item.SetColumn(self.FilenameCol)
         try:
             item.SetText(song.DisplayFilename)
-        except UnicodeDecodeError:
+        except UnicodeError:
             item.SetText(song.DisplayFilename.encode('ascii', 'replace'))
         item.SetData(index)
         self.Playlist.InsertItem(item)
@@ -2108,7 +2108,7 @@ class Playlist (wx.Panel):
         item.SetColumn(self.TitleCol)
         try:
             item.SetText(song.Title)
-        except UnicodeDecodeError:
+        except UnicodeError:
             item.SetText(song.Title.encode('ascii', 'replace'))
         item.SetData(index)
         self.Playlist.SetItem(item)
