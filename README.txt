@@ -2,7 +2,7 @@
 ---------------------------------------------------------------------------
 
 Release:      pykaraoke v0.6
-Date:         24/06/2008
+Date:         27/06/2008
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
