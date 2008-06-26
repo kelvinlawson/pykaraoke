@@ -38,6 +38,7 @@ data_files = [
       'icons/folder_close_16.png',
       'icons/folder_open_16.png', 
       'icons/microphone.ico',
+      'icons/microphone.png',
       'icons/pykaraoke.xpm',
       'icons/splash.png']),
     ('share/pykaraoke/fonts', [
