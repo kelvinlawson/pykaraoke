@@ -37,7 +37,6 @@ data_files = [
      ['icons/audio_16.png',
       'icons/folder_close_16.png',
       'icons/folder_open_16.png', 
-      'icons/microphone.png',
       'icons/microphone.ico',
       'icons/microphone.png',
       'icons/pykaraoke.xpm',
