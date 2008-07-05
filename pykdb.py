@@ -692,7 +692,7 @@ class SettingsStruct:
         self.MpgExternal = 'mplayer -fs "%(file)s"'
 
         if env == ENV_WINDOWS:
-            self.MpgExternal = '"C:\\Program Files\\Windows Media Player\\mplayer2.exe" "%(file)s" /play /close /fullscreen'
+            self.MpgExternal = '"C:\\Program Files\\Windows Media Player\\wmplayer.exe" "%(file)s" /play /close /fullscreen'
         elif env == ENV_GP2X:
             self.FullScreen = True
             self.WinSize = (320, 240)
