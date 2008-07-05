@@ -717,9 +717,6 @@ class ConfigWindow (wx.Frame):
         self.MpgExternalThreadedCheckBox = wx.CheckBox(
             panel, -1, "Use a sub-thread to wait for external viewer")
         self.MpgExternalThreadedCheckBox.SetValue(settings.MpgExternalThreaded)
-        if not pympg.movie:
-            self.MpgExternalThreadedCheckBox.SetValue(False)
-            self.MpgExternalThreadedCheckBox.Enable(False)
         mpgsizer.Add(self.MpgExternalThreadedCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
         panel.SetSizer(mpgsizer)
