@@ -2958,6 +2958,16 @@ class PyKaraokeWindow (wx.Frame):
 
         self.PlaylistPanel = Playlist(self.rightPanel, -1, KaraokeMgr, 0, 0)
 
+        # Control volume of the song 1.0 = 100% volume
+        self.VolumeControlID = wx.NewId()
+        self.VolumeControl = wx.SpinCtrl(self.rightPanel, self.VolumeControlID, "Volume", size=(50,25))
+        self.VolumeControl.SetRange(0, 100)
+        self.VolumeControl.SetValue(manager.GetVolume() * 100)
+        wx.EVT_SPIN_UP(self.rightPanel, self.VolumeControlID, self.OnVolumeUpClicked)
+        wx.EVT_SPIN_DOWN(self.rightPanel, self.VolumeControlID, self.OnVolumeUpClicked)
+        wx.EVT_SPINCTRL(self.rightPanel, self.VolumeControlID, self.OnVolumeChanged)
+        hsizer.Add(self.VolumeControl)
+
         self.RightSizer = wx.BoxSizer(wx.VERTICAL)
         self.RightSizer.Add(hsizer, 0, wx.ALL | wx.EXPAND, 5)
         self.RightSizer.Add(self.PlaylistPanel, 1, wx.ALL | wx.EXPAND, 5)
@@ -3033,6 +3043,24 @@ class PyKaraokeWindow (wx.Frame):
             self.LeftSizer.Layout()
             self.SearchPanel.SearchText.SetFocus()
 
+    def OnVolumeUpClicked(self, event):
+        """ Moves the volume up. """
+        manager.VolumeUp()
+        self.VolumeControl.SetValue(manager.GetVolume() * 100)
+
+    def OnVolumeDownClicked(self, event):
+        """ Moves the volume down. """
+        manager.VolumeDown()
+        self.VolumeControl.SetValue(manager.GetVolume() * 100)
+
+    def OnVolumeChanged(self, event):
+        """ Resets the value to what the spin box has set."""
+        manager.SetVolume(self.VolumeControl.GetValue() / 100.0)
+
+    def UpdateVolume(self):
+        """ Synchronises the volume spinner and the PyGame music instance """
+        manager.SetVolume(self.VolumeControl.GetValue() / 100.0)
+
     def OnKamikazeClicked(self, event):
         """ Handles the Kamikaze button click event. """
         if self.KaraokeMgr.SongDB.GetDatabaseSize() == 0:
@@ -3057,6 +3085,7 @@ class PyKaraokeWindow (wx.Frame):
             wx.MessageBox("No songs selected.")
             return
 
+        self.UpdateVolume()
         self.KaraokeMgr.PlayWithoutPlaylist(songs[0])
 
     def OnPlaylistClicked(self, event):
@@ -3072,10 +3101,12 @@ class PyKaraokeWindow (wx.Frame):
             return
 
         for song in songs:
+            self.UpdateVolume()
             self.KaraokeMgr.AddToPlaylist(song)
 
     def OnStartPlaylistClicked(self, event):
         """ "Start" button clicked. """
+        self.UpdateVolume()
         self.PlaylistPanel.play()
 
     def OnClearPlaylistClicked(self, event):

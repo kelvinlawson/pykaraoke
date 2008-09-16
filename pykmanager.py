@@ -84,7 +84,7 @@ class pykManager:
             # No change.
             return
         self.cpuSpeed = activityName
-        
+
         # The activityName directly hooks into a CPU speed indicated
         # in the user settings.
 
@@ -100,6 +100,7 @@ class pykManager:
         try:
             volume = pygame.mixer.music.get_volume()
         except pygame.error:
+            print "Failed to raise music volume!"
             return
         volume = min(volume + 0.1, 1.0)
 
@@ -109,9 +110,23 @@ class pykManager:
         try:
             volume = pygame.mixer.music.get_volume()
         except pygame.error:
+            print "Failed to lower music volume!"
             return
         volume = max(volume - 0.1, 0.0)
 
+        pygame.mixer.music.set_volume(volume)
+
+    def GetVolume(self):
+        """ Gives the current volume level. """
+        if vars().has_key('music'):
+            return pygame.mixer.music.get_volume()
+        else:
+            return 0.75 # 75% is the industry recommended value
+
+    def SetVolume(self, volume):
+        """ Sets the volume of the music playback. """
+        volume = min(volume, 1.0)
+        volume = max(volume, 0.0)
         pygame.mixer.music.set_volume(volume)
 
     def GetFontScale(self):
@@ -143,7 +158,7 @@ class pykManager:
         # Ensure we have been initialized.
         if not self.initialized:
             self.pygame_init()
-            
+
         self.player = player
         self.player.State = STATE_NOT_PLAYING
 
@@ -269,7 +284,7 @@ class pykManager:
         self.CloseAudio()
         if env == ENV_GP2X:
             cpuctrl.init()
-        
+
     def CloseCPUControl(self):
         if env == ENV_GP2X:
             cpuctrl.shutdown()
@@ -282,12 +297,12 @@ class pykManager:
             frequency, size, channels, bufferSamples = self.audioProps
             return bufferSamples * 1000 / (frequency * channels)
         return 0
-            
+
     def Quit(self):
         if self.player:
             self.player.shutdown()
             self.player = None
-            
+
         if not self.initialized:
             return
         self.initialized = False
@@ -349,7 +364,7 @@ class pykManager:
         """ The interface may choose to call this method in lieu of
         repeatedly calling Poll().  It will block until the currently
         active player has finished, and then return. """
-        
+
         while self.player and self.player.State != STATE_CLOSED:
             self.Poll()
 
@@ -358,7 +373,7 @@ class pykManager:
         suitable for parsing the command line options to this
         application.  This version of this method returns the options
         that are likely to be useful for any karaoke application. """
-            
+
         version = "%prog " + pykversion.PYKARAOKE_VERSION_STRING
 
         settings = songDb.Settings
@@ -383,13 +398,13 @@ class pykManager:
                               help = 'draw song window Y pixels high', default = settings.WinSize[1])
             parser.add_option('-t', '--title', dest = 'title', type = 'string', metavar='TITLE',
                               help = 'set song window title to TITLE', default = None)
-            parser.add_option('-f', '--fullscreen', dest = 'fullscreen', action = 'store_true', 
+            parser.add_option('-f', '--fullscreen', dest = 'fullscreen', action = 'store_true',
                               help = 'make song window fullscreen', default = settings.FullScreen)
-            parser.add_option('', '--hide-mouse', dest = 'hide_mouse', action = 'store_true', 
+            parser.add_option('', '--hide-mouse', dest = 'hide_mouse', action = 'store_true',
                               help = 'hide the mouse pointer', default = False)
-            
+
         parser.add_option('-s', '--fps', dest = 'fps', metavar='N', type = 'int',
-                          help = 'restrict visual updates to N frames per second', 
+                          help = 'restrict visual updates to N frames per second',
                           default = 30)
         parser.add_option('-r', '--sample-rate', dest = 'sample_rate', type = 'int',
                           help = 'specify the audio sample rate.  Ideally, this should match the recording.  For MIDI files, higher is better but consumes more CPU.',
@@ -407,7 +422,7 @@ class pykManager:
                           default = settings.CdgZoom)
 
         parser.add_option('', '--buffer', dest = 'buffer', metavar = 'MS', type = 'int',
-                          help = 'buffer audio by the indicated number of milliseconds', 
+                          help = 'buffer audio by the indicated number of milliseconds',
                           default = settings.BufferMs)
         parser.add_option('-n', '--nomusic', dest = 'nomusic', action = 'store_true',
                           help = 'disable music playback, just display graphics', default = False)
@@ -448,7 +463,7 @@ class pykManager:
         necessary to fit within the indicated width (when rendered by
         the given font), word-wrapping at spaces.  Returns a list of
         strings, one string for each separate line."""
-        
+
 
         lines = []
 
@@ -460,14 +475,14 @@ class pykManager:
                 fold = self.FindFoldPoint(line, font, maxWidth)
 
         return lines
-            
+
     def FindFoldPoint(self, line, font, maxWidth):
         """Returns the index of the character within line which should
         begin the next line: the first non-space before maxWidth."""
 
         if maxWidth <= 0 or line == '':
             return len(line)
-        
+
         fold = len(line.rstrip())
         width, height = font.size(line[:fold])
         while fold > 0 and width > maxWidth:
@@ -494,7 +509,7 @@ class pykManager:
             return self.FindFoldPoint(line, font, maxWidth - wsWidth) + len(ws)
 
         return fold
-        
+
 
     # The remaining methods are internal.
 
@@ -529,10 +544,10 @@ class pykManager:
             if player:
                 player.doResize(event.size)
 
-            # Tell the player we have finished resizing 
+            # Tell the player we have finished resizing
             if player:
                 player.doResizeEnd()
-            
+
         elif env == ENV_GP2X and event.type == pygame.JOYBUTTONDOWN:
             if event.button == GP2X_BUTTON_VOLUP:
                 self.VolumeUp()
@@ -545,7 +560,7 @@ class pykManager:
     def pygame_init(self):
         """ This method is called only once, the first time an
         application requests a pygame window. """
-            
+
         pygame.init()
 
         if env == ENV_GP2X:
@@ -602,6 +617,6 @@ class pykManager:
 
         self.mouseVisible = not (env == ENV_GP2X or self.options.hide_mouse or (self.displayFlags & pygame.FULLSCREEN))
 
-    
+
 # Now instantiate a global pykManager object.
 manager = pykManager()
