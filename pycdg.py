@@ -68,10 +68,10 @@
 # and doneCallback:
 #
 # errorNotifyCallback, if provided, will be used to print out any error
-# messages (e.g. song file not found). This allows the module to fit 
+# messages (e.g. song file not found). This allows the module to fit
 # together well with GUI playlist managers by utilising the same GUI's
 # error popup window mechanism (or similar). If no callback is provided,
-# errors are printed to stdout. errorNotifyCallback should take one 
+# errors are printed to stdout. errorNotifyCallback should take one
 # parameter, the error string, e.g.:
 #   def errorPopup (ErrorString):
 #       msgBox (ErrorString)
@@ -129,10 +129,6 @@
 # screen is updated, but during normal CD+G operation only a small
 # number of segments are likely to be changed at update time.
 #
-# NOTE: Pygame does not currently support querying the length
-# of an MP3 track, therefore the GetLength() method is not
-# currently implemented.
-#
 # Here follows a description of the important data stored by
 # the class:
 #
@@ -150,21 +146,21 @@
 # CdgPacketReader.__cdgPixelColours[300][216]
 # Store the colour index for every single pixel. The values stored
 # are indeces into our colour table, rather than actual pygame
-# colour representations. It's unfortunate that we need to store 
+# colour representations. It's unfortunate that we need to store
 # all this data, when in fact the pixel colour is available from
 # cdgSurfarray, but we need it for the Tile Block XOR command.
 # The XOR command performs an XOR of the colour index currently
 # at the pixel, with the new colour index. We therefore need to
-# know the actual colour index at that pixel - we can't do a 
+# know the actual colour index at that pixel - we can't do a
 # get_at() on the screen, or look in cdgSurfarray, and map the RGB
-# colour back to a colour index because some CDG files have the 
+# colour back to a colour index because some CDG files have the
 # same colour in two places in the table, making it impossible to
 # determine which index is relevant for the XOR.
 #
-# CdgPacketReader.__cdgPresetColourIndex 
+# CdgPacketReader.__cdgPresetColourIndex
 # Preset Colour (index into colour table)
 #
-# CdgPacketReader.__cdgPresetColourIndex 
+# CdgPacketReader.__cdgPresetColourIndex
 # Border Colour (index into colour table)
 #
 # CdgPacketReader.__updatedTiles
@@ -270,7 +266,7 @@ class cdgPlayer(pykPlayer):
         if not aux or not manager.settings.CdgUseC:
             print "Using Python implementation of CDG interpreter."
             aux = aux_python
-        
+
         # Open the cdg and sound files
         self.packetReader = aux.CdgPacketReader(self.cdgFileData.GetData(), self.workingTile)
         manager.setCpuSpeed('cdg')
@@ -302,14 +298,14 @@ class cdgPlayer(pykPlayer):
         else:
             # Don't play anything.
             self.InternalOffsetTime = 0
-            
+
         # Set the CDG file at the beginning
         self.cdgReadPackets = 0
         self.cdgPacketsDue = 0
         self.LastPos = self.curr_pos = 0
 
         # Some session-wide constants.
-        self.ms_per_update = (1000.0 / manager.options.fps)        
+        self.ms_per_update = (1000.0 / manager.options.fps)
 
     def doPlay(self):
         if self.soundFileData:
@@ -342,6 +338,10 @@ class cdgPlayer(pykPlayer):
             pygame.mixer.music.rewind()
             pygame.mixer.music.stop()
 
+    def GetLength(self):
+        """Give the number of seconds in the song."""
+        return self.soundLength
+
     # Get the current time (in milliseconds). Blocks if pygame is
     # not initialised yet.
     def GetPos(self):
@@ -359,7 +359,7 @@ class cdgPlayer(pykPlayer):
 
         # Remove irrelevant options.
         parser.remove_option('--font-scale')
-        
+
         return parser
 
 
@@ -375,12 +375,11 @@ class cdgPlayer(pykPlayer):
         self.workingSurface = None
         self.workingTile = None
         self.packetReader = None
-            
         pykPlayer.shutdown(self)
 
     def doStuff(self):
         pykPlayer.doStuff(self)
-        
+
         # Check whether the songfile has moved on, if so
         # get the relevant CDG data and update the screen.
         if self.State == STATE_PLAYING or self.State == STATE_CAPTURING:
@@ -405,7 +404,7 @@ class cdgPlayer(pykPlayer):
 
     def doResize(self, newSize):
         self.computeDisplaySize()
-    
+
         if self.borderColour != None:
             manager.surface.fill(self.borderColour)
 
@@ -415,7 +414,7 @@ class cdgPlayer(pykPlayer):
         """ Figures out what scale and placement to use for blitting
         tiles to the screen.  This must be called at startup, and
         whenever the window size changes. """
-        
+
         winWidth, winHeight = manager.displaySize
 
         # Compute an appropriate uniform scale to letterbox the image
@@ -477,10 +476,13 @@ class cdgPlayer(pykPlayer):
         try:
             import MP3Info
         except:
+            print "Failed to load MP3Info, will not be able to determine extra MP3 information."
+            self.soundLength = 0
             return None
 
         import cStringIO
         m = MP3Info.MPEG(cStringIO.StringIO(soundFileData.GetData()))
+        self.soundLength = m.length
 
         channels = 1
         if 'stereo' in m.mode:
@@ -606,4 +608,4 @@ if __name__ == "__main__":
     #import profile
     #result = profile.run('main()', 'pycdg.prof')
     #sys.exit(result)
-    
+

@@ -1741,7 +1741,7 @@ class SearchResultsPanel (wx.Panel):
         wx.EVT_LIST_COL_CLICK(self.ListPanel, wx.ID_ANY, self.OnColumnClicked)
 
         self.StatusBar = wx.StatusBar(self, -1)
-        self.StatusBar.SetStatusText ("No search performed")
+        self.StatusBar.SetStatusText ("No Search Performed")
 
         self.VertSizer = wx.BoxSizer(wx.VERTICAL)
         self.InterGap = 0
@@ -1807,7 +1807,7 @@ class SearchResultsPanel (wx.Panel):
     # Handle the search button clicked event
     def OnSearchClicked(self, event):
         # Empty the previous results and perform a new search
-        self.StatusBar.SetStatusText ("Please wait... Searching")
+        self.StatusBar.SetStatusText ("Please Wait... Searching")
         songList = self.KaraokeMgr.SongDB.SearchDatabase(
             str(self.SearchText.GetValue()), wxAppYielder())
         if self.KaraokeMgr.SongDB.GetDatabaseSize() == 0:
@@ -1816,12 +1816,12 @@ class SearchResultsPanel (wx.Panel):
             if answer == wx.YES:
                 # Open up the database setup dialog
                 self.DBFrame = DatabaseSetupWindow(self.parent, -1, "Database Setup", self.KaraokeMgr)
-                self.StatusBar.SetStatusText ("No search performed")
+                self.StatusBar.SetStatusText ("No Search Performed")
             else:
-                self.StatusBar.SetStatusText ("No songs in song database")
+                self.StatusBar.SetStatusText ("No Songs In Song Database")
         elif len(songList) == 0:
-            ErrorPopup("No matches found for " + self.SearchText.GetValue())
-            self.StatusBar.SetStatusText ("No matches found")
+            ErrorPopup("No Matches Found For " + self.SearchText.GetValue())
+            self.StatusBar.SetStatusText ("No Matches Found")
         else:
             self.ListPanel.DeleteAllItems()
             self.MaxFilenameWidth = 0
@@ -1894,7 +1894,7 @@ class SearchResultsPanel (wx.Panel):
 
             # Keep a copy of all the SongStructs in a list, accessible via item index
             self.SongStructList = songList
-            self.StatusBar.SetStatusText ("%d songs found" % index)
+            self.StatusBar.SetStatusText ("%d Songs Found" % index)
             # Set the column width now we've added some titles
             self.doResize()
 
@@ -2117,7 +2117,7 @@ class Playlist (wx.Panel):
 
         # Create the status bar
         self.StatusBar = wx.StatusBar(self, -1)
-        self.StatusBar.SetStatusText ("Not playing")
+        self.StatusBar.SetStatusText ("Currently Not Playing A Song")
 
         # Create a sizer for the tree view and status bar
         self.InterGap = 0
@@ -3284,7 +3284,7 @@ class PyKaraokeManager:
         manager.CloseDisplay()
 
         # Set the status bar
-        self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Not playing")
+        self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Currently Not Playing A Song")
         # Only continue to play if auto play is enabled.
         if self.SongDB.Settings.AutoPlayList:
             next_index = self.PlayingIndex + 1
@@ -3339,17 +3339,27 @@ class PyKaraokeManager:
         if self.Player == None:
             return
 
-        if self.gui:
-            # Set the status bar
-            self.Frame.PlaylistPanel.StatusBar.SetStatusText ("Playing " + song_struct.DisplayFilename)
-
         # Start playing
         self.Player.Play()
 
     def handleIdle(self, event):
         manager.Poll()
+
         if self.Player:
             wx.WakeUpIdle()
+            if self.gui:
+                # Display the time played and the time remaining
+                position = self.Player.GetPos()
+                minutes = position / 60000
+                seconds = (position % 60000) / 1000
+                timeLength = self.Player.GetLength()
+                timeLeft = timeLength - (position / 1000)
+                if timeLeft <= 0:
+                    self.Frame.PlaylistPanel.StatusBar.SetStatusText("[%02d:%02d] %s - %s" % (minutes, seconds, self.Player.Song.Artist, self.Player.Song.Title))
+                else:
+                    minutesRemaining = timeLeft / 60
+                    secondsRemaining = timeLeft % 60
+                    self.Frame.PlaylistPanel.StatusBar.SetStatusText("[%02d:%02d/%02d:%02d] %s - %s" % (minutes, seconds, minutesRemaining, secondsRemaining, self.Player.Song.Artist, self.Player.Song.Title))
 
 # Subclass wx.App so that we can override the normal Wx MainLoop().
 # We only have to do this because since Wx 2.8, the MainLoop()
