@@ -544,6 +544,11 @@ class ConfigWindow (wx.Frame):
         self.AutoPlayCheckBox.SetValue(settings.AutoPlayList)
         dispsizer.Add(self.AutoPlayCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
+        # Enables or disables playing from a search list functionality
+        self.PlayFromSearchListCheckBox = wx.CheckBox(panel, -1, "Enable playing from search list")
+        self.PlayFromSearchListCheckBox.SetValue(settings.PlayFromSearchList)
+        dispsizer.Add(self.PlayFromSearchListCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
+
         # Enables or disables the kamikaze funtionality
         self.KamikazeCheckBox = wx.CheckBox(panel, -1, "Enable Kamikaze play")
         self.KamikazeCheckBox.SetValue(settings.Kamikaze)
@@ -895,6 +900,12 @@ class ConfigWindow (wx.Frame):
             self.parent.playButton.SetLabel('Play')
             self.parent.Unbind(wx.EVT_BUTTON, self.parent.playButton)
             self.parent.Bind(wx.EVT_BUTTON, self.parent.OnPlayClicked, self.parent.playButton)
+
+        # Save the search list playing option
+        if self.PlayFromSearchListCheckBox.IsChecked():
+            settings.PlayFromSearchList = True
+        else:
+            settings.PlayFromSearchList = False
 
         if self.DefaultPosCheckBox:
             if not self.DefaultPosCheckBox.IsChecked():
@@ -1797,12 +1808,17 @@ class SearchResultsPanel (wx.Panel):
             self.ListPanel.InsertColumn (self.TitleCol, "Title", width=100)
             self.ListPanel.InsertColumn (self.ArtistCol, "Artist", width=100)
 
-    # Handle a file selected event (double-click). Plays directly (not add to playlist)
     def OnFileSelected(self, event):
-        # The SongStruct is stored as data - get it and pass to karaoke mgr
-        selected_index = self.ListPanel.GetItemData(event.GetIndex())
-        song = self.SongStructList[selected_index]
-        self.KaraokeMgr.PlayWithoutPlaylist(song)
+        """ Handles a file selected event (double-click). Will play directly (not add to playlist) if PlayFromSearchList is true, else it will add the file to the playlist."""
+        if self.KaraokeMgr.SongDB.Settings.PlayFromSearchList:
+            # The SongStruct is stored as data - get it and pass to karaoke mgr
+            selected_index = self.ListPanel.GetItemData(event.GetIndex())
+            song = self.SongStructList[selected_index]
+            self.KaraokeMgr.PlayWithoutPlaylist(song)
+        else:
+            # Add song to the playlist
+            for song in self.getSelectedSongs():
+                self.KaraokeMgr.AddToPlaylist(song)
 
     # Handle the search button clicked event
     def OnSearchClicked(self, event):
@@ -1920,7 +1936,6 @@ class SearchResultsPanel (wx.Panel):
 
     def getSelectedSongs(self):
         """ Returns a list of the selected songs. """
-
         songs = []
         index = self.ListPanel.GetNextItem(-1, wx.LIST_NEXT_ALL,
                                            wx.LIST_STATE_SELECTED)

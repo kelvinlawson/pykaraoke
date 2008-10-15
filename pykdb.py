@@ -782,6 +782,7 @@ class SettingsStruct:
         self.SplitVertically = True
         self.AutoPlayList = True # Enables or disables the auto play on the play-list
         self.Kamikaze = False # Enables or disables the kamikaze button
+        self.PlayFromSearchList = True # Enables or disables the playing of a song from the search list
 
         self.SampleRate = 44100
         self.NumChannels = 2
