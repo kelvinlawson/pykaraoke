@@ -1730,7 +1730,7 @@ class SearchResultsPanel (wx.Panel):
         self.SearchSizer.Add(self.SearchText, 1, wx.EXPAND, 5)
         self.SearchSizer.Add(self.SearchButton, 0, wx.EXPAND, 5)
 
-        self.ListPanel = wx.ListCtrl(self, -1, style = wx.LC_REPORT | wx.SUNKEN_BORDER)
+        self.ListPanel = wx.ListCtrl(self, -1, style = wx.LC_REPORT | wx.SUNKEN_BORDER | wx.LC_SORT_ASCENDING)
         self.ListPanel.Show(True)
 
         # If we have derived the song infomration display the disc information else use the file name information.
@@ -1738,6 +1738,7 @@ class SearchResultsPanel (wx.Panel):
             self.TitleCol = 0
             self.ArtistCol = 1
             self.DiscCol = 2
+            self.FilenameCol = None
             self.ListPanel.InsertColumn (self.TitleCol, "Title", width=100)
             self.ListPanel.InsertColumn (self.ArtistCol, "Artist", width=100)
             self.ListPanel.InsertColumn (self.DiscCol, "Disc", width=75)
@@ -1745,6 +1746,7 @@ class SearchResultsPanel (wx.Panel):
             self.FilenameCol = 0
             self.TitleCol = 1
             self.ArtistCol = 2
+            self.DiscCol = None
             self.ListPanel.InsertColumn (self.FilenameCol, "Filename", width=100)
             self.ListPanel.InsertColumn (self.TitleCol, "Title", width=100)
             self.ListPanel.InsertColumn (self.ArtistCol, "Artist", width=100)
@@ -1790,8 +1792,8 @@ class SearchResultsPanel (wx.Panel):
         """ This updates the list panel layout when the database settings has been changed."""
         self.ListPanel.ClearAll()
         if self.KaraokeMgr.SongDB.Settings.CdgDeriveSongInformation:
-            if vars().has_key('FilenameCol'):
-                del self.FilenameCol
+            if (self.FilenameCol != None):
+                self.FilenameCol = None
             self.TitleCol = 0
             self.ArtistCol = 1
             self.DiscCol = 2
@@ -1799,8 +1801,8 @@ class SearchResultsPanel (wx.Panel):
             self.ListPanel.InsertColumn (self.ArtistCol, "Artist", width=100)
             self.ListPanel.InsertColumn (self.DiscCol, "Disc", width=75)
         else:
-            if vars().has_key('DiscCol'):
-                del self.DiscCol
+            if (self.DiscCol != None):
+                self.DiscCol = None
             self.FilenameCol = 0
             self.TitleCol = 1
             self.ArtistCol = 2
@@ -1920,7 +1922,7 @@ class SearchResultsPanel (wx.Panel):
         results list; sort the results by the indicated column. """
 
         column = event.GetColumn()
-        if vars().has_key('FilenameCol') and column == self.FilenameCol:
+        if column == self.FilenameCol:
             # Sort by filename
             self.ListPanel.SortItems(lambda a, b: cmp(self.SongStructList[a].DisplayFilename.lower(), self.SongStructList[b].DisplayFilename.lower()))
         elif column == self.TitleCol:
@@ -1929,10 +1931,39 @@ class SearchResultsPanel (wx.Panel):
         elif column == self.ArtistCol:
             # Sort by artist
             self.ListPanel.SortItems(lambda a, b: cmp(self.SongStructList[a].Artist.lower(), self.SongStructList[b].Artist.lower()))
-        elif vars().has_key('DiscCol') and column == self.DiscCol:
+        elif column == self.DiscCol:
             # Sort by disc
             self.ListPanel.SortItems(lambda a, b: cmp(self.SongStructList[a].Disc.lower(), self.SongStructList[b].Disc.lower()))
 
+        # Indicate what column is doing the sorting
+        if (self.FilenameCol != None) and column == self.FilenameCol:
+            filenameItem = wx.ListItem()
+            filenameItem.SetText("* Filename")
+            self.ListPanel.SetColumn(self.FilenameCol, filenameItem)
+        elif (self.FilenameCol != None):
+            filenameItem = wx.ListItem()
+            filenameItem.SetText("Filename")
+            self.ListPanel.SetColumn(self.FilenameCol, filenameItem)
+        elif (self.DiscCol != None) and column == self.DiscCol:
+            discItem = wx.ListItem()
+            discItem.SetText("* Disc")
+            self.ListPanel.SetColumn(self.DiscCol, discItem)
+        elif (self.DiscCol != None):
+            discItem = wx.ListItem()
+            discItem.SetText("Disc")
+            self.ListPanel.SetColumn(self.DiscCol, discItem)
+        titleItem = wx.ListItem()
+        if column == self.TitleCol:
+            titleItem.SetText("* Title")
+        else:
+            titleItem.SetText("Title")
+        artistItem = wx.ListItem()
+        if column == self.ArtistCol:
+            artistItem.SetText("* Artist")
+        else:
+            artistItem.SetText("Artist")
+        self.ListPanel.SetColumn(self.TitleCol, titleItem)
+        self.ListPanel.SetColumn(self.ArtistCol, artistItem)
 
     def getSelectedSongs(self):
         """ Returns a list of the selected songs. """
