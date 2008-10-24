@@ -886,8 +886,10 @@ class ConfigWindow (wx.Frame):
         # Save the auto play option
         if self.AutoPlayCheckBox.IsChecked():
             settings.AutoPlayList = True
+            self.parent.playlistButton.SetLabel('Start')
         else:
             settings.AutoPlayList = False
+            self.parent.playlistButton.SetLabel('Play')
 
         # Save the kamikaze option
         if self.KamikazeCheckBox.IsChecked():
@@ -1792,8 +1794,7 @@ class SearchResultsPanel (wx.Panel):
         """ This updates the list panel layout when the database settings has been changed."""
         self.ListPanel.ClearAll()
         if self.KaraokeMgr.SongDB.Settings.CdgDeriveSongInformation:
-            if (self.FilenameCol != None):
-                self.FilenameCol = None
+            self.FilenameCol = None
             self.TitleCol = 0
             self.ArtistCol = 1
             self.DiscCol = 2
@@ -1801,8 +1802,7 @@ class SearchResultsPanel (wx.Panel):
             self.ListPanel.InsertColumn (self.ArtistCol, "Artist", width=100)
             self.ListPanel.InsertColumn (self.DiscCol, "Disc", width=75)
         else:
-            if (self.DiscCol != None):
-                self.DiscCol = None
+            self.DiscCol = None
             self.FilenameCol = 0
             self.TitleCol = 1
             self.ArtistCol = 2
@@ -2234,7 +2234,7 @@ class Playlist (wx.Panel):
     def play(self):
         """ Start the playlist playing. """
         if self.Playlist.GetItemCount() > 0:
-            self.KaraokeMgr.PlaylistStart(0)
+            self.KaraokeMgr.PlaylistStart(self.Playlist.GetFirstSelected())
 
     def clear(self):
         """ Empty the playlist. """
@@ -2966,7 +2966,7 @@ class PyKaraokeWindow (wx.Frame):
         hsizer.Add(self.ViewChoice, flag = wx.ALIGN_LEFT)
         hsizer.Add((0, 0), proportion = 1)
 
-        # Determine if we should show the kamikaze button or the play button
+        # Determine if we should use the kamikaze button or the play button
         if manager.settings.Kamikaze:
             self.playButton = wx.Button(self.leftPanel, -1, 'Kamikaze')
             self.Bind(wx.EVT_BUTTON, self.OnKamikazeClicked, self.playButton)
@@ -2994,9 +2994,13 @@ class PyKaraokeWindow (wx.Frame):
         hsizer.Add(text, flag = wx.ALIGN_CENTER_VERTICAL | wx.LEFT, border = 5)
         hsizer.Add((0, 0), proportion = 1)
 
-        b = wx.Button(self.rightPanel, -1, 'Start')
-        self.Bind(wx.EVT_BUTTON, self.OnStartPlaylistClicked, b)
-        hsizer.Add(b, flag = wx.EXPAND)
+        # Add the play-list play button and determine correct text
+        if manager.settings.AutoPlayList:
+            self.playlistButton = wx.Button(self.rightPanel, -1, 'Start')
+        else:
+            self.playlistButton = wx.Button(self.rightPanel, -1, 'Play')
+        self.Bind(wx.EVT_BUTTON, self.OnStartPlaylistClicked, self.playlistButton)
+        hsizer.Add(self.playlistButton, flag = wx.EXPAND)
 
         b = wx.Button(self.rightPanel, -1, 'Clear Playlist')
         self.Bind(wx.EVT_BUTTON, self.OnClearPlaylistClicked, b)
@@ -3152,8 +3156,15 @@ class PyKaraokeWindow (wx.Frame):
 
     def OnStartPlaylistClicked(self, event):
         """ "Start" button clicked. """
-        self.UpdateVolume()
-        self.PlaylistPanel.play()
+        if self.playlistButton.GetLabel() == "Play":
+            self.UpdateVolume()
+            self.PlaylistPanel.play()
+        elif self.playlistButton.GetLabel() == "Stop":
+            self.KaraokeMgr.Player.Close()
+            self.playlistButton.SetLabel("Play")
+        else:
+            self.UpdateVolume()
+            self.PlaylistPanel.play()
 
     def OnClearPlaylistClicked(self, event):
         """ "Clear playlist" button clicked. """
@@ -3355,6 +3366,7 @@ class PyKaraokeManager:
                 self.Player = None
         else:
             self.Player = None
+            self.Frame.playlistButton.SetLabel("Play")
         # Delete any temporary files that may have been unzipped
         self.SongDB.CleanupTempFiles()
 
@@ -3387,6 +3399,8 @@ class PyKaraokeManager:
 
         # Start playing
         self.Player.Play()
+        if not self.SongDB.Settings.AutoPlayList:
+            self.Frame.playlistButton.SetLabel("Stop")
 
     def handleIdle(self, event):
         manager.Poll()
