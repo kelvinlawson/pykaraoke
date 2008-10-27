@@ -140,9 +140,6 @@ import cPickle
 from pykmanager import manager
 import random
 
-# Size of the main window
-MAIN_WINDOW_SIZE = (604,480)
-
 class wxAppYielder(pykdb.AppYielder):
     def Yield(self):
         wx.GetApp().Yield()
@@ -501,35 +498,35 @@ class ConfigWindow (wx.Frame):
         panel = wx.Panel(self.notebook)
         dispsizer = wx.BoxSizer(wx.VERTICAL)
 
-        self.FSCheckBox = wx.CheckBox(panel, -1, "Full-screen mode")
+        self.FSCheckBox = wx.CheckBox(panel, -1, "Enable Player Full-Screen Mode")
         self.FSCheckBox.SetValue(settings.FullScreen)
         dispsizer.Add(self.FSCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
         gsizer = wx.FlexGridSizer(0, 4, 2, 0)
-        text = wx.StaticText(panel, -1, "Win size:")
+        text = wx.StaticText(panel, -1, "Player Window Size:")
         gsizer.Add(text, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
-        self.WinSizeX = wx.TextCtrl(panel, -1, value = str(settings.WinSize[0]))
-        gsizer.Add(self.WinSizeX, flag = wx.EXPAND | wx.RIGHT, border = 5)
-        self.WinSizeY = wx.TextCtrl(panel, -1, value = str(settings.WinSize[1]))
-        gsizer.Add(self.WinSizeY, flag = wx.EXPAND | wx.RIGHT, border = 10)
+        self.PlayerSizeX = wx.TextCtrl(panel, -1, value = str(settings.PlayerSize[0]))
+        gsizer.Add(self.PlayerSizeX, flag = wx.EXPAND | wx.RIGHT, border = 5)
+        self.PlayerSizeY = wx.TextCtrl(panel, -1, value = str(settings.PlayerSize[1]))
+        gsizer.Add(self.PlayerSizeY, flag = wx.EXPAND | wx.RIGHT, border = 10)
         gsizer.Add((0, 0))
 
         # Window placement only seems to work reliably on Linux.  Only
         # offer it there.
         self.DefaultPosCheckBox = None
         if env == ENV_LINUX:
-            text = wx.StaticText(panel, -1, "Placement:")
+            text = wx.StaticText(panel, -1, "Player Placement:")
             gsizer.Add(text, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
             pos_x = pos_y = ''
-            if settings.WinPos:
-                pos_x, pos_y = settings.WinPos
-            self.WinPosX = wx.TextCtrl(panel, -1, value = str(pos_x))
-            gsizer.Add(self.WinPosX, flag = wx.EXPAND | wx.RIGHT, border = 5)
-            self.WinPosY = wx.TextCtrl(panel, -1, value = str(pos_y))
-            gsizer.Add(self.WinPosY, flag = wx.EXPAND | wx.RIGHT, border = 10)
+            if settings.PlayerPosition:
+                pos_x, pos_y = settings.PlayerPosition
+            self.PlayerPositionX = wx.TextCtrl(panel, -1, value = str(pos_x))
+            gsizer.Add(self.PlayerPositionX, flag = wx.EXPAND | wx.RIGHT, border = 5)
+            self.PlayerPositionY = wx.TextCtrl(panel, -1, value = str(pos_y))
+            gsizer.Add(self.PlayerPositionY, flag = wx.EXPAND | wx.RIGHT, border = 10)
 
             self.DefaultPosCheckBox = wx.CheckBox(panel, -1, "Default placement")
             self.Bind(wx.EVT_CHECKBOX, self.clickedDefaultPos, self.DefaultPosCheckBox)
-            self.DefaultPosCheckBox.SetValue(settings.WinPos is None)
+            self.DefaultPosCheckBox.SetValue(settings.PlayerPosition is None)
             self.clickedDefaultPos(None)
 
             gsizer.Add(self.DefaultPosCheckBox, flag = wx.EXPAND)
@@ -845,8 +842,8 @@ class ConfigWindow (wx.Frame):
         # Changing this checkbox changes the enabled state of the
         # window position fields.
         checked = self.DefaultPosCheckBox.IsChecked()
-        self.WinPosX.Enable(not checked)
-        self.WinPosY.Enable(not checked)
+        self.PlayerPositionX.Enable(not checked)
+        self.PlayerPositionY.Enable(not checked)
 
     def clickedExternalBrowse(self, event):
         # Pop up a file browser to find the appropriate external program.
@@ -870,7 +867,7 @@ class ConfigWindow (wx.Frame):
         settings = self.KaraokeMgr.SongDB.Settings
 
         settings.FullScreen = self.FSCheckBox.IsChecked()
-        settings.WinPos = None
+        settings.PlayerPosition = None
 
         splitVertically = self.SplitVerticallyCheckBox.IsChecked()
         if splitVertically != settings.SplitVertically:
@@ -912,16 +909,16 @@ class ConfigWindow (wx.Frame):
         if self.DefaultPosCheckBox:
             if not self.DefaultPosCheckBox.IsChecked():
                 try:
-                    pos_x = int(self.WinPosX.GetValue())
-                    pos_y = int(self.WinPosY.GetValue())
-                    settings.WinPos = (pos_x, pos_y)
+                    pos_x = int(self.PlayerPositionX.GetValue())
+                    pos_y = int(self.PlayerPositionY.GetValue())
+                    settings.PlayerPosition = (pos_x, pos_y)
                 except:
                     pass
 
         try:
-            size_x = int(self.WinSizeX.GetValue())
-            size_y = int(self.WinSizeY.GetValue())
-            settings.WinSize = (size_x, size_y)
+            size_x = int(self.PlayerSizeX.GetValue())
+            size_y = int(self.PlayerSizeY.GetValue())
+            settings.PlayerSize = (size_x, size_y)
         except:
             pass
 
@@ -2927,7 +2924,7 @@ class SongListPrintout(wx.Printout):
 # Main window
 class PyKaraokeWindow (wx.Frame):
     def __init__(self,parent,id,title,KaraokeMgr):
-        wx.Frame.__init__(self,parent,wx.ID_ANY, title, size = MAIN_WINDOW_SIZE,
+        wx.Frame.__init__(self,parent,wx.ID_ANY, title, size = manager.settings.WindowSize,
                             style=wx.DEFAULT_FRAME_STYLE|wx.NO_FULL_REPAINT_ON_RESIZE)
         self.KaraokeMgr = KaraokeMgr
 
@@ -3191,8 +3188,14 @@ class PyKaraokeWindow (wx.Frame):
         self.KaraokeMgr.SongDB.SaveDatabase()
         self.KaraokeMgr.SongDB.SaveSettings()
 
-    # Handle closing pykaraoke (need to delete any temporary files on close)
     def OnClose(self, event):
+        """ Handle closing pykaraoke (need to delete any temporary files on close) """
+
+        # Save the current window size
+        self.KaraokeMgr.SongDB.Settings.WindowSize = (self.GetSize().GetWidth(), self.GetSize().GetHeight())
+        self.KaraokeMgr.SongDB.SaveSettings()
+
+        # Hide the window
         self.Show(False)
 
         if self.KaraokeMgr.SongDB.databaseDirty:

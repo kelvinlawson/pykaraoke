@@ -384,8 +384,8 @@ class pykManager:
         if env != ENV_OSX and env != ENV_GP2X:
             pos_x = None
             pos_y = None
-            if settings.WinPos:
-                pos_x, pos_y = settings.WinPos
+            if settings.PlayerPosition:
+                pos_x, pos_y = settings.PlayerPosition
             parser.add_option('-x', '--window-x', dest = 'pos_x', type = 'int', metavar='X',
                               help = 'position song window X pixels from the left edge of the screen', default = pos_x)
             parser.add_option('-y', '--window-y', dest = 'pos_y', type = 'int', metavar='Y',
@@ -393,9 +393,9 @@ class pykManager:
 
         if env != ENV_GP2X:
             parser.add_option('-w', '--width', dest = 'size_x', type = 'int', metavar='X',
-                              help = 'draw song window X pixels wide', default = settings.WinSize[0])
+                              help = 'draw song window X pixels wide', default = settings.PlayerSize[0])
             parser.add_option('-h', '--height', dest = 'size_y', type = 'int', metavar='Y',
-                              help = 'draw song window Y pixels high', default = settings.WinSize[1])
+                              help = 'draw song window Y pixels high', default = settings.PlayerSize[1])
             parser.add_option('-t', '--title', dest = 'title', type = 'string', metavar='TITLE',
                               help = 'set song window title to TITLE', default = None)
             parser.add_option('-f', '--fullscreen', dest = 'fullscreen', action = 'store_true',
@@ -449,10 +449,10 @@ class pykManager:
 
         if hasattr(self.options, 'fullscreen'):
             self.settings.FullScreen = self.options.fullscreen
-            self.settings.WinSize = (self.options.size_x, self.options.size_y)
+            self.settings.PlayerSize = (self.options.size_x, self.options.size_y)
         if hasattr(self.options, 'pos_x') and \
            self.options.pos_x != None and self.options.pos_y != None:
-            self.settings.WinPos = (self.options.pos_x, self.options.pos_y)
+            self.settings.PlayerPosition = (self.options.pos_x, self.options.pos_y)
 
         self.settings.NumChannels = self.options.num_channels
         self.settings.SampleRate = self.options.sample_rate
@@ -538,7 +538,7 @@ class pykManager:
 
             # Do the resize
             self.displaySize = event.size
-            self.settings.WinSize = tuple(self.displaySize)
+            self.settings.PlayerSize = tuple(self.displaySize)
             pygame.display.set_mode(event.size, self.displayFlags, self.displayDepth)
             # Call any player-specific resize
             if player:
@@ -601,11 +601,11 @@ class pykManager:
 
         # Don't set the environment variable on OSX.
         if env != ENV_OSX:
-            if self.settings.WinPos:
-                x, y = self.settings.WinPos
+            if self.settings.PlayerPosition:
+                x, y = self.settings.PlayerPosition
                 os.environ['SDL_VIDEO_WINDOW_POS'] = "%s,%s" % (x, y)
 
-        w, h = self.settings.WinSize
+        w, h = self.settings.PlayerSize
         self.displaySize = (w, h)
 
         self.displayFlags = pygame.RESIZABLE | pygame.HWSURFACE

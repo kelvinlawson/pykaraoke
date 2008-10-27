@@ -776,9 +776,10 @@ class SettingsStruct:
             self.FilesystemCoding = 'iso-8859-1'
         self.ZipfileCoding = 'cp1252'
 
-        self.FullScreen = False
-        self.WinSize = (640, 480)
-        self.WinPos = None
+        self.WindowSize = (640,480) # Size of the window for PyKaraoke
+        self.FullScreen = False # Determines if the karaoke player should be full screen
+        self.PlayerSize = (640, 480) # Size of the karaoke player
+        self.PlayerPosition = None # Initial position of the karaoke player
         self.SplitVertically = True
         self.AutoPlayList = True # Enables or disables the auto play on the play-list
         self.Kamikaze = False # Enables or disables the kamikaze button
@@ -819,7 +820,7 @@ class SettingsStruct:
             self.MpgExternal = '"C:\\Program Files\\Windows Media Player\\wmplayer.exe" "%(file)s" /play /close /fullscreen'
         elif env == ENV_GP2X:
             self.FullScreen = True
-            self.WinSize = (320, 240)
+            self.PlayerSize = (320, 240)
             self.CdgZoom = 'none'
             # Reduce the default sample rate on the GP2x to save time.
             self.MIDISampleRate = 11025
