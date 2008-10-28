@@ -1071,6 +1071,7 @@ class AboutWindow(wx.Frame):
             style = font.GetStyle(),
             weight = wx.FONTWEIGHT_NORMAL)
 
+
         text = wx.StaticText(self.panel, -1, 'PyKaraoke')
         text.SetFont(topFont)
         vsizer.Add(text, flag = wx.ALIGN_CENTER)
@@ -1096,6 +1097,11 @@ class AboutWindow(wx.Frame):
         if ' ' in pyver:
             pyver = pyver[:pyver.index(' ')]
         text = wx.StaticText(self.panel, -1, 'Python version %s\n' % (pyver))
+        text.SetFont(versionFont)
+        vsizer.Add(text, flag = wx.ALIGN_CENTER)
+
+        # Add License information
+        text = wx.StaticText(self.panel, -1, " This library is free software; you can redistribute it and/or modify it under\n the terms of the GNU Lesser General Public License as published by the\n Free Software Foundation; either version 2.1 of the License, or (at your\n option) any later version.\n \n This library is distributed in the hope that it will be useful, but WITHOUT\n ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General\n Public License for more details.\n \n You should have received a copy of the GNU Lesser General Public\n License along with this library; if not, write to the\n Free Software Foundation, Inc.\n 59 Temple Place, Suite 330\n Boston, MA  02111-1307  USA")
         text.SetFont(versionFont)
         vsizer.Add(text, flag = wx.ALIGN_CENTER)
 
@@ -3466,6 +3472,9 @@ class PyKaraokeApp(wx.App):
         return True
 
 def main():
+    # Display license
+    print "This library is free software; you can redistribute it and/or\nmodify it under the terms of the GNU Lesser General Public\nLicense as published by the Free Software Foundation; either\nversion 2.1 of the License, or (at your option) any later version.\n\nThis library is distributed in the hope that it will be useful,\nbut WITHOUT ANY WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\nGNU Lesser General Public License for more details.\n\nYou should have received a copy of the GNU Lesser General Public\nLicense along with this library; if not, write to the Free Software\nFoundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA"
+
     MyApp = PyKaraokeApp(False)
 
     # Normally, MainLoop() should only be called once; it will
