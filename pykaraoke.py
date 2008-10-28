@@ -2585,6 +2585,7 @@ class PrintSongListWindow(wx.Frame):
 
     def clickedPageSetup(self, event):
         data = wx.PageSetupDialogData()
+        data.EnablePrinter(False)
         data.SetPrintData(self.parent.pdata)
 
         data.SetDefaultMinMargins(True)
@@ -2599,17 +2600,6 @@ class PrintSongListWindow(wx.Frame):
             self.parent.margins = (data.GetMarginTopLeft(),
                                    data.GetMarginBottomRight())
         dlg.Destroy()
-
-    # Explicit printer setup seems to be crashy on Linux.  We
-    # don't use it.
-##     def clickedPrintSetup(self, event):
-##         data = wx.PrintDialogData(self.parent.pdata)
-##         #data.EnablePageNumbers(False)
-##         dlg = wx.PrintDialog(self, data)
-##         dlg.ShowModal()
-##         data = dlg.GetPrintDialogData()
-##         self.parent.pdata = wx.PrintData(data.GetPrintData()) # force a copy
-##         dlg.Destroy()
 
     def clickedPreview(self, event):
         title = self.__selectSort()
@@ -3473,7 +3463,7 @@ class PyKaraokeApp(wx.App):
 
 def main():
     # Display license
-    print "This library is free software; you can redistribute it and/or\nmodify it under the terms of the GNU Lesser General Public\nLicense as published by the Free Software Foundation; either\nversion 2.1 of the License, or (at your option) any later version.\n\nThis library is distributed in the hope that it will be useful,\nbut WITHOUT ANY WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\nGNU Lesser General Public License for more details.\n\nYou should have received a copy of the GNU Lesser General Public\nLicense along with this library; if not, write to the Free Software\nFoundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA"
+    print "This library is free software; you can redistribute it and/or\nmodify it under the terms of the GNU Lesser General Public\nLicense as published by the Free Software Foundation; either\nversion 2.1 of the License, or (at your option) any later version.\n\nThis library is distributed in the hope that it will be useful,\nbut WITHOUT ANY WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\nGNU Lesser General Public License for more details.\n\nYou should have received a copy of the GNU Lesser General Public\nLicense along with this library; if not, write to the Free Software\nFoundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n\n"
 
     MyApp = PyKaraokeApp(False)
 
