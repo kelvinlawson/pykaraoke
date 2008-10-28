@@ -1819,8 +1819,17 @@ class SearchResultsPanel (wx.Panel):
             for song in self.getSelectedSongs():
                 self.KaraokeMgr.AddToPlaylist(song)
 
-    # Handle the search button clicked event
     def OnSearchClicked(self, event):
+        """ Handle the search button clicked event """
+        # Check to see if it will load the entire database
+        if self.SearchText.GetValue() == "":
+            return
+        elif self.SearchText.GetValue() == "*":
+            answer = wx.MessageBox("This will load the entire song database into the search results!\nThis may take a long time to complete depending on the number of songs listed in the database.", "Load Database", wx.YES_NO | wx.ICON_QUESTION)
+            self.SearchText.SetValue("")
+            # Abort if the user does not wish to load the entire database.
+            if answer == wx.NO or answer == wx.CANCEL:
+                return
         # Empty the previous results and perform a new search
         self.StatusBar.SetStatusText ("Please Wait... Searching")
         songList = self.KaraokeMgr.SongDB.SearchDatabase(
