@@ -552,8 +552,8 @@ class ConfigWindow (wx.Frame):
         self.KamikazeCheckBox.SetValue(settings.Kamikaze)
         dispsizer.Add(self.KamikazeCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
-        # Enables or disables the performer funtionality
-        self.PerformerCheckBox = wx.CheckBox(panel, -1, "Enable performer enquriey")
+        # Enables or disables the performer functionality
+        self.PerformerCheckBox = wx.CheckBox(panel, -1, "Enable performer enquiry")
         self.PerformerCheckBox.SetValue(settings.UsePerformerName)
         dispsizer.Add(self.PerformerCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
@@ -907,12 +907,13 @@ class ConfigWindow (wx.Frame):
             self.parent.Bind(wx.EVT_BUTTON, self.parent.OnPlayClicked, self.parent.playButton)
 
         # Save the performer option
-        if self.PerformerCheckBox.IsChecked():
-            settings.UsePerformerName = True
-            self.parent.PlaylistPanel.UpdateSecondColumnName("Performer")
-        else:
-            settings.UsePerformerName = False
-            self.parent.PlaylistPanel.UpdateSecondColumnName("Filename")
+        if self.PerformerCheckBox.IsChecked() != settings.UsePerformerName:
+            if self.PerformerCheckBox.IsChecked():
+                settings.UsePerformerName = True
+                self.parent.PlaylistPanel.UpdateSecondColumnName("Performer")
+            else:
+                settings.UsePerformerName = False
+                self.parent.PlaylistPanel.UpdateSecondColumnName("Filename")
 
         # Save the search list playing option
         if self.PlayFromSearchListCheckBox.IsChecked():

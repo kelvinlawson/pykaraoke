@@ -36,7 +36,7 @@ data_files = [
     ('share/pykaraoke/icons',
      ['icons/audio_16.png',
       'icons/folder_close_16.png',
-      'icons/folder_open_16.png', 
+      'icons/folder_open_16.png',
       'icons/microphone.ico',
       'icons/microphone.png',
       'icons/pykaraoke.xpm',
@@ -74,7 +74,7 @@ setupArgs = {
   'py_modules' : [ "pycdgAux", "pycdg", "pykaraoke_mini",
                    "pykaraoke", "pykar", "pykconstants",
                    "pykdb", "pykenv", "pykmanager",
-                   "pykplayer", "pykversion", "pympg" ],
+                   "pykplayer", "pykversion", "pympg", "performer_prompt" ],
   'ext_modules' : [Extension("_pycdgAux", ["_pycdgAux.c"],
                              libraries = ['SDL'])],
   'data_files' : data_files,
@@ -139,9 +139,9 @@ class my_build_ext(build_ext):
                 libdir = os.path.join(self.sdl_location, 'lib')
                 os.environ["PATH"] = '%s;%s' % (libdir, os.environ["PATH"])
 
-        
+
 cmdclass['build_ext'] = my_build_ext
-        
+
 
 # On Windows, we might want to build an installer.  This means
 # subclassing from py2exe to add new behavior.
@@ -167,19 +167,19 @@ if gotPy2exe:
                     # Default path for makensis.  This is where it gets
                     # installed by default.
                     self.makensis = os.path.join(os.environ['ProgramFiles'], 'NSIS\\makensis')
-        
+
         def run(self):
             # Make sure the dist directory doesn't exist already--make
             # the user delete it first if it does.  (This is safer
             # than calling rm_rf() on it, in case the user has
             # specified '/' or some equally foolish directory as the
             # dist directory.)
-            
+
             if os.path.exists(self.dist_dir):
                 print "Error, the directory %s already exists." % (self.dist_dir)
                 print "Please remove it before starting this script."
                 sys.exit(1)
-            
+
             # Build the .exe files, etc.
             py2exe.build_exe.py2exe.run(self)
 
@@ -207,7 +207,7 @@ if gotPy2exe:
                             # Try to make it writable first, then remove it.
                             os.chmod(pathname, 0666)
                             os.remove(pathname)
-                            
+
                     for name in dirs:
                         pathname = os.path.join(root, name)
                         os.rmdir(pathname)
