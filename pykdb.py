@@ -776,13 +776,14 @@ class SettingsStruct:
             self.FilesystemCoding = 'iso-8859-1'
         self.ZipfileCoding = 'cp1252'
 
-        self.WindowSize = (640,480) # Size of the window for PyKaraoke
+        self.WindowSize = (640, 480) # Size of the window for PyKaraoke
         self.FullScreen = False # Determines if the karaoke player should be full screen
         self.PlayerSize = (640, 480) # Size of the karaoke player
         self.PlayerPosition = None # Initial position of the karaoke player
         self.SplitVertically = True
         self.AutoPlayList = True # Enables or disables the auto play on the play-list
         self.Kamikaze = False # Enables or disables the kamikaze button
+        self.UsePerformerName = False # Enables or disables the prompting for a performers name.
         self.PlayFromSearchList = True # Enables or disables the playing of a song from the search list
 
         self.SampleRate = 44100

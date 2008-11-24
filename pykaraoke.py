@@ -139,6 +139,7 @@ import codecs
 import cPickle
 from pykmanager import manager
 import random
+import performer_prompt as PerformerPrompt
 
 class wxAppYielder(pykdb.AppYielder):
     def Yield(self):
@@ -547,9 +548,14 @@ class ConfigWindow (wx.Frame):
         dispsizer.Add(self.PlayFromSearchListCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
         # Enables or disables the kamikaze funtionality
-        self.KamikazeCheckBox = wx.CheckBox(panel, -1, "Enable Kamikaze play")
+        self.KamikazeCheckBox = wx.CheckBox(panel, -1, "Enable kamikaze play")
         self.KamikazeCheckBox.SetValue(settings.Kamikaze)
         dispsizer.Add(self.KamikazeCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
+
+        # Enables or disables the performer funtionality
+        self.PerformerCheckBox = wx.CheckBox(panel, -1, "Enable performer enquriey")
+        self.PerformerCheckBox.SetValue(settings.UsePerformerName)
+        dispsizer.Add(self.PerformerCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
         panel.SetSizer(dispsizer)
         self.notebook.AddPage(panel, "Display")
@@ -900,6 +906,14 @@ class ConfigWindow (wx.Frame):
             self.parent.Unbind(wx.EVT_BUTTON, self.parent.playButton)
             self.parent.Bind(wx.EVT_BUTTON, self.parent.OnPlayClicked, self.parent.playButton)
 
+        # Save the performer option
+        if self.PerformerCheckBox.IsChecked():
+            settings.UsePerformerName = True
+            self.parent.PlaylistPanel.UpdateSecondColumnName("Performer")
+        else:
+            settings.UsePerformerName = False
+            self.parent.PlaylistPanel.UpdateSecondColumnName("Filename")
+
         # Save the search list playing option
         if self.PlayFromSearchListCheckBox.IsChecked():
             settings.PlayFromSearchList = True
@@ -1101,7 +1115,7 @@ class AboutWindow(wx.Frame):
         vsizer.Add(text, flag = wx.ALIGN_CENTER)
 
         # Add License information
-        text = wx.StaticText(self.panel, -1, " This library is free software; you can redistribute it and/or modify it under\n the terms of the GNU Lesser General Public License as published by the\n Free Software Foundation; either version 2.1 of the License, or (at your\n option) any later version.\n \n This library is distributed in the hope that it will be useful, but WITHOUT\n ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General\n Public License for more details.\n \n You should have received a copy of the GNU Lesser General Public\n License along with this library; if not, write to the\n Free Software Foundation, Inc.\n 59 Temple Place, Suite 330\n Boston, MA  02111-1307  USA")
+        text = wx.StaticText(self.panel, -1, " PyKaraoke is free software; you can redistribute it and/or modify it under\n the terms of the GNU Lesser General Public License as published by the\n Free Software Foundation; either version 2.1 of the License, or (at your\n option) any later version.\n \n PyKaraoke is distributed in the hope that it will be useful, but WITHOUT\n ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General\n Public License for more details.\n \n You should have received a copy of the GNU Lesser General Public\n License along with this library; if not, write to the\n Free Software Foundation, Inc.\n 59 Temple Place, Suite 330\n Boston, MA  02111-1307  USA")
         text.SetFont(versionFont)
         vsizer.Add(text, flag = wx.ALIGN_CENTER)
 
@@ -2168,9 +2182,13 @@ class Playlist (wx.Panel):
         self.PlaylistId = wx.NewId()
         self.Playlist = wx.ListCtrl(self, self.PlaylistId, style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.SUNKEN_BORDER)
         self.TitleCol = 0
-        self.FilenameCol = 1
-        self.Playlist.InsertColumn (self.TitleCol, "Title", width=100)
-        self.Playlist.InsertColumn (self.FilenameCol, "Filename")
+        self.SecondColumn = 1
+        self.Playlist.InsertColumn(self.TitleCol, "Title")
+        # Determine if we are using the performer's name
+        if self.KaraokeMgr.SongDB.Settings.UsePerformerName:
+            self.Playlist.InsertColumn(self.SecondColumn, "Performer")
+        else:
+            self.Playlist.InsertColumn(self.SecondColumn, "Filename")
         self.Playlist.Show(True)
 
         # Create the status bar
@@ -2192,9 +2210,10 @@ class Playlist (wx.Panel):
 
         # Resize column width to the same as list width (or max title width, which larger)
         wx.EVT_SIZE(self.Playlist, self.onResize)
+
         # Store the width (in pixels not chars) of the longest title
-        self.MaxFilenameWidth = 0
         self.MaxTitleWidth = 0
+        self.MaxSecondColumnWidth = 0
 
         # Create IDs for popup menu
         self.menuPlayId = wx.NewId()
@@ -2209,6 +2228,16 @@ class Playlist (wx.Panel):
         self.Bind(wx.EVT_LIST_BEGIN_DRAG, self._startDrag)
         dt = ListDrop(self._insert)
         self.Playlist.SetDropTarget(dt)
+
+    def UpdateSecondColumnName(self, name):
+        """ Updates the second column to display the name of the reflected contents. """
+        columnNameItem = wx.ListItem()
+        columnNameItem.SetText(name)
+        self.Playlist.SetColumn(self.SecondColumn, columnNameItem)
+        songList = self.PlaylistSongStructList
+        self.clear()
+        for song in songList:
+            self.AddItem(song)
 
     # Handle item selected (double-click). Starts the selected track.
     def OnFileSelected(self, event):
@@ -2252,7 +2281,7 @@ class Playlist (wx.Panel):
         """ Empty the playlist. """
         self.Playlist.DeleteAllItems()
         self.PlaylistSongStructList = []
-        self.MaxFilenameWidth = 0
+        self.MaxSecondColumnWidth = 0 # Can be the file name or performer name.
         self.MaxTitleWidth = 0
 
     def onResize(self, event):
@@ -2274,50 +2303,42 @@ class Playlist (wx.Panel):
 
         # Set up initial sizes when list is built, not when window is resized
         if (resize_event == False):
-
             # For some reason the last column becomes shorter than expected,
             # so ask for a bit more from filename column than we need.
-            self.MaxFilenameWidth = self.MaxFilenameWidth + self.GetCharWidth()
+            self.MaxSecondColumnWidth = self.MaxSecondColumnWidth + self.GetCharWidth()
 
-            # If we haven't filled the space, extend the titlename (bias towards this)
-            totalWidth = (self.MaxTitleWidth + self.MaxFilenameWidth)
+            # If we haven't filled the space, extend the title name (bias towards this)
+            totalWidth = (self.MaxTitleWidth + self.MaxSecondColumnWidth)
             if (totalWidth <= listWidth):
                 padding = listWidth - totalWidth
                 titleWidth = self.MaxTitleWidth + padding
-                filenameWidth = self.MaxFilenameWidth
+                secondColumnWidth = self.MaxSecondColumnWidth
 
             # If we have too much to fill the list space, then resize so that all columns
             # can be seen on screen.
             else:
-                titleWidth = max ([(listWidth / 2), \
-                                (listWidth - self.MaxFilenameWidth - self.MaxFilenameWidth)])
+                # Set the maximum title size to be 3/4 of the list width
+                titleWidth = max ([(listWidth / 4) * 3, (listWidth - self.MaxSecondColumnWidth)])
+                # Only take as much space as is needed
                 titleWidth = min ([titleWidth, self.MaxTitleWidth])
-                filenameWidth =  max ([(listWidth / 4), \
-                                    (listWidth - self.MaxTitleWidth)])
-                filenameWidth = min ([filenameWidth, self.MaxFilenameWidth])
+
+                # Set the second column maximum size to be remaining list width
+                secondColumnWidth = max ([(listWidth / 4), (listWidth - titleWidth)])
+                secondColumnWidth = min ([secondColumnWidth, self.MaxSecondColumnWidth])
             self.Playlist.SetColumnWidth(self.TitleCol, titleWidth)
-            self.Playlist.SetColumnWidth(self.FilenameCol, filenameWidth)
+            self.Playlist.SetColumnWidth(self.SecondColumn, secondColumnWidth)
 
         # For resize events (user changed the window size) keep their
         # column width settings, but resize the Filename column to match
         # whatever space is left.
         else:
             titleWidth = self.Playlist.GetColumnWidth(self.TitleCol)
-            filenameWidth = listWidth - titleWidth
-            self.Playlist.SetColumnWidth(self.FilenameCol, filenameWidth)
+            self.Playlist.SetColumnWidth(self.TitleCol, titleWidth)
+            self.Playlist.SetColumnWidth(self.SecondColumn, listWidth - titleWidth)
 
     # Add item to specific index in playlist
     def AddItemAtIndex ( self, index, song ):
-        # Add the two columns to the table.
-        item = wx.ListItem()
-        item.SetId(index)
-        item.SetColumn(self.FilenameCol)
-        try:
-            item.SetText(song.DisplayFilename)
-        except UnicodeError:
-            item.SetText(song.DisplayFilename.encode('ascii', 'replace'))
-        item.SetData(index)
-        self.Playlist.InsertItem(item)
+        # Add the title column
         item = wx.ListItem()
         item.SetId(index)
         item.SetColumn(self.TitleCol)
@@ -2326,14 +2347,33 @@ class Playlist (wx.Panel):
         except UnicodeError:
             item.SetText(song.Title.encode('ascii', 'replace'))
         item.SetData(index)
+        self.Playlist.InsertItem(item)
+
+        # Add the second column information
+        item = wx.ListItem()
+        item.SetId(index)
+        item.SetColumn(self.SecondColumn)
+        # Add the performer information or the file name
+        if self.KaraokeMgr.SongDB.Settings.UsePerformerName:
+            dlg = PerformerPrompt.PerformerPrompt(self)
+            if dlg.ShowModal():
+                item.SetText(dlg.getPerformer())
+            else:
+                item.SetText("")
+        else:
+            try:
+                item.SetText(song.DisplayFilename)
+            except UnicodeError:
+                item.SetText(song.DisplayFilename.encode('ascii', 'replace'))
+        item.SetData(index)
         self.Playlist.SetItem(item)
 
         self.PlaylistSongStructList.insert(index, song)
 
         # Update the max title width for column sizing, in case this is the largest one yet
         resize_needed = False
-        if ((len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxFilenameWidth):
-            self.MaxFilenameWidth = len(song.DisplayFilename) * self.GetCharWidth()
+        if ((len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxSecondColumnWidth):
+            self.MaxSecondColumnWidth = len(song.DisplayFilename) * self.GetCharWidth()
             resize_needed = True
         if ((len(song.Title) * self.GetCharWidth()) > self.MaxTitleWidth):
             self.MaxTitleWidth = len(song.Title) * self.GetCharWidth()
@@ -2350,7 +2390,7 @@ class Playlist (wx.Panel):
     def DelItem( self, item_index ):
         # Update the max title width for column sizing, in case this was the largest one
         resize_needed = False
-        if ((len(self.PlaylistSongStructList[item_index].DisplayFilename) * self.GetCharWidth()) == self.MaxFilenameWidth):
+        if ((len(self.PlaylistSongStructList[item_index].DisplayFilename) * self.GetCharWidth()) == self.MaxSecondColumnWidth):
             resize_needed = True
         if ((len(self.PlaylistSongStructList[item_index].Title) * self.GetCharWidth()) == self.MaxTitleWidth):
             resize_needed = True
@@ -2360,11 +2400,11 @@ class Playlist (wx.Panel):
         self.PlaylistSongStructList.pop(item_index)
         # Find the next largest title if necessary
         if resize_needed:
-            self.MaxFilenameWidth = 0
+            self.MaxSecondColumnWidth = 0
             self.MaxTitleWidth = 0
             for song in self.PlaylistSongStructList:
-                if ((len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxFilenameWidth):
-                    self.MaxFilenameWidth = len(song.DisplayFilename) * self.GetCharWidth()
+                if ((len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxSecondColumnWidth):
+                    self.MaxSecondColumnWidth = len(song.DisplayFilename) * self.GetCharWidth()
                 if ((len(song.Title) * self.GetCharWidth()) > self.MaxTitleWidth):
                     self.MaxTitleWidth = len(song.Title) * self.GetCharWidth()
             self.doResize()
@@ -3463,7 +3503,7 @@ class PyKaraokeApp(wx.App):
 
 def main():
     # Display license
-    print "This library is free software; you can redistribute it and/or\nmodify it under the terms of the GNU Lesser General Public\nLicense as published by the Free Software Foundation; either\nversion 2.1 of the License, or (at your option) any later version.\n\nThis library is distributed in the hope that it will be useful,\nbut WITHOUT ANY WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\nGNU Lesser General Public License for more details.\n\nYou should have received a copy of the GNU Lesser General Public\nLicense along with this library; if not, write to the Free Software\nFoundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n\n"
+    print "PyKaraoke is free software; you can redistribute it and/or\nmodify it under the terms of the GNU Lesser General Public\nLicense as published by the Free Software Foundation; either\nversion 2.1 of the License, or (at your option) any later version.\n\nPyKaraoke is distributed in the hope that it will be useful,\nbut WITHOUT ANY WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\nGNU Lesser General Public License for more details.\n\nYou should have received a copy of the GNU Lesser General Public\nLicense along with this library; if not, write to the Free Software\nFoundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n"
 
     MyApp = PyKaraokeApp(False)
 
