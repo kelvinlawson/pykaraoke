@@ -1351,7 +1351,7 @@ class SongDB:
             # Every so often, update the progress bar.
             basename = os.path.split(full_path)[1]
             self.BusyDlg.SetProgress(
-                "Scanning %s" % (basename),
+                "Scanning %s" % unicode(basename, errors='replace'),
                 self.__computeProgressValue(progress))
             yielder.Yield()
             self.lastBusyUpdate = now
