@@ -782,6 +782,7 @@ class SettingsStruct:
         self.PlayerPosition = None # Initial position of the karaoke player
         self.SplitVertically = True
         self.AutoPlayList = True # Enables or disables the auto play on the play-list
+        self.ClearFromPlayList = True # Enables or disables clearing the playlist with a right click on the play list
         self.Kamikaze = False # Enables or disables the kamikaze button
         self.UsePerformerName = False # Enables or disables the prompting for a performers name.
         self.PlayFromSearchList = True # Enables or disables the playing of a song from the search list
@@ -1406,7 +1407,7 @@ class SongDB:
                                         #print ("Adding song %s in ZIP file %s"%(filename, full_path))
                                         self.addSong(SongStruct(full_path, self.Settings, ZipStoredName = filename))
                                     else:
-                                        print ("ZIP member %s compressed with unsupported type (%d)"%(filename,info.compress_type))
+                                        print ("ZIP member %s compressed with unsupported type (%d)"%(full_path, info.compress_type))
             except:
                 print "Error looking inside zip " + full_path
 
