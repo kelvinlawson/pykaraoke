@@ -542,6 +542,11 @@ class ConfigWindow (wx.Frame):
         self.AutoPlayCheckBox.SetValue(settings.AutoPlayList)
         dispsizer.Add(self.AutoPlayCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
+        # Enables or disables the clearing of the play-list from teh list
+        self.ClearFromPlayListCheckBox = wx.CheckBox(panel, -1, "Enable playlist clearing from list")
+        self.ClearFromPlayListCheckBox.SetValue(settings.ClearFromPlayList)
+        dispsizer.Add(self.ClearFromPlayListCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
+
         # Enables or disables playing from a search list functionality
         self.PlayFromSearchListCheckBox = wx.CheckBox(panel, -1, "Enable playing from search list")
         self.PlayFromSearchListCheckBox.SetValue(settings.PlayFromSearchList)
@@ -893,6 +898,12 @@ class ConfigWindow (wx.Frame):
         else:
             settings.AutoPlayList = False
             self.parent.playlistButton.SetLabel('Play')
+
+        # Save the playlist clear option
+        if self.ClearFromPlayListCheckBox.IsChecked():
+            settings.ClearFromPlayList = True
+        else:
+            settings.ClearFromPlayList = False
 
         # Save the kamikaze option
         if self.KamikazeCheckBox.IsChecked():
@@ -2255,8 +2266,9 @@ class Playlist (wx.Panel):
             wx.EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
             menu.Append( self.menuDeleteId, "Delete from playlist" )
             wx.EVT_MENU( menu, self.menuDeleteId, self.OnMenuSelection )
-            menu.Append( self.menuClearListId, "Clear playlist" )
-            wx.EVT_MENU( menu, self.menuClearListId, self.OnMenuSelection )
+            if self.KaraokeMgr.SongDB.Settings.ClearFromPlayList:
+                menu.Append( self.menuClearListId, "Clear playlist" )
+                wx.EVT_MENU( menu, self.menuClearListId, self.OnMenuSelection )
             self.Playlist.SetItemState(
                     self.RightClickedItemIndex,
                     wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED,
@@ -2270,7 +2282,7 @@ class Playlist (wx.Panel):
         elif event.GetId() == self.menuDeleteId:
             for index in self.GetSelections():
                 self.DelItem(index)
-        elif event.GetId() == self.menuClearListId:
+        elif self.KaraokeMgr.SongDB.Settings.ClearFromPlayList and (event.GetId() == self.menuClearListId):
             self.clear()
 
     def play(self):
