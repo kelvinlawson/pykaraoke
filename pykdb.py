@@ -741,6 +741,7 @@ class SettingsStruct:
     # Some audio cards seem to support only a limited set of sample
     # rates.  Here are the suggested offerings.
     SampleRates = [
+        48000,
         44100,
         22050,
         11025,
