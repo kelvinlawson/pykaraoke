@@ -1,3 +1,5 @@
 .cvsignore
 *.pyc
+Manifest
 build
+dist
