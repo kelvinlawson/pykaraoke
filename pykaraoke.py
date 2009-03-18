@@ -1383,7 +1383,7 @@ class EditTitlesWindow(wx.Frame):
             try:
                 item.SetText(song.Title)
             except UnicodeError:
-                item.SetText(song.Title.encode('ascii', 'replace'))
+                item.SetText(song.Title.encode('UTF-8', 'replace'))
             item.SetData(si)
             searchPanel.ListPanel.SetItem(item)
 
@@ -1391,7 +1391,7 @@ class EditTitlesWindow(wx.Frame):
             try:
                 item.SetText(song.Artist)
             except UnicodeError:
-                item.SetText(song.Artist.encode('ascii', 'replace'))
+                item.SetText(song.Artist.encode('UTF-8', 'replace'))
             item.SetData(si)
             searchPanel.ListPanel.SetItem(item)
 
@@ -1537,7 +1537,7 @@ class FileTree (wx.Panel):
             try:
                 node = self.FileTree.AppendItem(root_node, item, image=self.FolderClosedIconIndex)
             except UnicodeError:
-                node = self.FileTree.AppendItem(root_node, item.encode('ascii', 'replace'), image=self.FolderClosedIconIndex)
+                node = self.FileTree.AppendItem(root_node, item.encode('UTF-8', 'replace'), image=self.FolderClosedIconIndex)
 
             self.FileTree.SetItemHasChildren(node, True)
         for item in file_list:
@@ -1546,7 +1546,7 @@ class FileTree (wx.Panel):
             try:
                 node = self.FileTree.AppendItem(root_node, item, image=self.FileIconIndex)
             except UnicodeError:
-                node = self.FileTree.AppendItem(root_node, item.encode('ascii', 'replace'), image=self.FileIconIndex)
+                node = self.FileTree.AppendItem(root_node, item.encode('UTF-8', 'replace'), image=self.FileIconIndex)
             self.FileTree.SetItemBold(node)
 
     def getSelectedSongs(self):
@@ -1893,7 +1893,7 @@ class SearchResultsPanel (wx.Panel):
                     try:
                         item.SetText(song.DisplayFilename)
                     except UnicodeError:
-                        item.SetText(song.DisplayFilename.encode('ascii', 'replace'))
+                        item.SetText(song.DisplayFilename.encode('UTF-8', 'replace'))
                     item.SetData(index)
                     self.ListPanel.InsertItem(item)
                 item = wx.ListItem()
@@ -1902,7 +1902,7 @@ class SearchResultsPanel (wx.Panel):
                 try:
                     item.SetText(song.Title)
                 except UnicodeError:
-                    item.SetText(song.Title.encode('ascii', 'replace'))
+                    item.SetText(song.Title.encode('UTF-8', 'replace'))
                 item.SetData(index)
                 if not self.KaraokeMgr.SongDB.Settings.CdgDeriveSongInformation: # Need to add the item if we have derived the song information.
                     self.ListPanel.SetItem(item)
@@ -1915,7 +1915,7 @@ class SearchResultsPanel (wx.Panel):
                 try:
                     item.SetText(song.Artist)
                 except UnicodeError:
-                    item.SetText(song.Artist.encode('ascii', 'replace'))
+                    item.SetText(song.Artist.encode('UTF-8', 'replace'))
                 item.SetData(index)
                 self.ListPanel.SetItem(item)
 
@@ -1926,7 +1926,7 @@ class SearchResultsPanel (wx.Panel):
                     try:
                         item.SetText(song.Disc)
                     except UnicodeError:
-                        item.SetText(song.Disc.encode('ascii', 'replace'))
+                        item.SetText(song.Disc.encode('UTF-8', 'replace'))
                     item.SetData(index)
                     self.ListPanel.SetItem(item)
 
@@ -2358,7 +2358,7 @@ class Playlist (wx.Panel):
         try:
             item.SetText(song.Title)
         except UnicodeError:
-            item.SetText(song.Title.encode('ascii', 'replace'))
+            item.SetText(song.Title.encode('UTF-8', 'replace'))
         item.SetData(index)
         self.Playlist.InsertItem(item)
 
@@ -2377,7 +2377,7 @@ class Playlist (wx.Panel):
             try:
                 item.SetText(song.DisplayFilename)
             except UnicodeError:
-                item.SetText(song.DisplayFilename.encode('ascii', 'replace'))
+                item.SetText(song.DisplayFilename.encode('UTF-8', 'replace'))
         item.SetData(index)
         self.Playlist.SetItem(item)
 

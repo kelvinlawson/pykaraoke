@@ -166,7 +166,7 @@ class pykManager:
             try:
                 pygame.display.set_caption(player.WindowTitle)
             except UnicodeError:
-                pygame.display.set_caption(player.WindowTitle.encode('ascii', 'replace'))
+                pygame.display.set_caption(player.WindowTitle.encode('UTF-8', 'replace'))
 
 
     def OpenDisplay(self, displaySize = None, flags = None, depth = None):
@@ -204,7 +204,7 @@ class pykManager:
                 try:
                     pygame.display.set_caption(self.player.WindowTitle)
                 except UnicodeError:
-                    pygame.display.set_caption(self.player.WindowTitle.encode('ascii', 'replace'))
+                    pygame.display.set_caption(self.player.WindowTitle.encode('UTF-8', 'replace'))
 
             if self.display == None or \
                (self.displaySize, self.displayFlags, self.displayDepth) != (displaySize, flags, depth):
