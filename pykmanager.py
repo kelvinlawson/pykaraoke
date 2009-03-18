@@ -121,7 +121,7 @@ class pykManager:
         if vars().has_key('music'):
             return pygame.mixer.music.get_volume()
         else:
-            return 0.75 # 75% is the industry recommended value
+            return 0.50 # 75% is the industry recommended maximum value
 
     def SetVolume(self, volume):
         """ Sets the volume of the music playback. """
