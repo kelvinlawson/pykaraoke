@@ -1139,17 +1139,20 @@ class SongDB:
 
         # Save the settings file
         settings_filepath = os.path.join (self.SaveDir, "settings.dat")
-        file = open (settings_filepath, "w")
-
-        # We don't use pickle to dump out the settings anymore.
-        # Instead, we write them in this human-readable and
-        # human-editable format.
-        keys = self.Settings.__dict__.keys()
-        keys.sort()
-        for k in keys:
-            if not k.startswith('__'):
-                value = getattr(self.Settings, k)
-                print >> file, "%s = %s" % (k, repr(value))
+        try:
+            file = open (settings_filepath, "w")
+        except IOError, message:
+            print message
+        else:
+            # We don't use pickle to dump out the settings anymore.
+            # Instead, we write them in this human-readable and
+            # human-editable format.
+            keys = self.Settings.__dict__.keys()
+            keys.sort()
+            for k in keys:
+                if not k.startswith('__'):
+                    value = getattr(self.Settings, k)
+                    print >> file, "%s = %s" % (k, repr(value))
 
     def SaveDatabase(self):
         """ Save the database to the appropriate directory. """
@@ -1157,32 +1160,34 @@ class SongDB:
         if not self.databaseDirty:
             return
 
-        # Create the temp directory if it doesn't exist already
-        if not os.path.exists (self.SaveDir):
-            os.mkdir(self.SaveDir)
+        try:
+            # Create the temp directory if it doesn't exist already
+            if not os.path.exists (self.SaveDir):
+                os.mkdir(self.SaveDir)
 
-        # Write out any titles files that have changed.
-        for titles in self.TitlesFiles:
-            if titles.dirty:
-                titles.rewrite(self)
-                titles.dirty = False
+            # Write out any titles files that have changed.
+            for titles in self.TitlesFiles:
+                if titles.dirty:
+                    titles.rewrite(self)
+                    titles.dirty = False
 
-        # Check for newly unique files
-        self.makeUniqueSongs()
+            # Check for newly unique files
+            self.makeUniqueSongs()
 
-        # Save the database file
-        db_filepath = os.path.join (self.SaveDir, "songdb.dat")
-        file = open (db_filepath, "wb")
+            # Save the database file
+            db_filepath = os.path.join (self.SaveDir, "songdb.dat")
+            file = open (db_filepath, "wb")
 
-        loaddb = DBStruct()
-        loaddb.FullSongList = self.FullSongList
-        loaddb.UniqueSongList = self.UniqueSongList
-        loaddb.TitlesFiles = self.TitlesFiles
-        loaddb.GotTitles = self.GotTitles
-        loaddb.GotArtists = self.GotArtists
+            loaddb = DBStruct()
+            loaddb.FullSongList = self.FullSongList
+            loaddb.UniqueSongList = self.UniqueSongList
+            loaddb.TitlesFiles = self.TitlesFiles
+            loaddb.GotTitles = self.GotTitles
+            loaddb.GotArtists = self.GotArtists
 
-        cPickle.dump (loaddb, file, cPickle.HIGHEST_PROTOCOL)
-
+            cPickle.dump (loaddb, file, cPickle.HIGHEST_PROTOCOL)
+        except IOError, message:
+            print message
         self.databaseDirty = False
 
     def GetSong(self, index):

@@ -17,6 +17,7 @@
       ASCII would lock up the system.
     - r1.38 pykaraoke.py: play-list window did not take advantage of the full
       window size.
+    - r1.26 pykdb.py: displays error message if unable to write to a file.
   * Enhancements:
     - r1.30 pykaraoke.py: Time progress indicator in the status message of the
       song being played.
