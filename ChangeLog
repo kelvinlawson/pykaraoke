@@ -43,6 +43,8 @@
     - r1.24 pykdb.py: Gives path location when unable to open a zip file.
     - r1.38 pykaraoke.py: Adds programme name to license display.
     - r1.25 pykaraoke.py: Adds 48 kHz to available sample rates.
+    - r1.42 pykaraoke.py, r1.26 pykdb.py: Adds option to disable double-click
+      playing from the play-list.
 
 v0.6:
 

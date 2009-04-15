@@ -533,22 +533,27 @@ class ConfigWindow (wx.Frame):
             gsizer.Add(self.DefaultPosCheckBox, flag = wx.EXPAND)
         dispsizer.Add(gsizer, flag = wx.EXPAND | wx.ALL, border = 10)
 
-        self.SplitVerticallyCheckBox = wx.CheckBox(panel, -1, "Split playlist window vertically")
+        self.SplitVerticallyCheckBox = wx.CheckBox(panel, -1, "Split play-list window vertically")
         self.SplitVerticallyCheckBox.SetValue(settings.SplitVertically)
         dispsizer.Add(self.SplitVerticallyCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
         # Enables or disables the auto play-list functionality
-        self.AutoPlayCheckBox = wx.CheckBox(panel, -1, "Enable playlist autoplay")
+        self.AutoPlayCheckBox = wx.CheckBox(panel, -1, "Enable play-list continuous play")
         self.AutoPlayCheckBox.SetValue(settings.AutoPlayList)
         dispsizer.Add(self.AutoPlayCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
+        # Enables or disables the double-click playing from the play-list
+        self.DoubleClickPlayCheckBox = wx.CheckBox(panel, -1, "Enable playing from play-list")
+        self.DoubleClickPlayCheckBox.SetValue(settings.DoubleClickPlayList)
+        dispsizer.Add(self.DoubleClickPlayCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
+
         # Enables or disables the clearing of the play-list from teh list
-        self.ClearFromPlayListCheckBox = wx.CheckBox(panel, -1, "Enable playlist clearing from list")
+        self.ClearFromPlayListCheckBox = wx.CheckBox(panel, -1, "Enable playlist clearing from play-list")
         self.ClearFromPlayListCheckBox.SetValue(settings.ClearFromPlayList)
         dispsizer.Add(self.ClearFromPlayListCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
         # Enables or disables playing from a search list functionality
-        self.PlayFromSearchListCheckBox = wx.CheckBox(panel, -1, "Enable playing from search list")
+        self.PlayFromSearchListCheckBox = wx.CheckBox(panel, -1, "Enable playing from search-list")
         self.PlayFromSearchListCheckBox.SetValue(settings.PlayFromSearchList)
         dispsizer.Add(self.PlayFromSearchListCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
@@ -898,6 +903,12 @@ class ConfigWindow (wx.Frame):
         else:
             settings.AutoPlayList = False
             self.parent.playlistButton.SetLabel('Play')
+
+        # Save the double-click play option
+        if self.DoubleClickPlayCheckBox.IsChecked():
+            settings.DoubleClickPlayList = True
+        else:
+            settings.DoubleClickPlayList = False
 
         # Save the playlist clear option
         if self.ClearFromPlayListCheckBox.IsChecked():
@@ -2253,8 +2264,9 @@ class Playlist (wx.Panel):
 
     # Handle item selected (double-click). Starts the selected track.
     def OnFileSelected(self, event):
-        selected_index = event.GetIndex()
-        self.KaraokeMgr.PlaylistStart(selected_index)
+        if self.KaraokeMgr.SongDB.Settings.DoubleClickPlayList:
+            selected_index = event.GetIndex()
+            self.KaraokeMgr.PlaylistStart(selected_index)
 
     # Handle right-click in the playlist (show popup menu).
     def OnRightClick(self, event):
@@ -3211,15 +3223,12 @@ class PyKaraokeWindow (wx.Frame):
 
     def OnStartPlaylistClicked(self, event):
         """ "Start" button clicked. """
-        if self.playlistButton.GetLabel() == "Play":
+        if (self.playlistButton.GetLabel() == "Play") or (self.playlistButton.GetLabel() == "Start"):
             self.UpdateVolume()
             self.PlaylistPanel.play()
         elif self.playlistButton.GetLabel() == "Stop":
             self.KaraokeMgr.Player.Close()
             self.playlistButton.SetLabel("Play")
-        else:
-            self.UpdateVolume()
-            self.PlaylistPanel.play()
 
     def OnClearPlaylistClicked(self, event):
         """ "Clear playlist" button clicked. """

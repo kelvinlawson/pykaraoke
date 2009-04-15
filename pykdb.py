@@ -360,7 +360,7 @@ class SongStruct:
 
         if not os.path.exists(self.Filepath):
             error = 'No such file: %s' % (self.Filepath)
-            raise error
+            raise ValueError(error)
 
         dir = os.path.dirname(self.Filepath)
         if dir == "":
@@ -783,6 +783,7 @@ class SettingsStruct:
         self.PlayerPosition = None # Initial position of the karaoke player
         self.SplitVertically = True
         self.AutoPlayList = True # Enables or disables the auto play on the play-list
+        self.DoubleClickPlayList = True # Enables or disables the double click for playing from the play-list
         self.ClearFromPlayList = True # Enables or disables clearing the playlist with a right click on the play list
         self.Kamikaze = False # Enables or disables the kamikaze button
         self.UsePerformerName = False # Enables or disables the prompting for a performers name.
