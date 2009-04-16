@@ -1,7 +1,6 @@
 #******************************************************************************
 #**** This is a part of PyKaraoke.                                         ****
 #****                                                                      ****
-#**** Copyright (C) 2007  Kelvin Lawson (kelvinl@users.sourceforge.net)    ****
 #**** Copyright (C) 2009  PyKaraoke Development Team                       ****
 #****                                                                      ****
 #**** This library is free software; you can redistribute it and/or        ****
@@ -21,10 +20,6 @@
 #**** Boston, MA  02111-1307  USA                                          ****
 #******************************************************************************
 
-[bdist_rpm]
-doc_files = README.txt, COPYING, TODO
-group = Applications/Multimedia
-requires=python,pygame,numeric,wxpython,timidity,freepats
+* Have a position bar for where the current karaoke song is.
 
-[build_ext]
-include_dirs = /usr/include/SDL
+* Artist name in play-list
