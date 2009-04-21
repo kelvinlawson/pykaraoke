@@ -1672,15 +1672,16 @@ class ListDrop(wx.PyDropTarget):
                 songs = globalDragObject.songs
 
         if songs:
-            self.setFn(x, y, songs)
+            self.setFn(x, y, songs, drag_result)
 
         # what is returned signals the source what to do
         # with the original data (move, copy, etc.)  In this
         # case we just return the suggested value given to us.
         return drag_result
 
-# Implement the Search Results panel and list box
 class SearchResultsPanel (wx.Panel):
+    """Implement the Search Results panel and list box"""
+
     def __init__(self, parent, mainWindow, id, KaraokeMgr, x, y):
         wx.Panel.__init__(self, parent, id)
         self.KaraokeMgr = KaraokeMgr
@@ -1782,6 +1783,13 @@ class SearchResultsPanel (wx.Panel):
         else:
             # Add song to the playlist
             for song in self.getSelectedSongs():
+                # Add the performer information or the file name
+                if self.KaraokeMgr.SongDB.Settings.UsePerformerName:
+                    dlg = PerformerPrompt.PerformerPrompt(self)
+                    if dlg.ShowModal() == wx.ID_OK:
+                        song.DisplayFilename = dlg.getPerformer()
+                    else:
+                        song.DisplayFilename = "Unknown Singer"
                 self.KaraokeMgr.AddToPlaylist(song)
 
     def OnSearchClicked(self, event):
@@ -2300,18 +2308,10 @@ class Playlist (wx.Panel):
         item = wx.ListItem()
         item.SetId(index)
         item.SetColumn(self.SecondColumn)
-        # Add the performer information or the file name
-        if self.KaraokeMgr.SongDB.Settings.UsePerformerName:
-            dlg = PerformerPrompt.PerformerPrompt(self)
-            if dlg.ShowModal():
-                item.SetText(dlg.getPerformer())
-            else:
-                item.SetText("")
-        else:
-            try:
-                item.SetText(song.DisplayFilename)
-            except UnicodeError:
-                item.SetText(song.DisplayFilename.encode('UTF-8', 'replace'))
+        try:
+            item.SetText(song.DisplayFilename)
+        except UnicodeError:
+            item.SetText(song.DisplayFilename.encode('UTF-8', 'replace'))
         item.SetData(index)
         self.Playlist.SetItem(item)
 
@@ -2418,22 +2418,21 @@ class Playlist (wx.Panel):
 
             # Find correct position.
             idx = e.GetIndex()
-            if self.Playlist.GetItem(idx).GetText() == song_struct.DisplayFilename:
+            if (self.Playlist.GetItem(idx, self.TitleCol).GetText() == song_struct.Title) and (self.Playlist.GetItem(idx, self.SecondColumn).GetText() == song_struct.DisplayFilename):
                 self.DelItem(idx)
-            elif self.Playlist.GetItem(idx + 1).GetText() == song_struct.DisplayFilename:
+            elif (self.Playlist.GetItem(idx + 1, self.TitleCol).GetText() == song_struct.Title) and (self.Playlist.GetItem(idx + 1, self.SecondColumn).GetText() == song_struct.DisplayFilename):
                 self.DelItem(idx + 1)
 
 
-    # Insert songs from drag_index in search results, at given x,y
-    # coordinates, used with drag-and-drop. Code from WxPython Wiki
-    def _insert(self, x, y, songs):
+    def _insert(self, x, y, songs, drag_result):
+        """ Insert songs from drag_index in search results, at given x,y coordinates, used with drag-and-drop. Code from WxPython Wiki """
+
         # Find insertion point.
         index, flags = self.Playlist.HitTest((x, y))
         if index == wx.NOT_FOUND:
             # Note: should only insert if flags & wx.LIST_HITTEST_NOWHERE
             # but for some reason always get flags = 0 even if out of area...
             index = self.Playlist.GetItemCount()
-
         else:
             # Get bounding rectangle for the item the user is dropping over.
             rect = self.Playlist.GetItemRect(index)
@@ -2445,12 +2444,18 @@ class Playlist (wx.Panel):
 
         # Add it to the list
         for song in songs:
+            # Add the performer information or the file name
+            if (drag_result != wx.DragMove) and self.KaraokeMgr.SongDB.Settings.UsePerformerName:
+                dlg = PerformerPrompt.PerformerPrompt(self)
+                if dlg.ShowModal() == wx.ID_OK:
+                    song.DisplayFilename = dlg.getPerformer()
+                else:
+                    song.DisplayFilename = "Unknown Singer"
             self.AddItemAtIndex(index, song)
             index += 1
 
 
 class PrintSongListWindow(wx.Frame):
-
     """ The dialog for printing a song list and selecting print options. """
 
     def __init__(self, parent):
@@ -3110,7 +3115,15 @@ class PyKaraokeWindow (wx.Frame):
                 self.Frame = DatabaseSetupWindow(self, -1, "Database Setup", self.KaraokeMgr)
         else:
             songIndex = random.randrange(0, self.KaraokeMgr.SongDB.GetDatabaseSize())
-            self.KaraokeMgr.AddToPlaylist(self.KaraokeMgr.SongDB.GetSong(songIndex))
+            song = self.KaraokeMgr.SongDB.GetSong(songIndex)
+            # Add the performer information or the file name
+            if self.KaraokeMgr.SongDB.Settings.UsePerformerName:
+                dlg = PerformerPrompt.PerformerPrompt(self)
+                if dlg.ShowModal() == wx.ID_OK:
+                    song.DisplayFilename = dlg.getPerformer()
+                else:
+                    song.DisplayFilename = "Unknown Singer"
+            self.KaraokeMgr.AddToPlaylist(song)
 
     def OnPlayClicked(self, event):
         """ "Play Song" button clicked. """
