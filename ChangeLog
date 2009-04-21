@@ -68,6 +68,8 @@
     - r1.25 pykaraoke.py: Adds 48 kHz to available sample rates.
     - r1.42 pykaraoke.py, r1.26 pykdb.py: Adds option to disable double-click
       playing from the play-list.
+    - r1.45 pykaraoke.py: Right click to play in the play-list is only
+      displayed when a song is not already playing.
 
 v0.6:
 

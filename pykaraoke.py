@@ -2204,8 +2204,11 @@ class Playlist (wx.Panel):
         # Doesn't bring up a popup if no items are in the list
         if self.Playlist.GetItemCount() > 0:
             menu = wx.Menu()
-            menu.Append( self.menuPlayId, "Play song" )
-            wx.EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
+            # Only show play when a song isn't already playing
+            # Prevents the accidental playing
+            if self.StatusBar.GetStatusText() == "Currently Not Playing A Song":
+                menu.Append( self.menuPlayId, "Play song" )
+                wx.EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
             menu.Append( self.menuDeleteId, "Delete from playlist" )
             wx.EVT_MENU( menu, self.menuDeleteId, self.OnMenuSelection )
             if self.KaraokeMgr.SongDB.Settings.ClearFromPlayList:
