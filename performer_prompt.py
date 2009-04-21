@@ -42,6 +42,7 @@ class PerformerPrompt(wx.Dialog):
         # Add window buttons
         self.ButtonSizer = self.CreateButtonSizer(wx.OK | wx.CANCEL)
         self.Bind(wx.EVT_BUTTON, self.onOK, id = wx.ID_OK)
+        self.Bind(wx.EVT_BUTTON, self.onCANCEL, id = wx.ID_CANCEL)
 
         # Create GUI with Sizers
         self.MainSizer = wx.BoxSizer(wx.VERTICAL)
@@ -51,6 +52,12 @@ class PerformerPrompt(wx.Dialog):
 
         self.performer = ""
         self.PerformerTxtCtrl.SetFocus()
+
+    def onCANCEL(self, event):
+        """ Sets the performer entered and closes the dialogue. """
+        self.performer = ""
+        self.EndModal(wx.ID_CANCEL)
+        return False
 
     def onOK(self, event):
         """ Sets the performer entered and closes the dialogue. """
