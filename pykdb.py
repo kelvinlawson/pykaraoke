@@ -784,6 +784,7 @@ class SettingsStruct:
 
         self.WindowSize = (640, 480) # Size of the window for PyKaraoke
         self.FullScreen = False # Determines if the karaoke player should be full screen
+        self.NoFrame = False # Determies if the karaoke player should have a window frame.
         self.PlayerSize = (640, 480) # Size of the karaoke player
         self.PlayerPosition = None # Initial position of the karaoke player
         self.SplitVertically = True

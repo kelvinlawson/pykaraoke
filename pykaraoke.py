@@ -249,7 +249,6 @@ class DatabaseSetupWindow (wx.Frame):
             self.panel, -1, value = settings.ZipfileCoding,
             choices = settings.Encodings)
 
-
         # Create the hash-check options
         self.hashCheckBox = wx.CheckBox(self.panel, -1, "Check for identical files (by comparing MD5 hash)")
         self.hashCheckBox.SetValue(self.KaraokeMgr.SongDB.Settings.CheckHashes)
@@ -258,7 +257,6 @@ class DatabaseSetupWindow (wx.Frame):
         self.deleteIdenticalCheckBox.SetValue(self.KaraokeMgr.SongDB.Settings.DeleteIdentical)
         self.deleteIdenticalCheckBox.Enable(self.KaraokeMgr.SongDB.Settings.CheckHashes)
         self.Bind(wx.EVT_CHECKBOX, self.OnDeleteIdenticalChanged, self.deleteIdenticalCheckBox)
-
 
         # Create the scan folders button
         self.ScanText = wx.StaticText (self.panel, wx.ID_ANY, "Rescan all folders: ")
@@ -508,6 +506,9 @@ class ConfigWindow (wx.Frame):
         self.FSCheckBox = wx.CheckBox(panel, -1, "Enable Player Full-Screen Mode")
         self.FSCheckBox.SetValue(settings.FullScreen)
         dispsizer.Add(self.FSCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
+        self.NoFrameCheckBox = wx.CheckBox(panel, -1, "Enable Player With No Frame")
+        self.NoFrameCheckBox.SetValue(settings.NoFrame)
+        dispsizer.Add(self.NoFrameCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
         gsizer = wx.FlexGridSizer(0, 4, 2, 0)
         text = wx.StaticText(panel, -1, "Player Window Size:")
         gsizer.Add(text, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
@@ -889,6 +890,7 @@ class ConfigWindow (wx.Frame):
         settings = self.KaraokeMgr.SongDB.Settings
 
         settings.FullScreen = self.FSCheckBox.IsChecked()
+        settings.NoFrame = self.NoFrameCheckBox.IsChecked()
         settings.PlayerPosition = None
 
         splitVertically = self.SplitVerticallyCheckBox.IsChecked()

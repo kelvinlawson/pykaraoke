@@ -70,6 +70,8 @@
       playing from the play-list.
     - r1.45 pykaraoke.py: Right click to play in the play-list is only
       displayed when a song is not already playing.
+    - r1.45 pykaraoke.py, r1.29 pykdb.py, r1.17 pykmanager.py: Adds option to
+      display the karaoke player without a frame.
 
 v0.6:
 

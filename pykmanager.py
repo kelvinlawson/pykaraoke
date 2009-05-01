@@ -613,7 +613,9 @@ class pykManager:
         w, h = self.settings.PlayerSize
         self.displaySize = (w, h)
 
-        self.displayFlags = pygame.RESIZABLE | pygame.HWSURFACE
+        self.displayFlags = pygame.RESIZABLE | pygame.HWSURFACE | pygame.DOUBLEBUF
+        if self.settings.NoFrame:
+            self.displayFlags |= pygame.NOFRAME
         if self.settings.FullScreen:
             self.displayFlags |= pygame.FULLSCREEN
 
