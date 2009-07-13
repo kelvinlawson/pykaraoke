@@ -940,10 +940,10 @@ class ConfigWindow (wx.Frame):
         if self.PerformerCheckBox.IsChecked() != settings.UsePerformerName:
             if self.PerformerCheckBox.IsChecked():
                 settings.UsePerformerName = True
-                self.parent.PlaylistPanel.UpdateSecondColumnName("Performer")
+                self.parent.PlaylistPanel.UpdateFileNamePerformerColumnName("Performer")
             else:
                 settings.UsePerformerName = False
-                self.parent.PlaylistPanel.UpdateSecondColumnName("Filename")
+                self.parent.PlaylistPanel.UpdateFileNamePerformerColumnName("Filename")
 
         # Save the search list playing option
         if self.PlayFromSearchListCheckBox.IsChecked():
@@ -1791,7 +1791,7 @@ class SearchResultsPanel (wx.Panel):
                     if dlg.ShowModal() == wx.ID_OK:
                         song.DisplayFilename = dlg.getPerformer()
                     else:
-                        song.DisplayFilename = "Unknown Singer"
+                        return
                 self.KaraokeMgr.AddToPlaylist(song)
 
     def OnSearchClicked(self, event):
@@ -1969,7 +1969,7 @@ class SearchResultsPanel (wx.Panel):
             wx.EVT_MENU( menu, self.menuPlayId, self.OnMenuSelection )
             menu.Append( self.menuPlaylistAddId, "Add selected to playlist" )
             wx.EVT_MENU( menu, self.menuPlaylistAddId, self.OnMenuSelection )
-            menu.Append( self.menuPlaylistEditTitlesId, "Edit selected titles /artists" )
+            menu.Append( self.menuPlaylistEditTitlesId, "Edit selected titles / artists" )
             wx.EVT_MENU( menu, self.menuPlaylistEditTitlesId, self.OnMenuSelection )
             menu.Append( self.menuFileDetailsId, "File Details" )
             wx.EVT_MENU( menu, self.menuFileDetailsId, self.OnMenuSelection )
@@ -2137,13 +2137,15 @@ class Playlist (wx.Panel):
         self.PlaylistId = wx.NewId()
         self.Playlist = wx.ListCtrl(self, self.PlaylistId, style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.SUNKEN_BORDER)
         self.TitleCol = 0
-        self.SecondColumn = 1
+        self.ArtistCol = 1
+        self.FileNamePerformerColumn = 2
         self.Playlist.InsertColumn(self.TitleCol, "Title")
+        self.Playlist.InsertColumn(self.ArtistCol, "Artist")
         # Determine if we are using the performer's name
         if self.KaraokeMgr.SongDB.Settings.UsePerformerName:
-            self.Playlist.InsertColumn(self.SecondColumn, "Performer")
+            self.Playlist.InsertColumn(self.FileNamePerformerColumn, "Performer")
         else:
-            self.Playlist.InsertColumn(self.SecondColumn, "Filename")
+            self.Playlist.InsertColumn(self.FileNamePerformerColumn, "Filename")
         self.Playlist.Show(True)
 
         # Create the status bar
@@ -2168,7 +2170,8 @@ class Playlist (wx.Panel):
 
         # Store the width (in pixels not chars) of the longest title
         self.MaxTitleWidth = 0
-        self.MaxSecondColumnWidth = 0
+        self.MaxArtistWidth = 0
+        self.MaxFileNamePerformerColumnWidth = 0
 
         # Create IDs for popup menu
         self.menuPlayId = wx.NewId()
@@ -2184,11 +2187,11 @@ class Playlist (wx.Panel):
         dt = ListDrop(self._insert)
         self.Playlist.SetDropTarget(dt)
 
-    def UpdateSecondColumnName(self, name):
+    def UpdateFileNamePerformerColumnName(self, name):
         """ Updates the second column to display the name of the reflected contents. """
         columnNameItem = wx.ListItem()
         columnNameItem.SetText(name)
-        self.Playlist.SetColumn(self.SecondColumn, columnNameItem)
+        self.Playlist.SetColumn(self.FileNamePerformerColumn, columnNameItem)
         songList = self.PlaylistSongStructList
         self.clear()
         for song in songList:
@@ -2241,7 +2244,8 @@ class Playlist (wx.Panel):
         """ Empty the playlist. """
         self.Playlist.DeleteAllItems()
         self.PlaylistSongStructList = []
-        self.MaxSecondColumnWidth = 0 # Can be the file name or performer name.
+        self.MaxFileNamePerformerColumnWidth = 0 # Can be the file name or performer name.
+        self.MaxArtistWidth = 0
         self.MaxTitleWidth = 0
 
     def onResize(self, event):
@@ -2259,42 +2263,52 @@ class Playlist (wx.Panel):
             if self.Playlist.GetItemCount() > self.Playlist.GetCountPerPage():
                 scrollWidth = wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
                 listWidth = listWidth - scrollWidth
-
+        #print "ListWidth: ", listWidth
 
         # Set up initial sizes when list is built, not when window is resized
         if (resize_event == False):
             # For some reason the last column becomes shorter than expected,
             # so ask for a bit more from filename column than we need.
-            self.MaxSecondColumnWidth = self.MaxSecondColumnWidth + self.GetCharWidth()
+            self.MaxFileNamePerformerColumnWidth = self.MaxFileNamePerformerColumnWidth + self.GetCharWidth()
 
             # If we haven't filled the space, extend the title name (bias towards this)
-            totalWidth = (self.MaxTitleWidth + self.MaxSecondColumnWidth)
+            totalWidth = (self.MaxTitleWidth + self.MaxArtistWidth + self.MaxFileNamePerformerColumnWidth)
+            #print "totalWidth = (self.MaxTitleWidth + self.MaxArtistWidth + self.MaxFileNamePerformerColumnWidth)",totalWidth,self.MaxTitleWidth,self.MaxArtistWidth,self.MaxFileNamePerformerColumnWidth
             if (totalWidth <= listWidth):
-                padding = listWidth - totalWidth
-                titleWidth = self.MaxTitleWidth + padding
-                secondColumnWidth = self.MaxSecondColumnWidth
+                #print "Here 1"
+                padding = (listWidth - totalWidth) / 2
+                #print "Padding; ",padding
+                titleWidth = (self.MaxTitleWidth + padding)
+                artistWidth = (self.MaxArtistWidth + padding)
+                FileNamePerformerColumnWidth = self.MaxFileNamePerformerColumnWidth
 
             # If we have too much to fill the list space, then resize so that all columns
             # can be seen on screen.
             else:
-                # Set the maximum title size to be 3/4 of the list width
-                titleWidth = max ([(listWidth / 4) * 3, (listWidth - self.MaxSecondColumnWidth)])
-                # Only take as much space as is needed
-                titleWidth = min ([titleWidth, self.MaxTitleWidth])
+                #print "Here 2"
+                titleWidth = max([(listWidth / 3), listWidth - self.MaxArtistWidth - self.MaxFileNamePerformerColumnWidth])
+                titleWidth = min([titleWidth, self.MaxTitleWidth])
 
-                # Set the second column maximum size to be remaining list width
-                secondColumnWidth = max ([(listWidth / 4), (listWidth - titleWidth)])
-                secondColumnWidth = min ([secondColumnWidth, self.MaxSecondColumnWidth])
-            self.Playlist.SetColumnWidth(self.TitleCol, titleWidth)
-            self.Playlist.SetColumnWidth(self.SecondColumn, secondColumnWidth)
+                artistWidth = max([(listWidth / 3), listWidth - titleWidth - self.MaxFileNamePerformerColumnWidth])
+                artistWidth = min([artistWidth, self.MaxArtistWidth])
+
+                FileNamePerformerColumnWidth = max([(listWidth / 3), listWidth])
+                FileNamePerformerColumnWidth = min([FileNamePerformerColumnWidth, self.MaxFileNamePerformerColumnWidth])
 
         # For resize events (user changed the window size) keep their
         # column width settings, but resize the Filename column to match
         # whatever space is left.
         else:
+            #print "Here 3"
             titleWidth = self.Playlist.GetColumnWidth(self.TitleCol)
-            self.Playlist.SetColumnWidth(self.TitleCol, titleWidth)
-            self.Playlist.SetColumnWidth(self.SecondColumn, listWidth - titleWidth)
+            artistWidth = self.Playlist.GetColumnWidth(self.ArtistCol)
+            FileNamePerformerColumnWidth = listWidth - titleWidth - artistWidth
+
+        #print "T, A, F", titleWidth, artistWidth, FileNamePerformerColumnWidth
+        #print "Max T, A, F", self.MaxTitleWidth,self.MaxArtistWidth,self.MaxFileNamePerformerColumnWidth
+        self.Playlist.SetColumnWidth(self.TitleCol, titleWidth)
+        self.Playlist.SetColumnWidth(self.ArtistCol, artistWidth)
+        self.Playlist.SetColumnWidth(self.FileNamePerformerColumn, FileNamePerformerColumnWidth)
 
     # Add item to specific index in playlist
     def AddItemAtIndex ( self, index, song ):
@@ -2309,10 +2323,21 @@ class Playlist (wx.Panel):
         item.SetData(index)
         self.Playlist.InsertItem(item)
 
+        # Add the artist column
+        item = wx.ListItem()
+        item.SetId(index)
+        item.SetColumn(self.ArtistCol)
+        try:
+            item.SetText(song.Artist)
+        except UnicodeError:
+            item.SetText(song.Artist.encode('UTF-8', 'replace'))
+        item.SetData(index)
+        self.Playlist.SetItem(item)
+
         # Add the second column information
         item = wx.ListItem()
         item.SetId(index)
-        item.SetColumn(self.SecondColumn)
+        item.SetColumn(self.FileNamePerformerColumn)
         try:
             item.SetText(song.DisplayFilename)
         except UnicodeError:
@@ -2324,11 +2349,14 @@ class Playlist (wx.Panel):
 
         # Update the max title width for column sizing, in case this is the largest one yet
         resize_needed = False
-        if ((len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxSecondColumnWidth):
-            self.MaxSecondColumnWidth = len(song.DisplayFilename) * self.GetCharWidth()
+        if ((len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxFileNamePerformerColumnWidth):
+            self.MaxFileNamePerformerColumnWidth = len(song.DisplayFilename) * self.GetCharWidth() + self.GetCharWidth()
             resize_needed = True
         if ((len(song.Title) * self.GetCharWidth()) > self.MaxTitleWidth):
-            self.MaxTitleWidth = len(song.Title) * self.GetCharWidth()
+            self.MaxTitleWidth = len(song.Title) * self.GetCharWidth() + self.GetCharWidth()
+            resize_needed = True
+        if ((len(song.Artist) * self.GetCharWidth()) > self.MaxArtistWidth):
+            self.MaxArtistWidth = len(song.Artist) * self.GetCharWidth() + self.GetCharWidth()
             resize_needed = True
 
         if resize_needed:
@@ -2342,9 +2370,11 @@ class Playlist (wx.Panel):
     def DelItem( self, item_index ):
         # Update the max title width for column sizing, in case this was the largest one
         resize_needed = False
-        if ((len(self.PlaylistSongStructList[item_index].DisplayFilename) * self.GetCharWidth()) == self.MaxSecondColumnWidth):
+        if ((len(self.PlaylistSongStructList[item_index].DisplayFilename) * self.GetCharWidth()) == self.MaxFileNamePerformerColumnWidth):
             resize_needed = True
         if ((len(self.PlaylistSongStructList[item_index].Title) * self.GetCharWidth()) == self.MaxTitleWidth):
+            resize_needed = True
+        if ((len(self.PlaylistSongStructList[item_index].Artist) * self.GetCharWidth()) == self.MaxArtistWidth):
             resize_needed = True
 
         # Delete the item from the listctrl and our local song struct list
@@ -2352,13 +2382,16 @@ class Playlist (wx.Panel):
         self.PlaylistSongStructList.pop(item_index)
         # Find the next largest title if necessary
         if resize_needed:
-            self.MaxSecondColumnWidth = 0
+            self.MaxFileNamePerformerColumnWidth = 0
             self.MaxTitleWidth = 0
+            self.MaxArtistWidth = 0
             for song in self.PlaylistSongStructList:
-                if ((len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxSecondColumnWidth):
-                    self.MaxSecondColumnWidth = len(song.DisplayFilename) * self.GetCharWidth()
+                if ((len(song.DisplayFilename) * self.GetCharWidth()) > self.MaxFileNamePerformerColumnWidth):
+                    self.MaxFileNamePerformerColumnWidth = len(song.DisplayFilename) * self.GetCharWidth() + self.GetCharWidth()
                 if ((len(song.Title) * self.GetCharWidth()) > self.MaxTitleWidth):
-                    self.MaxTitleWidth = len(song.Title) * self.GetCharWidth()
+                    self.MaxTitleWidth = len(song.Title) * self.GetCharWidth() + self.GetCharWidth()
+                if ((len(song.Artist) * self.GetCharWidth()) > self.MaxArtistWidth):
+                    self.MaxArtistWidth = len(song.Artist) * self.GetCharWidth() + self.GetCharWidth()
             self.doResize()
 
     # Get number of items in playlist
@@ -2423,9 +2456,9 @@ class Playlist (wx.Panel):
 
             # Find correct position.
             idx = e.GetIndex()
-            if (self.Playlist.GetItem(idx, self.TitleCol).GetText() == song_struct.Title) and (self.Playlist.GetItem(idx, self.SecondColumn).GetText() == song_struct.DisplayFilename):
+            if (self.Playlist.GetItem(idx, self.TitleCol).GetText() == song_struct.Title) and (self.Playlist.GetItem(idx, self.FileNamePerformerColumn).GetText() == song_struct.DisplayFilename):
                 self.DelItem(idx)
-            elif (self.Playlist.GetItem(idx + 1, self.TitleCol).GetText() == song_struct.Title) and (self.Playlist.GetItem(idx + 1, self.SecondColumn).GetText() == song_struct.DisplayFilename):
+            elif (self.Playlist.GetItem(idx + 1, self.TitleCol).GetText() == song_struct.Title) and (self.Playlist.GetItem(idx + 1, self.FileNamePerformerColumn).GetText() == song_struct.DisplayFilename):
                 self.DelItem(idx + 1)
 
 
@@ -2455,7 +2488,7 @@ class Playlist (wx.Panel):
                 if dlg.ShowModal() == wx.ID_OK:
                     song.DisplayFilename = dlg.getPerformer()
                 else:
-                    song.DisplayFilename = "Unknown Singer"
+                    return
             self.AddItemAtIndex(index, song)
             index += 1
 
@@ -3127,7 +3160,7 @@ class PyKaraokeWindow (wx.Frame):
                 if dlg.ShowModal() == wx.ID_OK:
                     song.DisplayFilename = dlg.getPerformer()
                 else:
-                    song.DisplayFilename = "Unknown Singer"
+                    return
             self.KaraokeMgr.AddToPlaylist(song)
 
     def OnPlayClicked(self, event):

@@ -41,6 +41,7 @@
     - r1.38 pykaraoke.py: play-list window did not take advantage of the full
       window size.
     - r1.26 pykdb.py: displays error message if unable to write to a file.
+    - r1.46 pykaraoke.py: Play-list window now displays information cleanly.
   * Enhancements:
     - r1.30 pykaraoke.py: Time progress indicator in the status message of the
       song being played.
@@ -72,6 +73,7 @@
       displayed when a song is not already playing.
     - r1.45 pykaraoke.py, r1.29 pykdb.py, r1.17 pykmanager.py: Adds option to
       display the karaoke player without a frame.
+    - r1.46 pykaraoke.py: Play-list window now displays artist information.
 
 v0.6:
 
