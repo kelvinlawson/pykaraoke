@@ -3034,12 +3034,6 @@ class PyKaraokeWindow (wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnStartPlaylistClicked, self.playlistButton)
         hsizer.Add(self.playlistButton, flag = wx.EXPAND)
 
-        b = wx.Button(self.rightPanel, -1, 'Clear Playlist')
-        self.Bind(wx.EVT_BUTTON, self.OnClearPlaylistClicked, b)
-        hsizer.Add(b, flag = wx.EXPAND)
-
-        self.PlaylistPanel = Playlist(self.rightPanel, -1, KaraokeMgr, 0, 0)
-
         # Control volume of the song 1.0 = 100% volume
         self.VolumeControlID = wx.NewId()
         self.VolumeControl = wx.SpinCtrl(self.rightPanel, self.VolumeControlID, "Volume", size=(50,25))
@@ -3049,6 +3043,13 @@ class PyKaraokeWindow (wx.Frame):
         wx.EVT_SPIN_DOWN(self.rightPanel, self.VolumeControlID, self.OnVolumeUpClicked)
         wx.EVT_SPINCTRL(self.rightPanel, self.VolumeControlID, self.OnVolumeChanged)
         hsizer.Add(self.VolumeControl)
+
+        # Play list clear
+        b = wx.Button(self.rightPanel, -1, 'Clear Playlist')
+        self.Bind(wx.EVT_BUTTON, self.OnClearPlaylistClicked, b)
+        hsizer.Add(b, flag = wx.EXPAND)
+
+        self.PlaylistPanel = Playlist(self.rightPanel, -1, KaraokeMgr, 0, 0)
 
         self.RightSizer = wx.BoxSizer(wx.VERTICAL)
         self.RightSizer.Add(hsizer, 0, wx.ALL | wx.EXPAND, 5)

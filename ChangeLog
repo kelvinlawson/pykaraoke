@@ -74,6 +74,8 @@
     - r1.45 pykaraoke.py, r1.29 pykdb.py, r1.17 pykmanager.py: Adds option to
       display the karaoke player without a frame.
     - r1.46 pykaraoke.py: Play-list window now displays artist information.
+    - r1.47 pykaraoke.py: Moved clear play-list to reduce accidentally clearing
+      while running.
 
 v0.6:
 
