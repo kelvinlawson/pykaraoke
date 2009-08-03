@@ -1557,7 +1557,8 @@ class FileTree (wx.Panel):
         root, ext = os.path.splitext(self.PopupFilename)
         if self.KaraokeMgr.SongDB.IsExtensionValid(ext) and os.path.isfile (self.PopupFullPath):
             # Create a SongStruct because that's what karaoke mgr wants
-            song = pykdb.SongStruct (self.PopupFullPath, self.PopupFilename)
+            settings = self.KaraokeMgr.SongDB.Settings
+            song = pykdb.SongStruct(self.PopupFullPath, settings, self.PopupFilename)
             # Now respond to the menu choice
             if event.GetId() == self.menuPlayId:
                 self.KaraokeMgr.PlayWithoutPlaylist(song)
