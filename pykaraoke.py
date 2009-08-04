@@ -1537,7 +1537,6 @@ class FileTree (wx.Panel):
     # Handle a right-click on an item (show a popup)
     def OnRightClick(self, event):
         selected_node = event.GetItem()
-        self.FileTree.SelectItem(selected_node)
         self.PopupFilename = self.FileTree.GetItemText(selected_node)
         self.PopupFullPath = self.GetFullPathForNode(selected_node)
         # Only do a popup if it's not a directory (must be a karaoke song then
