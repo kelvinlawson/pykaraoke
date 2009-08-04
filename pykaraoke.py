@@ -1563,7 +1563,7 @@ class FileTree (wx.Panel):
                 self.KaraokeMgr.PlayWithoutPlaylist(song)
             elif event.GetId() == self.menuPlaylistAddId:
                 for song in self.getSelectedSongs():
-                    self.KaraokeMgr.AddToPlaylist(song)
+                    self.KaraokeMgr.AddToPlaylist(song, self)
             elif event.GetId() == self.menuFileDetailsId:
                 wx.MessageBox("File: " + self.PopupFullPath, "File details", wx.OK)
 
@@ -1785,14 +1785,7 @@ class SearchResultsPanel (wx.Panel):
         else:
             # Add song to the playlist
             for song in self.getSelectedSongs():
-                # Add the performer information or the file name
-                if self.KaraokeMgr.SongDB.Settings.UsePerformerName:
-                    dlg = PerformerPrompt.PerformerPrompt(self)
-                    if dlg.ShowModal() == wx.ID_OK:
-                        song.DisplayFilename = dlg.getPerformer()
-                    else:
-                        return
-                self.KaraokeMgr.AddToPlaylist(song)
+                self.KaraokeMgr.AddToPlaylist(song, self)
 
     def OnSearchClicked(self, event):
         """ Handle the search button clicked event """
@@ -1986,7 +1979,7 @@ class SearchResultsPanel (wx.Panel):
             self.KaraokeMgr.PlayWithoutPlaylist(song)
         elif event.GetId() == self.menuPlaylistAddId:
             for song in self.getSelectedSongs():
-                self.KaraokeMgr.AddToPlaylist(song)
+                self.KaraokeMgr.AddToPlaylist(song, self)
         elif event.GetId() == self.menuPlaylistEditTitlesId:
             EditTitlesWindow(self.mainWindow, self.KaraokeMgr, self.getSelectedSongs())
         elif event.GetId() == self.menuFileDetailsId:
@@ -3162,7 +3155,7 @@ class PyKaraokeWindow (wx.Frame):
                     song.DisplayFilename = dlg.getPerformer()
                 else:
                     return
-            self.KaraokeMgr.AddToPlaylist(song)
+            self.KaraokeMgr.AddToPlaylist(song, self)
 
     def OnPlayClicked(self, event):
         """ "Play Song" button clicked. """
@@ -3193,7 +3186,7 @@ class PyKaraokeWindow (wx.Frame):
 
         for song in songs:
             self.UpdateVolume()
-            self.KaraokeMgr.AddToPlaylist(song)
+            self.KaraokeMgr.AddToPlaylist(song, self)
 
     def OnStartPlaylistClicked(self, event):
         """ "Start" button clicked. """
@@ -3362,7 +3355,12 @@ class PyKaraokeManager:
     # Handles adding to the playlist panel, playing if necessary etc.
     # Takes a SongStruct so it has both title and full path details.
     # Stores the SongStruct in the Playlist control and sets the title.
-    def AddToPlaylist(self, song_struct):
+    def AddToPlaylist(self, song_struct, client_win):
+        # Add the performer information or the file name
+        if self.SongDB.Settings.UsePerformerName:
+            dlg = PerformerPrompt.PerformerPrompt(client_win)
+            if dlg.ShowModal() == wx.ID_OK:
+                song_struct.DisplayFilename = dlg.getPerformer()
         self.Frame.PlaylistPanel.AddItem(song_struct)
 
     # Called when a karaoke file is played from the file tree or search
