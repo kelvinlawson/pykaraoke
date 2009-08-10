@@ -43,7 +43,7 @@ MAX_ZIP_FILES = 10
 # Increment this version number whenever the settings version changes
 # (which may not necessarily change with each PyKaraoke release).
 # This will force users to re-enter their configuration information.
-SETTINGS_VERSION = 4
+SETTINGS_VERSION = 5
 
 # Increment this version number whenever the database version changes
 # (which will also hopefully be infrequently).
@@ -794,6 +794,7 @@ class SettingsStruct:
         self.Kamikaze = False # Enables or disables the kamikaze button
         self.UsePerformerName = False # Enables or disables the prompting for a performers name.
         self.PlayFromSearchList = True # Enables or disables the playing of a song from the search list
+        self.DisplayArtistTitleCols = False # Enables or disables display of artist/title columns
 
         self.SampleRate = 44100
         self.NumChannels = 2
