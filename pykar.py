@@ -1224,7 +1224,7 @@ class midPlayer(pykPlayer):
 
     def GetLength(self):
         """Give the number of seconds in the song."""
-        return self.soundLength
+        return self.midifile.lastNoteMS / 1000
 
     def shutdown(self):
         # This will be called by the pykManager to shut down the thing
