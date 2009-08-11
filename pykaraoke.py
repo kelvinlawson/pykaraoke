@@ -2390,7 +2390,8 @@ class Playlist (wx.Panel):
                 artistWidth = self.Playlist.GetColumnWidth(self.ArtistCol)
             else:
                 filenameWidth = self.Playlist.GetColumnWidth(self.FilenameCol)
-            performerWidth = self.Playlist.GetColumnWidth(self.PerformerCol)
+            if self.KaraokeMgr.SongDB.Settings.UsePerformerName:
+                performerWidth = self.Playlist.GetColumnWidth(self.PerformerCol)
 
         # Have calculated all the desired widths, now set them
         if self.KaraokeMgr.SongDB.Settings.DisplayArtistTitleCols:
