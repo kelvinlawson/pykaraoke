@@ -21,6 +21,21 @@
 **** Boston, MA  02111-1307  USA                                           ****
 *******************************************************************************
 
+2009-08-12 Kelvin Lawson <kelvinl@users.sf.net> 0.7.0
+  * Bug Fixes:
+    - r1.49 pykaraoke.py: Fix File Details available from Folder View.
+    - r1.50 pykaraoke.py: Fix selection of items in Folder View.
+    - r1.16 pykar.py: KAR/MID player now reports song length. 
+
+  * Enhancements:
+    - r1.51 pykaraoke.py: Performer prompt now pops up when adding to Playlist
+      from any panel.
+    - r1.52 pykaraoke.py: Defaults to Filename columns, Artist/Title columns
+      can be enabled from the Configuration menu.
+    - r1.30 pykdb.py: Add configuration option for Artist/Title columns.
+      Increased configuration structure version SETTINGS_VERSION to 4.
+    - r1.52 pykaraoke.py: New playlist resizing logic.
+
 2009-07-31 John Schneiderman <JohnMS@member.fsf.org> 0.7.0
   * Bug Fixes:
     - r1.33 pykaraoke.py: Could not directly play from a selected song in
