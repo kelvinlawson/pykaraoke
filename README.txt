@@ -1,12 +1,13 @@
 
 ---------------------------------------------------------------------------
 
-Release:      pykaraoke v0.6
-Date:         27/06/2008
+Release:      pykaraoke v0.7.0
+Date:         20/08/2009
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
-Contributors: William Ferrell <willfe@gmail.com>
+Contributors: John Schneiderman <JohnMS@member.fsf.org>
+              William Ferrell <willfe@gmail.com>
               David Rose <pykar@ddrose.com>
 
 ---------------------------------------------------------------------------
@@ -856,8 +857,8 @@ spend some money.
 
 SUGGESTIONS
 
-This is an early release of pykaraoke. Please let us know if there are any
-features you would like to see added, or you have any other suggestions or
-bug reports. Contact the project at <kelvinl@users.sourceforge.net>
+Please let us know if there are any features you would like to see added,
+or you have any other suggestions or bug reports. Contact the project at
+<kelvinl@users.sourceforge.net>
 
 ---------------------------------------------------------------------------
