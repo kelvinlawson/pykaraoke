@@ -3369,7 +3369,7 @@ class PyKaraokeWindow (wx.Frame):
         abtnfAbout = wx.AboutDialogInfo()
         abtnfAbout.AddArtist("Kelvin Lawson <kelvinl@users.sf.net>")
         abtnfAbout.AddArtist("Tavmjung Bah")
-        abtnfAbout.SetCopyright("(C) 2009 John Schneiderman\n(C) 2006 David Rose\n(C) 2005 William Ferrell\n(C) 2005 Kelvin Lawson")
+        abtnfAbout.SetCopyright("(C) 2005-2009 Kelvin Lawson\n(C) 2009 John Schneiderman\n(C) 2006 David Rose\n(C) 2005 William Ferrell")
         abtnfAbout.SetDescription("A karaoke player to play your collection of karaoke songs.")
         abtnfAbout.AddDeveloper("Will Ferrell <willfe@gmail.com>")
         abtnfAbout.AddDeveloper("Andrei Gavrila")
