@@ -28,7 +28,7 @@ from pykconstants import *
 from pykenv import env
 import pykar, pycdg, pympg
 import os, cPickle, zipfile, codecs, sys, time
-import md5
+from hashlib import md5
 import types
 from cStringIO import StringIO
 
@@ -1667,7 +1667,7 @@ class SongDB:
                 return
 
             song = self.FullSongList[i]
-            m = md5.md5()
+            m = md5()
             m.update(song.GetSongDatas()[0].GetData())
             list = fileHashes.setdefault(m.digest(), [])
             if list:
