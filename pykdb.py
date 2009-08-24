@@ -180,7 +180,7 @@ class SongStruct:
             except:
                 # Filename did not match requested scheme, set the title to the filepath
                 # so that it is still included in the list, but without any additional info
-                print "Filename format does not match requested scheme: %s" % Filepath
+                #print "Filename format does not match requested scheme: %s" % Filepath
                 self.Title = os.path.basename(Filepath)
 
         # This is a list of other song files that share the same
@@ -1429,7 +1429,9 @@ class SongDB:
                                     #print ("Adding song %s in ZIP file %s"%(filename, full_path))
                                     self.addSong(SongStruct(full_path, self.Settings, ZipStoredName = filename))
                                 else:
-                                    print ("ZIP member %s compressed with unsupported type (%d)"%(full_path, info.compress_type))
+                                    print ("ZIP member compressed with unsupported type (%d): %s"%(info.compress_type, full_path))
+                    else:
+                        print "Cannot parse ZIP file: " + full_path 
                 except:
                     print "Error looking inside zip " + full_path
 
