@@ -733,7 +733,7 @@ class ConfigWindow (wx.Frame):
         # Scan song information from the file names.
         infoSizer = wx.BoxSizer(wx.HORIZONTAL)
         self.SongInfoCheckBoxID = wx.NewId()
-        self.SongInfoCheckBox = wx.CheckBox(panel, self.SongInfoCheckBoxID, "Derive song information from file names?\n Note: file names not matching pattern\n are not placed in the database!")
+        self.SongInfoCheckBox = wx.CheckBox(panel, self.SongInfoCheckBoxID, "Derive song information from file names?")
         wx.EVT_CHECKBOX(self, self.SongInfoCheckBoxID, self.setSongInfoCheckBox)
         infoSizer.Add(self.SongInfoCheckBox, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
         self.FileNameStyles = wx.ComboBox(panel, -1, choices = settings.FileNameCombinations, style = wx.CB_READONLY)
