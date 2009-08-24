@@ -170,7 +170,7 @@ class SongStruct:
         self.Disc = '' # (optional) Disc for display
         self.Track = -1 # (optional) Track for display
 
-        # Check to see if we are deriving song information
+        # Check to see if we are deriving song information from the filename
         if settings.CdgDeriveSongInformation:
             try:
                 self.Title = self.ParseTitle(Filepath, settings)    # Title for display in playlist
@@ -178,7 +178,10 @@ class SongStruct:
                 self.Disc = self.ParseDisc(Filepath, settings)      # Disc for display
                 self.Track = self.ParseTrack(Filepath, settings)     # Track for display
             except:
+                # Filename did not match requested scheme, set the title to the filepath
+                # so that it is still included in the list, but without any additional info
                 print "Filename format does not match requested scheme: %s" % Filepath
+                self.Title = os.path.basename(Filepath)
 
         # This is a list of other song files that share the same
         # artist and title data.
