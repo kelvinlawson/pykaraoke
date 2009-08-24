@@ -163,17 +163,22 @@ class SongStruct:
                  Title = None, Artist = None, ZipStoredName = None):
         self.Filepath = Filepath    # Full path to file or ZIP file
         self.ZipStoredName = ZipStoredName # Filename stored in ZIP
+
+        # Assume there will be no title/artist info found
+        self.Title = Title or ''    # (optional) Title for display in playlist
+        self.Artist = Artist or ''  # (optional) Artist for display
+        self.Disc = '' # (optional) Disc for display
+        self.Track = -1 # (optional) Track for display
+
         # Check to see if we are deriving song information
         if settings.CdgDeriveSongInformation:
-            self.Title = self.ParseTitle(Filepath, settings)    # Title for display in playlist
-            self.Artist = self.ParseArtist(Filepath, settings)  # Artist for display
-            self.Disc = self.ParseDisc(Filepath, settings) # Disc for display
-            self.Track = self.ParseTrack(Filepath, settings) # Track for display
-        else:
-            self.Title = Title or ''    # (optional) Title for display in playlist
-            self.Artist = Artist or ''  # (optional) Artist for display
-            self.Disc = '' # (optional) Disc for display
-            self.Track = -1 # (optional) Track for display
+            try:
+                self.Title = self.ParseTitle(Filepath, settings)    # Title for display in playlist
+                self.Artist = self.ParseArtist(Filepath, settings)  # Artist for display
+                self.Disc = self.ParseDisc(Filepath, settings)      # Disc for display
+                self.Track = self.ParseTrack(Filepath, settings)     # Track for display
+            except:
+                print "Filename format does not match requested scheme: %s" % Filepath
 
         # This is a list of other song files that share the same
         # artist and title data.
@@ -1384,46 +1389,46 @@ class SongDB:
         # Store file details if it's a file type we're interested in
         else:
             root, ext = os.path.splitext(full_path)
-            try:
-                # Non-ZIP files
-                if self.Settings.ReadTitlesTxt and full_path.endswith('titles.txt'):
-                    # Save this titles.txt file for reading later.
-                    self.TitlesFiles.append(TitleStruct(full_path))
-                elif self.IsExtensionValid(ext):
-                    self.addSong(SongStruct(full_path, self.Settings))
-                # Look inside ZIPs if configured to do so
-                elif self.Settings.LookInsideZips and ext.lower() == ".zip":
-                        if zipfile.is_zipfile(full_path):
-                            zip = self.GetZipFile(full_path)
-                            namelist = zip.namelist()
-                            for i in range(len(namelist)):
-                                filename = namelist[i]
+            # Non-ZIP files
+            if self.Settings.ReadTitlesTxt and full_path.endswith('titles.txt'):
+                # Save this titles.txt file for reading later.
+                self.TitlesFiles.append(TitleStruct(full_path))
+            elif self.IsExtensionValid(ext):
+                self.addSong(SongStruct(full_path, self.Settings))
+            # Look inside ZIPs if configured to do so
+            elif self.Settings.LookInsideZips and ext.lower() == ".zip":
+                try:
+                    if zipfile.is_zipfile(full_path):
+                        zip = self.GetZipFile(full_path)
+                        namelist = zip.namelist()
+                        for i in range(len(namelist)):
+                            filename = namelist[i]
 
-                                now = time.time()
-                                if now - self.lastBusyUpdate > 0.1:
-                                    # Every so often, update the progress bar.
-                                    nextProgress = progress + [(i, len(namelist))]
-                                    basename = os.path.split(full_path)[1]
-                                    self.BusyDlg.SetProgress(
-                                        "Scanning %s" % (basename),
-                                        self.__computeProgressValue(nextProgress))
-                                    yielder.Yield()
-                                    self.lastBusyUpdate = now
+                            now = time.time()
+                            if now - self.lastBusyUpdate > 0.1:
+                                # Every so often, update the progress bar.
+                                nextProgress = progress + [(i, len(namelist))]
+                                basename = os.path.split(full_path)[1]
+                                self.BusyDlg.SetProgress(
+                                    "Scanning %s" % (basename),
+                                    self.__computeProgressValue(nextProgress))
+                                yielder.Yield()
+                                self.lastBusyUpdate = now
 
-                                root, ext = os.path.splitext(filename)
-                                if self.Settings.ReadTitlesTxt and filename.endswith('titles.txt'):
-                                    # Save this titles.txt file for reading later.
-                                    self.TitlesFiles.append(TitleStruct(full_path, ZipStoredName = filename))
-                                elif self.IsExtensionValid(ext):
-                                    # Python zipfile only supports deflated and stored
-                                    info = zip.getinfo(filename)
-                                    if info.compress_type == zipfile.ZIP_STORED or info.compress_type == zipfile.ZIP_DEFLATED:
-                                        #print ("Adding song %s in ZIP file %s"%(filename, full_path))
-                                        self.addSong(SongStruct(full_path, self.Settings, ZipStoredName = filename))
-                                    else:
-                                        print ("ZIP member %s compressed with unsupported type (%d)"%(full_path, info.compress_type))
-            except:
-                print "Error looking inside zip " + full_path
+                            root, ext = os.path.splitext(filename)
+                            if self.Settings.ReadTitlesTxt and filename.endswith('titles.txt'):
+                                # Save this titles.txt file for reading later.
+                                self.TitlesFiles.append(TitleStruct(full_path, ZipStoredName = filename))
+                            elif self.IsExtensionValid(ext):
+                                # Python zipfile only supports deflated and stored
+                                info = zip.getinfo(filename)
+                                if info.compress_type == zipfile.ZIP_STORED or info.compress_type == zipfile.ZIP_DEFLATED:
+                                    #print ("Adding song %s in ZIP file %s"%(filename, full_path))
+                                    self.addSong(SongStruct(full_path, self.Settings, ZipStoredName = filename))
+                                else:
+                                    print ("ZIP member %s compressed with unsupported type (%d)"%(full_path, info.compress_type))
+                except:
+                    print "Error looking inside zip " + full_path
 
     # Add a folder to the database search list
     def FolderAdd (self, FolderPath):
