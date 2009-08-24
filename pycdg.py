@@ -472,23 +472,28 @@ class cdgPlayer(pykPlayer):
         """ Attempts to determine the samplerate, etc., from the
         specified filename, which is known to be an mp3 file. """
 
-        # Hopefully, we have MP3Info.py available.
+        # Hopefully we have Mutagen available to pull out the song length
         try:
-            import MP3Info
+            import mutagen.mp3
         except:
-            print "Failed to load MP3Info, will not be able to determine extra MP3 information."
+            print "Mutagen not available, will not be able to determine extra MP3 information."
             self.soundLength = 0
             return None
 
-        import cStringIO
-        m = MP3Info.MPEG(cStringIO.StringIO(soundFileData.GetData()))
-        self.soundLength = m.length
+        # Open the file with mutagen
+        m = mutagen.mp3.MP3(soundFileData.GetFilepath())
 
-        channels = 1
-        if 'stereo' in m.mode:
+        # Pull out the song length
+        self.soundLength = m.info.length
+
+        # Get the number of channels, mode field of 00 or 01 indicate stereo
+        if m.info.mode < 2:
             channels = 2
+        else:
+            channels = 1
 
-        audioProperties = (m.samplerate, -16, channels)
+        # Put the channels and sample rate together in a tuple and return
+        audioProperties = (m.info.sample_rate, -16, channels)
         return audioProperties
 
     # Actually update/refresh the video output
