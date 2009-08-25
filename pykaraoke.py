@@ -720,41 +720,50 @@ class ConfigWindow (wx.Frame):
         hsizer.Add(self.CdgZoom, flag = wx.EXPAND, proportion = 1)
         cdgsizer.Add(hsizer, flag = wx.EXPAND | wx.ALL, border = 10)
 
+        # Enable/disable optimised C implementation of CDG decoder
         self.CdgUseCCheckBox = wx.CheckBox(panel, -1, "Use optimised (C-based) implementation")
         self.CdgUseCCheckBox.SetValue(settings.CdgUseC)
-
         # Check that the C implementation is available.
         if not pycdg.aux_c:
             self.CdgUseCCheckBox.SetValue(False)
             self.CdgUseCCheckBox.Enable(False)
-
         cdgsizer.Add(self.CdgUseCCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
         # Scan song information from the file names.
-        infoSizer = wx.BoxSizer(wx.HORIZONTAL)
+        infoSizer = wx.BoxSizer(wx.VERTICAL)
+        # Add checkbox for song-derivation enable/disable
         self.SongInfoCheckBoxID = wx.NewId()
         self.SongInfoCheckBox = wx.CheckBox(panel, self.SongInfoCheckBoxID, "Derive song information from file names?")
         wx.EVT_CHECKBOX(self, self.SongInfoCheckBoxID, self.setSongInfoCheckBox)
-        infoSizer.Add(self.SongInfoCheckBox, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
+        infoSizer.Add(self.SongInfoCheckBox, flag = wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL, border = 7)
+        # Add sub-options for song-derivation
+        infoOptionsSizer = wx.BoxSizer(wx.VERTICAL)
+        # Add combo-box for choosing filename scheme
+        infoFormatSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.FileNameStylesText = wx.StaticText(panel, -1, "File naming scheme: ")
+        infoFormatSizer.Add(self.FileNameStylesText, flag = wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT, border = 7)
         self.FileNameStyles = wx.ComboBox(panel, -1, choices = settings.FileNameCombinations, style = wx.CB_READONLY)
-        infoSizer.Add(self.FileNameStyles, flag = wx.EXPAND, proportion = 1)
+        infoFormatSizer.Add(self.FileNameStyles, flag = wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT, proportion = 1, border = 7)
+        infoOptionsSizer.Add(infoFormatSizer, flag = wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, proportion = 1, border = 7)
+        # Add checkbox for exclusion of songs from database of files not matching the above scheme
+        self.ExcludeNonMatchingCheckBox = wx.CheckBox(panel, -1, "Exclude from search results files not matching naming scheme")
+        self.ExcludeNonMatchingCheckBox.SetValue(settings.ExcludeNonMatchingFilenames)
+        infoOptionsSizer.Add(self.ExcludeNonMatchingCheckBox, border = 7)
+        infoSizer.Add(infoOptionsSizer, flag = wx.ALIGN_RIGHT, border = 7)
+        # Add the sizer with all info-related options to the main page sizer
         cdgsizer.Add(infoSizer, flag = wx.EXPAND | wx.ALL, border = 10)
 
+        # Update the display to match whether derivation enabled (grey out options if not)
         if settings.CdgDeriveSongInformation:
             self.SongInfoCheckBox.SetValue(True)
             self.FileNameStyles.Enable(True)
+            self.FileNameStylesText.Enable(True)
             self.FileNameStyles.SetSelection(settings.CdgFileNameType)
-        else:
-            self.FileNameStyles.Enable(False)
-
-        # Enable/disable exclusion from database of files not matching the above scheme
-        self.ExcludeNonMatchingCheckBox = wx.CheckBox(panel, -1, "Exclude from search results files not matching naming scheme")
-        self.ExcludeNonMatchingCheckBox.SetValue(settings.ExcludeNonMatchingFilenames)
-        if (settings.CdgDeriveSongInformation == True):
             self.ExcludeNonMatchingCheckBox.Enable (True)
         else:
+            self.FileNameStyles.Enable(False)
+            self.FileNameStylesText.Enable(False)
             self.ExcludeNonMatchingCheckBox.Enable (False)
-        cdgsizer.Add(self.ExcludeNonMatchingCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
 
         # Now add final sizer to panel
         panel.SetSizer(cdgsizer)
@@ -875,10 +884,12 @@ class ConfigWindow (wx.Frame):
         """ This enables and disables the ability to derive song information from file names"""
         if self.SongInfoCheckBox.IsChecked():
             self.FileNameStyles.Enable(True)
+            self.FileNameStylesText.Enable(True)
             self.FileNameStyles.SetSelection(0)
             self.ExcludeNonMatchingCheckBox.Enable (True)
         else:
             self.FileNameStyles.Enable(False)
+            self.FileNameStylesText.Enable(False)
             self.ExcludeNonMatchingCheckBox.Enable (False)
 
     def clickedCancel(self, event):
