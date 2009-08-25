@@ -21,6 +21,26 @@
 **** Boston, MA  02111-1307  USA                                           ****
 *******************************************************************************
 
+2009-08-26 Kelvin Lawson <kelvinl@users.sf.net> 0.7.1
+  * Enhancements:
+    - r1.57 pykaraoke.py: Improved layout of CDG Configuration page with
+      song-derivation options.
+    - r1.56 pykaraoke.py, r1.35 pykdb.py: Add new option to exclude filenames
+      that don't match naming scheme from search results.
+    - r1.33 pykdb.py: Move from md5 to hashlib due to Python deprecation
+      warning.
+    - r1.32 pykdb.py: Now allows songs in database if they do not match the 
+      "Derive song information from filename" format. Sets the title field
+      only to the filename.
+    - r1.31 pycdg.py: Switch from MP3Info.py to python-mutagen for MP3 info
+      as more widely available in package managers.
+
+  * Bug Fixes:
+    - r1.31 pykdb.py: Fix failure to play songs from File View due to addition 
+      of "Derive song information from filename" feature.
+    - r1.31 pykdb.py: Report that song file does not match filename scheme, 
+      rather than the claimed ZIP error.
+
 2009-08-12 Kelvin Lawson <kelvinl@users.sf.net> 0.7.0
   * Bug Fixes:
     - r1.49 pykaraoke.py: Fix File Details available from Folder View.
