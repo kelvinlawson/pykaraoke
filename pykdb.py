@@ -43,7 +43,7 @@ MAX_ZIP_FILES = 10
 # Increment this version number whenever the settings version changes
 # (which may not necessarily change with each PyKaraoke release).
 # This will force users to re-enter their configuration information.
-SETTINGS_VERSION = 5
+SETTINGS_VERSION = 6
 
 # Increment this version number whenever the database version changes
 # (which will also hopefully be infrequently).
@@ -160,7 +160,7 @@ class SongStruct:
     T_MPG = 2
 
     def __init__(self, Filepath, settings,
-                 Title = None, Artist = None, ZipStoredName = None):
+                 Title = None, Artist = None, ZipStoredName = None, DatabaseAdd = False):
         self.Filepath = Filepath    # Full path to file or ZIP file
         self.ZipStoredName = ZipStoredName # Filename stored in ZIP
 
@@ -179,9 +179,17 @@ class SongStruct:
                 self.Track = self.ParseTrack(Filepath, settings)     # Track for display
             except:
                 # Filename did not match requested scheme, set the title to the filepath
-                # so that it is still included in the list, but without any additional info
+                # so that the structure is still created, but without any additional info
                 #print "Filename format does not match requested scheme: %s" % Filepath
                 self.Title = os.path.basename(Filepath)
+
+                # If this SongStruct is being used to add to the database, and we are
+                # configured to exclude non-matching files, raise an exception. Otherwise
+                # allow it through. For database adds where we are not excluding such
+                # files the song will still be added to the database. For non-database
+                # adds we don't care anyway, we just want a SongStruct for passing around.
+                if DatabaseAdd and settings.ExcludeNonMatchingFilenames:
+                    raise KeyError, "Excluding non-matching file: %s" % self.Title
 
         # This is a list of other song files that share the same
         # artist and title data.
@@ -817,6 +825,7 @@ class SettingsStruct:
         # negative values delay them.
         self.SyncDelayMs = 0
 
+        # KAR/MID options
         self.KarEncoding = 'cp1252'  # Default text encoding in karaoke files
         self.KarFont = FontData("DejaVuSans.ttf")
         self.KarBackgroundColour = (0, 0, 0)
@@ -826,11 +835,14 @@ class SettingsStruct:
         self.KarTitleColour = (100, 100, 255)
         self.MIDISampleRate = 44100
 
+        # CDG options
         self.CdgZoom = 'int'
         self.CdgUseC = True
         self.CdgDeriveSongInformation = False # Determines if we should parse file names for song information
         self.CdgFileNameType = -1 # The style index we are using for the file name parsing
+        self.ExcludeNonMatchingFilenames = False # Exclude songs from database if can't derive song info
 
+        # MPEG options
         self.MpgNative = True
         self.MpgExternalThreaded = True
         self.MpgExternal = 'mplayer -fs "%(file)s"'
@@ -1397,7 +1409,10 @@ class SongDB:
                 # Save this titles.txt file for reading later.
                 self.TitlesFiles.append(TitleStruct(full_path))
             elif self.IsExtensionValid(ext):
-                self.addSong(SongStruct(full_path, self.Settings))
+                try:
+                    self.addSong(SongStruct(full_path, self.Settings, DatabaseAdd = True))
+                except KeyError:
+                    print "Excluding filename with unexpected format: %s " % os.path.basename(full_path)
             # Look inside ZIPs if configured to do so
             elif self.Settings.LookInsideZips and ext.lower() == ".zip":
                 try:
@@ -1427,7 +1442,10 @@ class SongDB:
                                 info = zip.getinfo(filename)
                                 if info.compress_type == zipfile.ZIP_STORED or info.compress_type == zipfile.ZIP_DEFLATED:
                                     #print ("Adding song %s in ZIP file %s"%(filename, full_path))
-                                    self.addSong(SongStruct(full_path, self.Settings, ZipStoredName = filename))
+                                    try:
+                                        self.addSong(SongStruct(full_path, self.Settings, ZipStoredName = filename, DatabaseAdd = True))
+                                    except KeyError:
+                                        print "Excluding filename with unexpected format: %s " % os.path.basename(full_path)
                                 else:
                                     print ("ZIP member compressed with unsupported type (%d): %s"%(info.compress_type, full_path))
                     else:

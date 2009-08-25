@@ -747,6 +747,16 @@ class ConfigWindow (wx.Frame):
         else:
             self.FileNameStyles.Enable(False)
 
+        # Enable/disable exclusion from database of files not matching the above scheme
+        self.ExcludeNonMatchingCheckBox = wx.CheckBox(panel, -1, "Exclude from search results files not matching naming scheme")
+        self.ExcludeNonMatchingCheckBox.SetValue(settings.ExcludeNonMatchingFilenames)
+        if (settings.CdgDeriveSongInformation == True):
+            self.ExcludeNonMatchingCheckBox.Enable (True)
+        else:
+            self.ExcludeNonMatchingCheckBox.Enable (False)
+        cdgsizer.Add(self.ExcludeNonMatchingCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
+
+        # Now add final sizer to panel
         panel.SetSizer(cdgsizer)
         self.notebook.AddPage(panel, 'CDG+MP3/OGG')
 
@@ -866,8 +876,10 @@ class ConfigWindow (wx.Frame):
         if self.SongInfoCheckBox.IsChecked():
             self.FileNameStyles.Enable(True)
             self.FileNameStyles.SetSelection(0)
+            self.ExcludeNonMatchingCheckBox.Enable (True)
         else:
             self.FileNameStyles.Enable(False)
+            self.ExcludeNonMatchingCheckBox.Enable (False)
 
     def clickedCancel(self, event):
         self.Show(False)
@@ -1035,7 +1047,9 @@ class ConfigWindow (wx.Frame):
         settings.CdgZoom = settings.Zoom[selection]
         settings.CdgUseC = self.CdgUseCCheckBox.IsChecked()
         # Check to see if we will need to update the database
-        if (self.SongInfoCheckBox.IsChecked() == settings.CdgDeriveSongInformation) and (settings.CdgFileNameType == self.FileNameStyles.GetCurrentSelection()):
+        if ((self.SongInfoCheckBox.IsChecked() == settings.CdgDeriveSongInformation) 
+            and (settings.CdgFileNameType == self.FileNameStyles.GetCurrentSelection())
+            and (settings.ExcludeNonMatchingFilenames == self.ExcludeNonMatchingCheckBox.IsChecked())):
             needDabaseRescan = False
         else:
             needDabaseRescan = True
@@ -1046,6 +1060,7 @@ class ConfigWindow (wx.Frame):
             else:
                 settings.CdgDeriveSongInformation = False
                 settings.CdgFileNameType = -1
+            settings.ExcludeNonMatchingFilenames = self.ExcludeNonMatchingCheckBox.IsChecked()
 
         settings.MpgNative = self.MpgNativeCheckBox.IsChecked()
         settings.MpgExternal = self.MpgExternal.GetValue()
