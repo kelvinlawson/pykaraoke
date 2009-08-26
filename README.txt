@@ -1,8 +1,8 @@
 
 ---------------------------------------------------------------------------
 
-Release:      pykaraoke v0.7.0
-Date:         20/08/2009
+Release:      pykaraoke v0.7.1
+Date:         26/08/2009
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
@@ -55,6 +55,7 @@ PyKaraoke requires the following libraries to be installed:
  * Pygame (www.pygame.org)
  * WxPython (www.wxpython.org)
  * SDL source distribution (www.libsdl.org)
+ * Mutagen (http://code.google.com/p/mutagen/) - Optional
 
 PyKaraoke now offers two builds: an ultra-portable Python version, and
 a highly optimised C version. The default install is to use the faster
@@ -71,7 +72,8 @@ download them from the websites listed.
 Linux users may find these packages are available directly from their
 distro's package manager. For example Debian users can install all
 prerequisites using:
-	# apt-get install python-dev python-pygame libwxgtk-python libsdl-dev
+	# apt-get install python-dev python-pygame libwxgtk-python 
+                  libsdl-dev python-mutagen
 
 With the prerequisites installed, unzip the release and run the following
 as root:
