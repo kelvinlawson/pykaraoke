@@ -174,6 +174,16 @@ if gotPy2exe:
                           "path to makensis.exe, the NSIS compiler."),
                          ]
 
+        def isSystemDLL(self, pathname):
+            # Trap and flag as non-system DLLs those that py2exe
+            # would otherwise get incorrect.
+            if os.path.basename(pathname).lower() in ["sdl_ttf.dll"]:
+                return 0
+            elif os.path.basename(pathname).lower() in ["libogg-0.dll"]:
+                return 0
+            else:
+                return self.origIsSystemDLL(pathname)
+
         def initialize_options(self):
             py2exe.build_exe.py2exe.initialize_options(self)
             self.makensis = None
@@ -195,11 +205,15 @@ if gotPy2exe:
             # than calling rm_rf() on it, in case the user has
             # specified '/' or some equally foolish directory as the
             # dist directory.)
-
             if os.path.exists(self.dist_dir):
                 print "Error, the directory %s already exists." % (self.dist_dir)
                 print "Please remove it before starting this script."
                 sys.exit(1)
+
+            # Override py2exe's isSystemDLL because it erroneously
+            # flags sdl_ttf.dll and libogg-0.dll as system DLLs
+            self.origIsSystemDLL = py2exe.build_exe.isSystemDLL
+            py2exe.build_exe.isSystemDLL = self.isSystemDLL
 
             # Build the .exe files, etc.
             py2exe.build_exe.py2exe.run(self)
@@ -240,10 +254,10 @@ if gotPy2exe:
     setupArgs['windows'] = [
         { "script": "pykaraoke.py",
           "icon_resources" : [(0, "icons\\microphone.ico")],
-          },
+        },
         { "script": "pykaraoke_mini.py",
           "icon_resources" : [(0, "icons\\microphone.ico")],
-          },
+        },
         ]
 
 setup(**setupArgs)
