@@ -241,6 +241,11 @@ class externalPlayer(pykPlayer):
         if not self.proc:
             self.__start()
 
+    def GetLength(self):
+        # We cannot fetch the length from arbitrary external players.
+        # Return zero-length.
+        return 0
+
     def doStuff(self):
         if self.procReturnCode != None:
             # The movie is done.

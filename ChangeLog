@@ -21,6 +21,9 @@
 **** Boston, MA  02111-1307  USA                                           ****
 *******************************************************************************
 
+2009-10-25 Kelvin Lawson <kelvinl@users.sf.net> 0.7.2
+  * Bug fixes:
+    - pympg.py: Support GetLength() call with external player. 
 2009-08-26 Kelvin Lawson <kelvinl@users.sf.net> 0.7.1
   * Enhancements:
     - r1.57 pykaraoke.py: Improved layout of CDG Configuration page with
