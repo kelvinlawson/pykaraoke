@@ -21,4 +21,4 @@
 #******************************************************************************
 
 # Version string
-PYKARAOKE_VERSION_STRING = "0.7.1"
+PYKARAOKE_VERSION_STRING = "0.7.2"
