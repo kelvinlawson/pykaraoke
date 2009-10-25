@@ -246,6 +246,14 @@ class externalPlayer(pykPlayer):
         # Return zero-length.
         return 0
 
+    def GetPos(self):
+        # Use the default GetPos() which simply checks the time
+        # since we started playing. This does not take account
+        # for any fast-forward/rewind that may occur in the
+        # external player, but we cannot support getting the
+        # song position from arbitrary user-supplied players.
+        return pykPlayer.GetPos(self)
+
     def doStuff(self):
         if self.procReturnCode != None:
             # The movie is done.
