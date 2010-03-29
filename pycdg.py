@@ -238,6 +238,7 @@ class cdgPlayer(pykPlayer):
 
         self.cdgFileData = self.SongDatas[0]
         self.soundFileData = soundFileData
+        self.soundLength = 0
 
         # Handle a bug in pygame (pre-1.7) which means that the position
         # timer carries on even when the song has been paused.

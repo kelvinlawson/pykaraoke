@@ -1031,11 +1031,11 @@ class midPlayer(pykPlayer):
         # synchronize lyric display with the music.
         self.useMidiTimer = True
 
-        if env == ENV_WINDOWS:
-            # Unless we're running on Windows.  For some reason, MIDI
-            # playback on Windows reports an unreliable time.  To
-            # avoid that problem, we'll always use the CPU timer
-            # instead of the MIDI timer.
+        if env == ENV_WINDOWS or env == ENV_OSX:
+            # Unless we're running on Windows or OSX (i.e., not
+            # timidity).  For some reason, hardware MIDI playback can
+            # report an unreliable time.  To avoid that problem, we'll
+            # always use the CPU timer instead of the MIDI timer.
             self.useMidiTimer = False
 
         # Load the MIDI player

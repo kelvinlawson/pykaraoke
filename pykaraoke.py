@@ -3689,6 +3689,11 @@ class PyKaraokeApp(wx.App):
             self.ProcessIdle()
 
     def OnInit(self):
+        # On OSX, it's important to initialize pygame first, *before*
+        # we create the main menu, since initializing pygame seems to
+        # replace whatever menu we've already created.
+        manager.Poll()
+        
         Mgr = PyKaraokeManager()
         if Mgr.gui:
             self.Bind(wx.EVT_IDLE, Mgr.handleIdle)
