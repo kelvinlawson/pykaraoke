@@ -1046,7 +1046,10 @@ class midPlayer(pykPlayer):
 
         else:
             # Load the sound normally for playback.
-            pygame.mixer.music.load(self.SongDatas[0].GetFilepath())
+            audio_path = self.SongDatas[0].GetFilepath()
+            if type(audio_path) == unicode:
+                audio_path = audio_path.encode(sys.getfilesystemencoding())
+            pygame.mixer.music.load(audio_path)
 
             # Set an event for when the music finishes playing
             pygame.mixer.music.set_endevent(pygame.USEREVENT)

@@ -137,7 +137,12 @@ class SongData:
             # to a temporary file.
             prefix = globalSongDB.CreateTempFileNamePrefix()
             basename = os.path.basename(self.filename)
-            self.tempFilename = prefix + basename
+            # Add the tempfile prefix as well as the time to make the
+            # filename unique. This works around a bug
+            # in pygame.mixer.music on Windows which stops us deleting
+            # temp files until another song is loaded, preventing the
+            # same song from being played twice in a row.
+            self.tempFilename = prefix + str(time.time()) + basename
             open(self.tempFilename, 'wb').write(self.data)
 
         return self.tempFilename
@@ -1291,7 +1296,7 @@ class SongDB:
             # going to traverse.  We give each directory equal weight
             # regardless of the number of files within it.
             progress = [(i, len(fileList))]
-            self.fileScan(str(root_path), progress, yielder)
+            self.fileScan(root_path, progress, yielder)
             if self.BusyDlg.Clicked:
                 break
 
@@ -1386,7 +1391,7 @@ class SongDB:
             # Every so often, update the progress bar.
             basename = os.path.split(full_path)[1]
             self.BusyDlg.SetProgress(
-                "Scanning %s" % unicode(basename, errors='replace'),
+                "Scanning %s" % basename,
                 self.__computeProgressValue(progress))
             yielder.Yield()
             self.lastBusyUpdate = now
@@ -1540,6 +1545,9 @@ class SongDB:
                     try:
                         os.unlink(full_path)
                     except:
+                        # The unlink can fail on Windows due to a bug in
+                        # pygame.mixer.music which does not release the
+                        # file handle until you load another music file.
                         pass
 
     def SelectSort(self, sort):

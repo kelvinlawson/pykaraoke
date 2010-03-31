@@ -281,7 +281,10 @@ class cdgPlayer(pykPlayer):
                 audioProperties = (None, None, None)
             try:
                 manager.OpenAudio(*audioProperties)
-                pygame.mixer.music.load(self.soundFileData.GetFilepath())
+                audio_path = self.soundFileData.GetFilepath()
+                if type(audio_path) == unicode:
+                    audio_path = audio_path.encode(sys.getfilesystemencoding())
+                pygame.mixer.music.load(audio_path)
             except:
                 self.Close()
                 raise
