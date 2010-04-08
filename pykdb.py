@@ -613,7 +613,12 @@ class TitleStruct:
                 return
 
         for line in catalogFile:
-            line = line.decode('utf-8').strip()
+            try:
+                line = line.decode('utf-8').strip()
+            except UnicodeDecodeError:
+                line = line.decode('utf-8', 'replace')
+                print "Invalid characters in %s:\n%s" % (catalogPathname, line)
+
             if line:
                 tuple = line.split('\t')
                 if len(tuple) == 2:
