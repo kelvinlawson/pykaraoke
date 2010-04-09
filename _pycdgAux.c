@@ -751,6 +751,12 @@ __cdgTileBlockCommon(CdgPacketReader *self, CdgPacket *packd, int xor) {
   int col, row;
   int i, j, byte, pixel, xor_col, currentColourIndex, new_col;
 
+  if (packd->data[1] & 0x20) {
+    /* I don't know why, but some disks seem to stick an extra
+       bit here to mean "ignore this command". */
+    return;
+  }
+
   colour0 = packd->data[0] & 0x0f;
   colour1 = packd->data[1] & 0x0f;
   column_index = ((packd->data[2] & 0x1f) * 12);

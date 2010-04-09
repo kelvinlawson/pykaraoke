@@ -476,8 +476,14 @@ class CdgPacketReader:
     def __cdgTileBlockCommon(self, packd, xor):
         # Decode the command parameters
         data_block = packd.data
+        if data_block[1] & 0x20:
+            # I don't know why, but some disks seem to stick an extra
+            # bit here to mean "ignore this command".
+            return
+
         colour0 = data_block[0] & 0x0F
         colour1 = data_block[1] & 0x0F
+        
         column_index = ((data_block[2] & 0x1F) * 12)
         row_index = ((data_block[3] & 0x3F) * 6)
 
