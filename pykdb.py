@@ -28,9 +28,12 @@ from pykconstants import *
 from pykenv import env
 import pykar, pycdg, pympg
 import os, cPickle, zipfile, codecs, sys, time
-from hashlib import md5
 import types
 from cStringIO import StringIO
+try:
+    from hashlib import md5
+except ImportError:
+    from md5 import md5
 
 # The amount of time to wait, in milliseconds, before yielding to the
 # app for windowing updates during a long update process.
@@ -333,6 +336,25 @@ class SongStruct:
         #print "Track parsed: %s" % track
         return track
 
+    def MakeSortKey(self, str):
+        """ Returns a suitable key to use for sorting, by lowercasing
+        and removing articles from the indicated string. """
+        str = str.strip().lower()
+        if str:
+            # Remove a leading parenthetical phrase.
+            if str[0] == '(':
+                rparen = str.index(')')
+                if rparen != ')':
+                    str = str[rparen + 1:].strip()
+
+        if str:
+            # Remove a leading article.
+            firstWord = str.split()[0]
+            if firstWord in ['a', 'an', 'the']:
+                str = str[len(firstWord):].strip()
+                
+        return str
+
     def MakePlayer(self, songDb, errorNotifyCallback, doneCallback):
         """Creates and returns a player of the appropriate type to
         play this file, if possible; or returns None if the file
@@ -502,6 +524,11 @@ class SongStruct:
         # have priority over KAR, for the purposes of coloring the
         # files in the mini index.
         return (-self.Type, self.DisplayFilename)
+
+    def getMarkKey(self):
+        """ Returns a key for indexing into markedSongs, for uniquely
+        identifying this particular song file. """
+        return (self.Filepath, self.ZipStoredName)
 
     def __cmp__(self, other):
         """Define a sorting order between SongStruct objects.  This is
@@ -1555,68 +1582,86 @@ class SongDB:
                         # file handle until you load another music file.
                         pass
 
-    def SelectSort(self, sort):
+    def SelectSort(self, sort, allowResort = True):
         """Sorts the list of songs in order according to the indicated
         key, which must be one of 'title', 'artist', or 'filename'.
         Also sets self.GetSongTuple to a functor which, when called, returns a
         3-tuple of strings suitable for displaying for each song,
-        where the first string of each tuple is the sort key. """
+        where the first string of each tuple is the sort key.
 
-        self.Sort = sort
-        global fileSortKey
+        This may require re-sorting the list on-the-fly.  If
+        allowResort is False, then the list will never be re-sorted;
+        rather, the method will return True if the sort was
+        successfully applied, or False if a re-sort was necessary but
+        not performed, in which case the list retains its original
+        sort. """
 
-        if self.Sort == 'title' and self.GotTitles:
+        if sort == 'title' and self.GotTitles:
             if self.GotArtists:
-                self.GetSongTuple = self.getSongTupleTitleArtistFilename
-                self.SortKeys = ('title', 'artist', 'filename')
-                fileSortKey = self.getSongTupleTitleArtistFilenameSortKey
+                getSongTuple = self.getSongTupleTitleArtistFilename
+                sortKeys = ('title', 'artist', 'filename')
+                getSortKey = self.getSongTupleTitleArtistFilenameSortKey
             else:
-                self.GetSongTuple = self.getSongTupleTitleFilenameArtist
-                self.SortKeys = ('title', 'filename')
-                fileSortKey = self.getSongTupleTitleFilenameArtistSortKey
+                getSongTuple = self.getSongTupleTitleFilenameArtist
+                sortKeys = ('title', 'filename')
+                getSortKey = self.getSongTupleTitleFilenameArtistSortKey
 
-        elif self.Sort == 'artist' and self.GotArtists:
+        elif sort == 'artist' and self.GotArtists:
             if self.GotTitles:
-                self.GetSongTuple = self.getSongTupleArtistTitleFilename
-                self.SortKeys = ('artist', 'title', 'filename')
-                fileSortKey = self.getSongTupleArtistTitleFilenameSortKey
+                getSongTuple = self.getSongTupleArtistTitleFilename
+                sortKeys = ('artist', 'title', 'filename')
+                getSortKey = self.getSongTupleArtistTitleFilenameSortKey
             else:
-                self.GetSongTuple = self.getSongTupleArtistFilenameTitle
-                self.SortKeys = ('artist', 'filename')
-                fileSortKey = self.getSongTupleArtistFilenameTitleSortKey
+                getSongTuple = self.getSongTupleArtistFilenameTitle
+                sortKeys = ('artist', 'filename')
+                getSortKey = self.getSongTupleArtistFilenameTitleSortKey
 
         else: # filename
-            self.Sort = 'filename'
+            sort = 'filename'
             if self.GotTitles and self.GotArtists:
-                self.GetSongTuple = self.getSongTupleFilenameTitleArtist
-                self.SortKeys = ('filename', 'title', 'artist')
-                fileSortKey = self.getSongTupleFilenameTitleArtistSortKey
+                getSongTuple = self.getSongTupleFilenameTitleArtist
+                sortKeys = ('filename', 'title', 'artist')
+                getSortKey = self.getSongTupleFilenameTitleArtistSortKey
             elif self.GotTitles:
-                self.GetSongTuple = self.getSongTupleFilenameTitleArtist
-                self.SortKeys = ('filename', 'title')
-                fileSortKey = self.getSongTupleFilenameTitleArtistSortKey
+                getSongTuple = self.getSongTupleFilenameTitleArtist
+                sortKeys = ('filename', 'title')
+                getSortKey = self.getSongTupleFilenameTitleArtistSortKey
             elif self.GotArtists:
-                self.GetSongTuple = self.getSongTupleFilenameArtistTitle
-                self.SortKeys = ('filename', 'artist')
-                fileSortKey = self.getSongTupleFilenameArtistTitleSortKey
+                getSongTuple = self.getSongTupleFilenameArtistTitle
+                sortKeys = ('filename', 'artist')
+                getSortKey = self.getSongTupleFilenameArtistTitleSortKey
             else:
-                self.GetSongTuple = self.getSongTupleFilenameArtistTitle
-                self.SortKeys = ('filename',)
-                fileSortKey = self.getSongTupleFilenameArtistTitleSortKey
+                getSongTuple = self.getSongTupleFilenameArtistTitle
+                sortKeys = ('filename',)
+                getSortKey = self.getSongTupleFilenameArtistTitleSortKey
 
-        list = self.SortedLists.get(fileSortKey, None)
+        list = self.SortedLists.get(getSortKey, None)
         if list is None:
+            if not allowResort:
+                # Return False to indicate that a sort was not applied.
+                return False
+            
             # We haven't asked for this sort key before; we have to
             # sort the list now.  Once sorted, we can keep it around
             # for future requests.
-            if self.Sort == 'filename':
+            if sort == 'filename':
                 list = self.FullSongList[:]
             else:
                 list = self.UniqueSongList[:]
-            list.sort(key = fileSortKey)
-            self.SortedLists[fileSortKey] = list
+            list.sort(key = getSortKey)
+            self.SortedLists[getSortKey] = list
+
+        global fileSortKey
+        fileSortKey = getSortKey
+
+        self.Sort = sort
+        self.SortKeys = sortKeys
+        self.GetSongTuple = getSongTuple
+        self.GetSortKey = getSortKey
 
         self.SongList = list
+
+        return True
 
     def getSongTupleTitleArtistFilename(self, file):
         return (file.Title, file.Artist, file.getDisplayFilenames())
@@ -1637,22 +1682,22 @@ class SongDB:
         return (file.DisplayFilename, file.Artist, file.Title)
 
     def getSongTupleTitleArtistFilenameSortKey(self, file):
-        return (file.Title.lower(), file.Artist.lower(), file.getDisplayFilenames().lower(), id(file))
+        return (file.MakeSortKey(file.Title), file.MakeSortKey(file.Artist), file.getDisplayFilenames().lower(), id(file))
 
     def getSongTupleTitleFilenameArtistSortKey(self, file):
-        return (file.Title.lower(), file.DisplayFilename.lower(), file.Artist.lower(), id(file))
+        return (file.MakeSortKey(file.Title), file.DisplayFilename.lower(), file.MakeSortKey(file.Artist), id(file))
 
     def getSongTupleArtistTitleFilenameSortKey(self, file):
-        return (file.Artist.lower(), file.Title.lower(), file.DisplayFilename.lower(), id(file))
+        return (file.MakeSortKey(file.Artist), file.MakeSortKey(file.Title), file.DisplayFilename.lower(), id(file))
 
     def getSongTupleArtistFilenameTitleSortKey(self, file):
-        return (file.Artist.lower(), file.DisplayFilename.lower(), file.Title.lower(), id(file))
+        return (file.MakeSortKey(file.Artist), file.DisplayFilename.lower(), file.MakeSortKey(file.Title), id(file))
 
     def getSongTupleFilenameTitleArtistSortKey(self, file):
-        return (file.DisplayFilename.lower(), file.Title.lower(), file.Artist.lower(), id(file))
+        return (file.DisplayFilename.lower(), file.MakeSortKey(file.Title), file.MakeSortKey(file.Artist), id(file))
 
     def getSongTupleFilenameArtistTitleSortKey(self, file):
-        return (file.DisplayFilename.lower(), file.Artist.lower(), file.Title.lower(), id(file))
+        return (file.DisplayFilename.lower(), file.MakeSortKey(file.Artist), file.MakeSortKey(file.Title), id(file))
 
     def addSong(self, file):
         self.FullSongList.append(file)

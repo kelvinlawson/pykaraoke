@@ -227,7 +227,7 @@ class App(pykPlayer):
             y = (i + self.startSongWindowRow) * self.songWindowRowHeight
 
             filename = file.DisplayFilename
-            if file in self.markedSongs:
+            if file.getMarkKey() in self.markedSongs:
                 filename = '* ' + filename
 
             text = self.boldFont.render(filename, True, fg)
@@ -241,7 +241,7 @@ class App(pykPlayer):
         y = (i + self.startSongWindowRow) * self.songWindowRowHeight
 
         filename = file.DisplayFilename
-        if file in self.markedSongs:
+        if file.getMarkKey() in self.markedSongs:
             filename = '* ' + filename
             
         text = self.boldFont.render(filename, True, fg, bg)
@@ -296,7 +296,7 @@ class App(pykPlayer):
         if self.songDb.Sort == 'filename':            
             # If we're sorting by filename, then every song is
             # individually marked.
-            if song in self.markedSongs:
+            if song.getMarkKey() in self.markedSongs:
                 return song
             
         else:
@@ -305,7 +305,7 @@ class App(pykPlayer):
             # files, and we should show the marked flag if any one
             # of them is marked.
             for file in song.sameSongs:
-                if file in self.markedSongs:
+                if file.getMarkKey() in self.markedSongs:
                     return file
 
         return None
@@ -322,10 +322,10 @@ class App(pykPlayer):
             
             i = self.selectedSongRow
             file = self.selectedSong.sameSongs[i]
-            if file in self.markedSongs:
-                self.markedSongs.remove(file)
+            if file.getMarkKey() in self.markedSongs:
+                del self.markedSongs[file.getMarkKey()]
             else:
-                self.markedSongs.append(file)
+                self.markedSongs[file.getMarkKey()] = file
 
         else:
             # Main window.  This is unambiguous only in filename sort.
@@ -336,18 +336,18 @@ class App(pykPlayer):
             file = self.songIsMarked(song)
             if file:
                 # Unmark this particular song file.
-                self.markedSongs.remove(file)
+                del self.markedSongs[file.getMarkKey()]
 
                 # In fact, unmark all of them with the same artist
                 # / title.
                 file = self.songIsMarked(song)
                 while file:
-                    self.markedSongs.remove(file)
+                    del self.markedSongs[file.getMarkKey()]
                     file = self.songIsMarked(song)
 
             else:
                 # Mark this song file.
-                self.markedSongs.append(song)
+                self.markedSongs[song.getMarkKey()] = song
 
         self.markedSongsDirty = True
         self.screenDirty = True
@@ -447,7 +447,7 @@ class App(pykPlayer):
         marked by the user for later inspection or adjustment (for
         instance, to correct a title misspelling or something). """
 
-        self.markedSongs = []
+        self.markedSongs = {}
         self.markedSongsDirty = False
 
         pathname = os.path.join (self.songDb.SaveDir, "marked.txt")
@@ -476,7 +476,7 @@ class App(pykPlayer):
                     # If we found the song, record that it is marked.
                     song = self.songDb.SongList[row]
                     if song.DisplayFilename == filename:
-                        self.markedSongs.append(song)
+                        self.markedSongs[song.getMarkKey()] = song
                         found = True
 
                 if not found:
@@ -492,7 +492,9 @@ class App(pykPlayer):
 
         pathname = os.path.join (self.songDb.SaveDir, "marked.txt")
         file = open(pathname, 'w')
-        for song in self.markedSongs:
+        markedSongs = self.markedSongs.items()
+        markedSongs.sort()
+        for key, song in markedSongs:
             line = '%s\t%s\t%s\n' % (song.DisplayFilename, song.Title, song.Artist)
             file.write(line.encode('utf-8'))
 
@@ -527,6 +529,7 @@ class App(pykPlayer):
 
     def beginSong(self, file):
         self.selectedSong = None
+        manager.setCpuSpeed('load')
         manager.display.fill((0,0,0))
 
         winWidth, winHeight = manager.displaySize
@@ -547,7 +550,6 @@ class App(pykPlayer):
         # This will call the songFinishedCallback, so call it early.
         self.shutdown()
 
-        manager.setCpuSpeed('load')
         self.writeMarkedSongs()
 
         player = file.MakePlayer(
@@ -636,15 +638,15 @@ class App(pykPlayer):
     def letterDown(self, count):
         # Go to the next "letter".
         file = self.songDb.SongList[self.currentRow]
-        currentLetter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
+        currentLetter = (self.songDb.GetSortKey(file)[0] or ' ')[0]
         
         row = (self.currentRow + 1) % len(self.songDb.SongList)
         file = self.songDb.SongList[row]
-        letter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
+        letter = (self.songDb.GetSortKey(file)[0] or ' ')[0]
         while row != self.currentRow and letter == currentLetter:
             row = (row + 1) % len(self.songDb.SongList)
             file = self.songDb.SongList[row]
-            letter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
+            letter = (self.songDb.GetSortKey(file)[0] or ' ')[0]
         
         self.currentRow = row
         self.screenDirty = True
@@ -652,15 +654,15 @@ class App(pykPlayer):
     def letterUp(self, count):
         # Go to the previous "letter".
         file = self.songDb.SongList[self.currentRow]
-        currentLetter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
+        currentLetter = (self.songDb.GetSortKey(file)[0] or ' ')[0]
         
         row = (self.currentRow - 1) % len(self.songDb.SongList)
         file = self.songDb.SongList[row]
-        letter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
+        letter = (self.songDb.GetSortKey(file)[0] or ' ')[0]
         while row != self.currentRow and letter == currentLetter:
             row = (row - 1) % len(self.songDb.SongList)
             file = self.songDb.SongList[row]
-            letter = (self.songDb.GetSongTuple(file)[0] or ' ')[0]
+            letter = (self.songDb.GetSortKey(file)[0] or ' ')[0]
         
         self.currentRow = row
         self.screenDirty = True
@@ -668,18 +670,42 @@ class App(pykPlayer):
     def changeSort(self):
         file = self.songDb.SongList[self.currentRow]
 
+        sort = None
         if self.songDb.Sort == 'title':
             if self.songDb.GotArtists:
-                self.songDb.SelectSort('artist')
+                sort = 'artist'
             else:
-                self.songDb.SelectSort('filename')
+                sort = 'filename'
         elif self.songDb.Sort == 'artist':
-            self.songDb.SelectSort('filename')
+            sort = 'filename'
         else:  # 'filename'
             if self.songDb.GotTitles:
-                self.songDb.SelectSort('title')
+                sort = 'title'
             elif self.songDb.GotArtists:
-                self.songDb.SelectSort('artist')
+                sort = 'artist'
+
+        if not sort:
+            # No need to change anything.
+            return
+
+        sortApplied = self.songDb.SelectSort(sort, allowResort = False)
+        if not sortApplied:
+            # Changing the sort will require re-sorting the list.  Pop
+            # up a message indicating we're doing this.  This is
+            # particularly necessary for low-end CPU's, for which this
+            # process might take a few seconds, like the GP2X.
+            manager.setCpuSpeed('load')
+            manager.display.fill((0,0,0))
+            winWidth, winHeight = manager.displaySize
+            winCenterX = winWidth / 2
+            winCenterY = winHeight / 2
+            text = self.subtitleFont.render("Sorting", True, (255,255,255))
+            rect = text.get_rect()
+            rect = rect.move(winCenterX - rect.centerx,
+                             winCenterY - rect.centery)
+            manager.display.blit(text, rect)
+            pygame.display.flip()
+            self.songDb.SelectSort(sort, allowResort = True)
 
         if file.sameSongs:
             # If we were on the filename list, we might have been looking
