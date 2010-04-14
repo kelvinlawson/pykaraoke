@@ -1250,6 +1250,14 @@ class midPlayer(pykPlayer):
             if self.currentMs > self.midifile.lastNoteMS:
                 self.Close()
 
+    def handleEvent(self, event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and (event.mod & (pygame.KMOD_LSHIFT | pygame.KMOD_RSHIFT | pygame.KMOD_LMETA | pygame.KMOD_RMETA)):
+            # Shift/meta return: start/stop song.  Useful for keybinding apps.
+            self.Close()
+            return
+        
+        pykPlayer.handleEvent(self, event)
+
     def doResize(self, newSize):
         # This will be called internally whenever the window is
         # resized for any reason, either due to an application resize

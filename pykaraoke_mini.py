@@ -87,12 +87,20 @@ class App(pykPlayer):
 
     # This is the list of buttons that are always to be interpreted as
     # special command keys, not as type-and-search keys.
-    CommandKeys = [ pygame.K_UP, pygame.K_DOWN,
-                    pygame.K_PAGEUP, pygame.K_PAGEDOWN,
-                    pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS,
-                    pygame.K_MINUS, pygame.K_UNDERSCORE, pygame.K_KP_MINUS,
-                    pygame.K_F1,
-                    ]
+    CommandKeys = [
+        pygame.K_UP, pygame.K_DOWN,
+        pygame.K_LEFT, pygame.K_RIGHT,
+        pygame.K_PAGEUP, pygame.K_PAGEDOWN,
+        pygame.K_F1,
+        ]
+
+    # This is the list of buttons that are interpreted as special
+    # command keys if there is not already a text typed.
+    FirstCommandKeys = [
+        pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS,
+        pygame.K_MINUS, pygame.K_UNDERSCORE, pygame.K_KP_MINUS,
+        ]
+
                
     def __init__(self):
         pykPlayer.__init__(self, '', None, self.errorPopupCallback,
@@ -730,9 +738,13 @@ class App(pykPlayer):
         self.screenDirty = True
 
 
-    def handleRepeatable(self, type, key, count):
+    def handleRepeatable(self, type, key, mod, count):
         if type == pygame.KEYDOWN:
-            if key == pygame.K_DOWN:
+            if key == pygame.K_DOWN and (mod & (pygame.KMOD_LSHIFT | pygame.KMOD_RSHIFT | pygame.KMOD_LMETA | pygame.KMOD_RMETA)):
+                self.pageDown(count)
+            elif key == pygame.K_UP and (mod & (pygame.KMOD_LSHIFT | pygame.KMOD_RSHIFT | pygame.KMOD_LMETA | pygame.KMOD_RMETA)):
+                self.pageUp(count)
+            elif key == pygame.K_DOWN:
                 self.rowDown(count)
             elif key == pygame.K_UP:
                 self.rowUp(count)
@@ -789,7 +801,7 @@ class App(pykPlayer):
 
             if repeat > self.heldRepeat:
                 self.handleRepeatable(self.heldKey[0], self.heldKey[1],
-                                      repeat - self.heldRepeat)
+                                      self.heldKey[2], repeat - self.heldRepeat)
                 self.heldRepeat = repeat
         else:
             elapsed = pygame.time.get_ticks() - self.heldStartTicks
@@ -868,6 +880,11 @@ class App(pykPlayer):
         """ Handles events on the main 'select a song' index. """
         
         if event.type == pygame.KEYDOWN:
+            if self.searchString and (event.key == pygame.K_BACKSPACE or event.key == pygame.K_DELETE):
+                # Backing up on the search.
+                self.searchString = self.searchString[:-1]
+                self.goToSearch(self.searchString)
+                return
             if event.unicode and event.unicode[0] >= ' ':
                 # The user has typed a keystroke that counts toward a
                 # search.
@@ -875,18 +892,20 @@ class App(pykPlayer):
                     # Except any one of these keys, which are reserved
                     # for font zoom and other command navigation.
                     pass
+                elif event.key in self.FirstCommandKeys and not self.searchString:
+                    # These keys are used for navigation only if we
+                    # haven't already started typing.
+                    pass
                 else:
                     self.searchString += event.unicode
                     self.goToSearch(self.searchString)
                     return
-            if self.searchString and event.key == pygame.K_BACKSPACE:
-                # Backing up on the search.
-                self.searchString = self.searchString[:-1]
-                self.goToSearch(self.searchString)
+            if event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:
+                # Don't count these keys as wiping out the search.
                 return
 
             self.searchString = ''
-            self.heldKey = (pygame.KEYDOWN, event.key)
+            self.heldKey = (pygame.KEYDOWN, event.key, event.mod)
             self.heldStartTicks = pygame.time.get_ticks()
             self.heldRepeat = 0
 
@@ -900,7 +919,7 @@ class App(pykPlayer):
                 # F1: mark song for later inspection.
                 self.markCurrentSongFile()
             else:
-                self.handleRepeatable(pygame.KEYDOWN, event.key, 1)
+                self.handleRepeatable(pygame.KEYDOWN, event.key, event.mod, 1)
 
         elif event.type == pygame.KEYUP:
             self.heldKey = None
@@ -921,7 +940,7 @@ class App(pykPlayer):
             elif button == GP2X_BUTTON_DOWNLEFT or button == GP2X_BUTTON_DOWNRIGHT:
                 button = GP2X_BUTTON_DOWN
                 
-            self.heldKey = (pygame.JOYBUTTONDOWN, button)
+            self.heldKey = (pygame.JOYBUTTONDOWN, button, 0)
             self.heldStartTicks = pygame.time.get_ticks()
             self.heldRepeat = 0
 
@@ -941,7 +960,7 @@ class App(pykPlayer):
                 # F1: mark song for later inspection.
                 self.markCurrentSongFile()
             else:
-                self.handleRepeatable(pygame.JOYBUTTONDOWN, button, 1)
+                self.handleRepeatable(pygame.JOYBUTTONDOWN, button, 0, 1)
 
         elif env == ENV_GP2X and event.type == pygame.JOYBUTTONUP:
             button = event.button
@@ -951,7 +970,7 @@ class App(pykPlayer):
             elif button == GP2X_BUTTON_DOWNLEFT or button == GP2X_BUTTON_DOWNRIGHT:
                 button = GP2X_BUTTON_DOWN
 
-            if self.heldKey == (pygame.JOYBUTTONDOWN, button):
+            if self.heldKey == (pygame.JOYBUTTONDOWN, button, 0):
                 self.heldKey = None
                 self.heldStartTicks = pygame.time.get_ticks()
 

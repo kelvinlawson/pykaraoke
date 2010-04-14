@@ -404,6 +404,11 @@ class cdgPlayer(pykPlayer):
                 self.LastPos = self.curr_pos
 
     def handleEvent(self, event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and (event.mod & (pygame.KMOD_LSHIFT | pygame.KMOD_RSHIFT | pygame.KMOD_LMETA | pygame.KMOD_RMETA)):
+            # Shift/meta return: start/stop song.  Useful for keybinding apps.
+            self.Close()
+            return
+        
         pykPlayer.handleEvent(self, event)
 
     def doResize(self, newSize):

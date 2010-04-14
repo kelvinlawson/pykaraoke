@@ -189,6 +189,14 @@ class mpgPlayer(pykPlayer):
         self.Movie = None
         pykPlayer.shutdown(self)
 
+    def handleEvent(self, event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and (event.mod & (pygame.KMOD_LSHIFT | pygame.KMOD_RSHIFT | pygame.KMOD_LMETA | pygame.KMOD_RMETA)):
+            # Shift/meta return: start/stop song.  Useful for keybinding apps.
+            self.Close()
+            return
+        
+        pykPlayer.handleEvent(self, event)
+
     # Internal. Only called by the pykManager.
     def doResize(self, newSize):
         # Resize the screen.
