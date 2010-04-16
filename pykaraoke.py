@@ -2695,7 +2695,9 @@ class PrintSongListWindow(wx.Frame):
         gsizer = wx.FlexGridSizer(0, 2, 5, 0)
         label = wx.StaticText(self.panel, -1, 'Sort by:')
         gsizer.Add(label, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
-        choices = ['Title', 'Artist', 'Filename']
+        choices = ['Title', 'Title (filename not printed)',
+                   'Artist', 'Artist (filename not printed)',
+                   'Filename']
         c = wx.Choice(self.panel, -1, choices = choices)
         c.SetSelection(0)
         self.sort = c
@@ -2758,16 +2760,18 @@ class PrintSongListWindow(wx.Frame):
         self.Fit()
 
     def __selectSort(self):
-        sortKey = ['title', 'artist', 'filename']
-        sort = sortKey[self.sort.GetSelection()]
+        sortKey = [('title', 3), ('title', 2),
+                   ('artist', 3), ('artist', 2),
+                   ('filename', 2)]
+        sort, numColumns = sortKey[self.sort.GetSelection()]
 
         songDb = self.KaraokeMgr.SongDB
         songDb.SelectSort(sort)
         title = 'Songs by %s' % (sort.title())
 
-        return title
+        return title, numColumns
 
-    def __makePrintout(self, title, now):
+    def __makePrintout(self, title, numColumns, now):
         # bit 0x1 means print odd pages, bit 0x2 means print even pages.
         choices = [0x3, 0x1, 0x2]
         pages = choices[self.pages.GetSelection()]
@@ -2780,8 +2784,8 @@ class PrintSongListWindow(wx.Frame):
             fontSize = 4
 
         printout = SongListPrintout(
-            self.KaraokeMgr.SongDB, title, now, self.parent.margins,
-            pages, backToFront, fontSize)
+            self.KaraokeMgr.SongDB, title, numColumns, now,
+            self.parent.margins, pages, backToFront, fontSize)
 
         return printout
 
@@ -2804,10 +2808,10 @@ class PrintSongListWindow(wx.Frame):
         dlg.Destroy()
 
     def clickedPreview(self, event):
-        title = self.__selectSort()
+        title, numColumns = self.__selectSort()
         now = time.time()
-        printout1 = self.__makePrintout(title, now)
-        printout2 = self.__makePrintout(title, now)
+        printout1 = self.__makePrintout(title, numColumns, now)
+        printout2 = self.__makePrintout(title, numColumns, now)
 
         data = wx.PrintDialogData(self.parent.pdata)
         preview = wx.PrintPreview(printout1, printout2, data)
@@ -2824,9 +2828,9 @@ class PrintSongListWindow(wx.Frame):
 
     def clickedOK(self, event):
         self.Show(False)
-        title = self.__selectSort()
+        title, numColumns = self.__selectSort()
         now = time.time()
-        printout = self.__makePrintout(title, now)
+        printout = self.__makePrintout(title, numColumns, now)
 
         data = wx.PrintDialogData(self.parent.pdata)
         printer = wx.Printer(data)
@@ -2854,8 +2858,10 @@ class SongListPrintout(wx.Printout):
     Much of it was borrowed from the example given in the book
     "wxPython In Action" by Rappin and Dunn. """
 
-    def __init__(self, songDb, title, now, margins, pages, backToFront, fontSize):
+    def __init__(self, songDb, title, numColumns, now, margins,
+                 pages, backToFront, fontSize):
         wx.Printout.__init__(self, title)
+        self.numColumns = numColumns
         self.songDb = songDb
         self.margins = margins
         self.pages = pages
@@ -2921,7 +2927,7 @@ class SongListPrintout(wx.Printout):
 
         # Divide the space into columns.
         w = self.x2 - self.x1
-        numColumns = len(self.songDb.SortKeys)
+        numColumns = min(len(self.songDb.SortKeys), self.numColumns)
         if numColumns == 3:
             self.c1 = self.x1 + int(0.4 * w)
             self.c2 = self.x1 + int(0.8 * w)
