@@ -50,6 +50,12 @@
 # To play the MIDI songs on Linux, Timidity++ is also required:
 # . Timidity++ (timidity.sourceforge.net)
 
+# OSX REQUIREMENTS
+#
+# On OSX, pygame will run MIDI natively by default, but if the GUS
+# patches are installed in /usr/local/lib/timidity, it will run MIDI
+# via Timidity instead, which appears to work better than the native
+# support, so we recommend this.
 
 # USAGE INSTRUCTIONS
 #
@@ -1010,7 +1016,12 @@ class midPlayer(pykPlayer):
         # to the first note), so no need for the earliest note hack
         # there.  On timidity-based platforms, we anticipate our
         # lyrics display by the time of the first note.
-        if env != ENV_WINDOWS and env != ENV_OSX:
+
+        # Note: pygame on OSX can run MIDI natively, or if the GUS
+        # patches are installed in /usr/local/lib/timidity, it will
+        # run MIDI via Timidity instead, which appears to work better
+        # than the native support, so we recommend this.
+        if env != ENV_WINDOWS:
             self.InternalOffsetTime += self.midifile.earliestNoteMS
 
         if env == ENV_LINUX:
@@ -1031,11 +1042,11 @@ class midPlayer(pykPlayer):
         # synchronize lyric display with the music.
         self.useMidiTimer = True
 
-        if env == ENV_WINDOWS or env == ENV_OSX:
-            # Unless we're running on Windows or OSX (i.e., not
-            # timidity).  For some reason, hardware MIDI playback can
-            # report an unreliable time.  To avoid that problem, we'll
-            # always use the CPU timer instead of the MIDI timer.
+        if env == ENV_WINDOWS:
+            # Unless we're running on Windows (i.e., not timidity).
+            # For some reason, hardware MIDI playback can report an
+            # unreliable time.  To avoid that problem, we'll always
+            # use the CPU timer instead of the MIDI timer.
             self.useMidiTimer = False
 
         # Load the MIDI player
