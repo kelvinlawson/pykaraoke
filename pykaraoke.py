@@ -2716,6 +2716,16 @@ class PrintSongListWindow(wx.Frame):
         hsizer.Add(cb, flag = wx.LEFT | wx.ALIGN_CENTER_VERTICAL, border = 10)
         gsizer.Add(hsizer, flag = 0)
 
+        label = wx.StaticText(self.panel, -1, 'Extra margin:')
+        gsizer.Add(label, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
+        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+        choices = ['No', 'Left', 'Right', 'Both']
+        c = wx.Choice(self.panel, -1, choices = choices)
+        c.SetSelection(0)
+        self.extraMargin = c
+        hsizer.Add(c, flag = 0)
+        gsizer.Add(hsizer, flag = 0)
+
         label = wx.StaticText(self.panel, -1, 'Font size:')
         gsizer.Add(label, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
         choices = ['6', '8', '10', '12']
@@ -2778,6 +2788,17 @@ class PrintSongListWindow(wx.Frame):
 
         backToFront = self.backToFront.IsChecked()
 
+        # bit 0x1 means margin on the left, bit 0x2 means margin on
+        # the right.
+        choices = [0x0, 0x1, 0x2, 0x3]
+        marginBits = choices[self.extraMargin.GetSelection()]
+        ((mleft, mtop), (mright, mbottom)) = self.parent.margins
+        if marginBits & 0x1:
+            mleft += 12.5
+        if marginBits & 0x2:
+            mright += 12.5
+        margins = (wx.Point(mleft, mtop), wx.Point(mright, mbottom))
+
         try:
             fontSize = float(self.fontSize.GetValue())
         except:
@@ -2785,7 +2806,7 @@ class PrintSongListWindow(wx.Frame):
 
         printout = SongListPrintout(
             self.KaraokeMgr.SongDB, title, numColumns, now,
-            self.parent.margins, pages, backToFront, fontSize)
+            marginBits, margins, pages, backToFront, fontSize)
 
         return printout
 
@@ -2858,11 +2879,12 @@ class SongListPrintout(wx.Printout):
     Much of it was borrowed from the example given in the book
     "wxPython In Action" by Rappin and Dunn. """
 
-    def __init__(self, songDb, title, numColumns, now, margins,
-                 pages, backToFront, fontSize):
+    def __init__(self, songDb, title, numColumns, now, marginBits,
+                 margins, pages, backToFront, fontSize):
         wx.Printout.__init__(self, title)
-        self.numColumns = numColumns
         self.songDb = songDb
+        self.numColumns = numColumns
+        self.marginBits = marginBits
         self.margins = margins
         self.pages = pages
         self.backToFront = backToFront
@@ -2911,6 +2933,22 @@ class SongListPrintout(wx.Printout):
 
 
     def CalculateLayout(self, dc):
+        self.fontSize = self.requestedFontSize * self.scale
+        if self.fontSize < 1:
+            self.fontSize = 1
+
+        self.titleFont = wx.Font(self.fontSize * 1.5, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_BOLD)
+        self.headerFont = wx.Font(self.fontSize, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        self.dateFont = wx.Font(self.fontSize, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.NORMAL)
+
+        self.font = wx.Font(self.fontSize, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+
+        dc.SetFont(self.titleFont)
+        titleHeight = dc.GetCharHeight()
+        
+        dc.SetFont(self.font)
+        self.lineHeight = dc.GetCharHeight()
+
         # Determine the position of the margins and the
         # page/line height
         topLeft, bottomRight = self.margins
@@ -2918,12 +2956,20 @@ class SongListPrintout(wx.Printout):
         self.x1 = topLeft.x * self.logUnitsMM
         self.y1 = topLeft.y * self.logUnitsMM
 
+        # Give extra clearance for the title.
+        self.y1 += titleHeight * 1.5
+
         # A little extra margin for the header line.
         self.y0 = self.y1
         self.y1 += self.logUnitsMM
 
         self.x2 = dc.DeviceToLogicalXRel(dw) - bottomRight.x * self.logUnitsMM
         self.y2 = dc.DeviceToLogicalYRel(dh) - bottomRight.y * self.logUnitsMM
+
+        # Give extra clearance for the footer.
+        self.y2 -= (self.lineHeight)
+        
+        assert self.y2 > self.y1
 
         # Divide the space into columns.
         w = self.x2 - self.x1
@@ -2938,21 +2984,12 @@ class SongListPrintout(wx.Printout):
             self.c1 = self.x2
             self.c2 = self.x2
 
-        self.fontSize = self.requestedFontSize * self.scale
-        if self.fontSize < 1:
-            self.fontSize = 1
-
         # use a 1mm buffer around the inside of the box, and a few
         # pixels between each line
         self.pageHeight = self.y2 - self.y1 - 2*self.logUnitsMM
-        self.titleFont = wx.Font(self.fontSize * 1.5, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_BOLD)
-        self.headerFont = wx.Font(self.fontSize, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
-        self.dateFont = wx.Font(self.fontSize, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.NORMAL)
 
-        self.font = wx.Font(self.fontSize, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        dc.SetFont(self.font)
-        self.lineHeight = dc.GetCharHeight()
         self.linesPerPage = int(self.pageHeight / self.lineHeight)
+        assert self.linesPerPage > 0
 
         # Normalize so we don't end up with a little extra whitespace
         # on the bottom
@@ -3098,15 +3135,36 @@ class SongListPrintout(wx.Printout):
         if y >= 0:
             dc.DrawText(title, (self.x1 + self.x2 - w) / 2, y)
 
-        # Draw the page number.
-        dc.SetFont(self.font)
-        w, h = dc.GetTextExtent(str(page))
-        dc.DrawText(str(page), (self.x1 + self.x2 - w) / 2, self.y2 + self.logUnitsMM)
+        # Draw the page number and print date.
+        if self.marginBits == 0x01:
+            # Margin on the left: put the page number on the right.
+            dc.SetFont(self.font)
+            w, h = dc.GetTextExtent(str(page))
+            dc.DrawText(str(page), self.x2 - w, self.y2 + self.logUnitsMM)
 
-        # Draw the print date.
-        dc.SetFont(self.dateFont)
-        w, h = dc.GetTextExtent(self.printDate)
-        dc.DrawText(self.printDate, self.x2 - w, self.y2 + self.logUnitsMM)
+            dc.SetFont(self.dateFont)
+            w, h = dc.GetTextExtent(self.printDate)
+            dc.DrawText(self.printDate, self.x1, self.y2 + self.logUnitsMM)
+
+        elif self.marginBits == 0x02:
+            # Margin on the right: put the page number on the left.
+            dc.SetFont(self.font)
+            w, h = dc.GetTextExtent(str(page))
+            dc.DrawText(str(page), self.x1, self.y2 + self.logUnitsMM)
+
+            dc.SetFont(self.dateFont)
+            w, h = dc.GetTextExtent(self.printDate)
+            dc.DrawText(self.printDate, self.x2 - w, self.y2 + self.logUnitsMM)
+
+        else:
+            # No margin, or double margin: center the page number.
+            dc.SetFont(self.font)
+            w, h = dc.GetTextExtent(str(page))
+            dc.DrawText(str(page), (self.x1 + self.x2 - w) / 2, self.y2 + self.logUnitsMM)
+
+            dc.SetFont(self.dateFont)
+            w, h = dc.GetTextExtent(self.printDate)
+            dc.DrawText(self.printDate, self.x2 - w, self.y2 + self.logUnitsMM)
 
         return True
 
@@ -3162,7 +3220,7 @@ class PyKaraokeWindow (wx.Frame):
         self.pdata = wx.PrintData()
         self.pdata.SetPaperId(wx.PAPER_LETTER)
         self.pdata.SetOrientation(wx.PORTRAIT)
-        self.margins = (wx.Point(25, 25), wx.Point(25, 25))
+        self.margins = (wx.Point(12.5, 20.0), wx.Point(12.5, 12.5))
 
         self.splitter = wx.SplitterWindow(self)
         self.leftPanel = wx.Panel(self.splitter)
