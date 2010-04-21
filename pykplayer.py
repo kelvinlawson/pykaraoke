@@ -364,7 +364,7 @@ class pykPlayer:
             if event.key == pygame.K_ESCAPE:
                 self.Close()
 
-            elif event.key == pygame.K_PAUSE:
+            elif event.key == pygame.K_PAUSE or event.key == pygame.K_p:
                 self.Pause()
 
             elif event.key == pygame.K_BACKSPACE or event.key == pygame.K_DELETE:
