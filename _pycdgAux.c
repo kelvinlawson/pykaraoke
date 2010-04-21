@@ -358,7 +358,11 @@ CdgPacketReader_FillTile(CdgPacketReader *self, PyObject *args, PyObject *kwds) 
 
   SDL_LockSurface(surface);
   start = (Uint8 *)surface->pixels;
-  pitch = surface->pitch;
+
+  /* Very important to cast surface->pitch to a Uint16: only the
+     low-order 16 bits are significant, and the high-order bits might
+     contain garbage. */
+  pitch = (Uint16)surface->pitch;
 
   switch (surface->format->BytesPerPixel) {
   case 1:
