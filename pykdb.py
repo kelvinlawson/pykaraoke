@@ -838,8 +838,15 @@ class SettingsStruct:
         self.WindowSize = (640, 480) # Size of the window for PyKaraoke
         self.FullScreen = False # Determines if the karaoke player should be full screen
         self.NoFrame = False # Determies if the karaoke player should have a window frame.
+
+        # SDL specific parameters; some settings may work better on
+        # certain hardware than others
+        self.DoubleBuf = True
+        self.HardwareSurface = True
+        
         self.PlayerSize = (640, 480) # Size of the karaoke player
         self.PlayerPosition = None # Initial position of the karaoke player
+        
         self.SplitVertically = True
         self.AutoPlayList = True # Enables or disables the auto play on the play-list
         self.DoubleClickPlayList = True # Enables or disables the double click for playing from the play-list

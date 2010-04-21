@@ -497,7 +497,7 @@ class ConfigWindow (wx.Frame):
         parentSize = parent.GetSize()
         thisSize = self.GetSize()
         pos[0] += (parentSize[0] / 2) - (thisSize[0] / 2)
-        pos[1] += (parentSize[1] / 2) - (thisSize[1] / 2)
+        pos[1] += max((parentSize[1] / 2) - (thisSize[1] / 2), 0)
         self.SetPosition(pos)
 
         self.Show()
@@ -516,6 +516,14 @@ class ConfigWindow (wx.Frame):
         self.NoFrameCheckBox = wx.CheckBox(panel, -1, "Enable Player With No Frame")
         self.NoFrameCheckBox.SetValue(settings.NoFrame)
         dispsizer.Add(self.NoFrameCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
+
+        self.DoubleBufCheckBox = wx.CheckBox(panel, -1, "Use double-buffered rendering (recommended)")
+        self.DoubleBufCheckBox.SetValue(settings.DoubleBuf)
+        dispsizer.Add(self.DoubleBufCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
+        self.HardwareSurfaceCheckBox = wx.CheckBox(panel, -1, "Request a hardware surface (recommended)")
+        self.HardwareSurfaceCheckBox.SetValue(settings.HardwareSurface)
+        dispsizer.Add(self.HardwareSurfaceCheckBox, flag = wx.LEFT | wx.RIGHT | wx.TOP, border = 10)
+
         gsizer = wx.FlexGridSizer(0, 4, 2, 0)
         text = wx.StaticText(panel, -1, "Player Window Size:")
         gsizer.Add(text, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
@@ -926,6 +934,8 @@ class ConfigWindow (wx.Frame):
 
         settings.FullScreen = self.FSCheckBox.IsChecked()
         settings.NoFrame = self.NoFrameCheckBox.IsChecked()
+        settings.DoubleBuf = self.DoubleBufCheckBox.IsChecked()
+        settings.HardwareSurface = self.HardwareSurfaceCheckBox.IsChecked()
         settings.PlayerPosition = None
 
         splitVertically = self.SplitVerticallyCheckBox.IsChecked()
