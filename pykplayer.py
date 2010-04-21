@@ -367,6 +367,10 @@ class pykPlayer:
             elif event.key == pygame.K_PAUSE:
                 self.Pause()
 
+            elif event.key == pygame.K_BACKSPACE or event.key == pygame.K_DELETE:
+                self.Rewind()
+                self.Play()
+
             # Use control-left/right arrow to offset the current
             # graphics time by 1/4 sec.  Use control-down arrow to
             # restore them to sync.
