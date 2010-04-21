@@ -361,7 +361,10 @@ CdgPacketReader_FillTile(CdgPacketReader *self, PyObject *args, PyObject *kwds) 
 
   /* Very important to cast surface->pitch to a Uint16: only the
      low-order 16 bits are significant, and the high-order bits might
-     contain garbage. */
+     contain garbage.  (Actually, this is dependent on the SDL
+     version.  But accidentally compiling against the headers from the
+     wrong SDL version can cause a serious, hard-to-detect problem
+     here, so don't take chances.) */
   pitch = (Uint16)surface->pitch;
 
   switch (surface->format->BytesPerPixel) {
