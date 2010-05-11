@@ -21,16 +21,67 @@
 **** Boston, MA  02111-1307  USA                                           ****
 *******************************************************************************
 
-2010-03-31 Kelvin Lawson <kelvinl@users.sf.net> 0.7.2
+2010-05-11 Kelvin Lawson <kelvinl@users.sf.net> 0.7.3
+  * Bug fixes:
+    -r1.62 pykaraoke.py: Make About window work with Wx2.6 again. Recent 
+     About window changes work on Wx2.8 only.
+
+2010-04-21
+  * Enhancements:
+     -r1.61 pykaraoke.py: Add options for double-buffered and hardware
+     -r1.39 pykdb.py: Add options for double-buffered and hardware
+     -r1.18 pykmanager.py: Add options for double-buffered and hardware
+     -r1.12 pykplayer.py: 'P' key pauses.
+     -r1.11 pykplayer.py: Backspace rewinds.
+
+  * Bug fixes:
+     - r1.9 _pcdgAux.c: Fix occasional crash in CDG player.
+
+2010-04-20
+  * Enhancements:
+     -r1.60 pykaraoke.py: Support left/right margins, and two-column printing.
+     -r1.20 pykar.py: OSX works better with Timidity.
+
+2010-04-16
+  * Enhancements:
+     -r1.59 pykaraoke.py: Allow omitting filename from printout.
+
+2010-04-14
+  * Enhancements:
+     -r1.38 pykdb.py: Remove articles from sort key, faster scrolling on GP2X.
+     -r1.34 pycdg.py: Clean up keyboard operations and allow remote control
+      access to pykaraoke_mini.
+     -r1.10 pykaraoke_mini.py: Clean up keyboard operations and allow remote
+      control access to pykaraoke_mini.
+     -r1.9 pykaraoke_mini.py: Remove articles from sort key, faster scrolling on GP2X.
+     -r1.19 pykar.py: Clean up keyboard operations and allow remote control
+     -r1.17 pympg.py: Clean up keyboard operations and allow remote control
+
+2010-04-09
+  * Enhancements:
+     -r1.8 pycdgAux.py: Filter out draw commands based on mysterious bit 0x20.
+     -r1.8 _pycdgAux.c: Filter out draw commands based on mysterious bit 0x20.
+
+2010-04-08
+  * Enhancements:
+     -r1.37 pykdb.py: Handle invalid utf-8 in titles.txt.
+
+2010-03-31 Kelvin Lawson <kelvinl@users.sf.net> 0.7.3
   * Bug fixes:
     - r1.36 pykdb.py: Fix unicode folder searches. Add time string to temp
       filename to work around bug in pygame.mixer.music on Windows.
     - r1.33 pycdg.py: Fix unicode filename opens.
     - r1.18 pykar.py: Fix unicode filename opens.
     - r1.16 pympg.py: Fix unicode filename opens.
+
+2010-03-29
+  * Enhancements:
+     -r1.58 pykaraoke.py: Minor OSX fixes
+
 2009-10-25 Kelvin Lawson <kelvinl@users.sf.net> 0.7.2
   * Bug fixes:
     - r1.15 pympg.py: Support GetLength() call with external player. 
+
 2009-08-26 Kelvin Lawson <kelvinl@users.sf.net> 0.7.1
   * Enhancements:
     - r1.57 pykaraoke.py: Improved layout of CDG Configuration page with
