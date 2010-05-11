@@ -1143,6 +1143,90 @@ class ConfigWindow (wx.Frame):
 
         return font
 
+class Wx26AboutWindow(wx.Frame):
+
+    """ Shows the friendly little "about" window. Wx2.6 version only. """
+
+    def __init__(self, parent):
+        wx.Frame.__init__(self, parent, -1, 'About PyKaraoke',
+                          style = wx.DEFAULT_FRAME_STYLE|wx.FRAME_FLOAT_ON_PARENT)
+        self.parent = parent
+        self.__layoutWindow()
+
+        pos = parent.GetPosition()
+        parentSize = parent.GetSize()
+        thisSize = self.GetSize()
+        pos[0] += (parentSize[0] / 2) - (thisSize[0] / 2)
+        pos[1] += (parentSize[1] / 2) - (thisSize[1] / 2)
+        self.SetPosition(pos)
+
+        self.Show()
+
+    def __layoutWindow(self):
+        self.panel = wx.Panel(self)
+        vsizer = wx.BoxSizer(wx.VERTICAL)
+
+        font = self.GetFont()
+        topFont = wx.TheFontList.FindOrCreateFont(
+            24,
+            family = font.GetFamily(),
+            style = wx.FONTSTYLE_ITALIC,
+            weight = wx.FONTWEIGHT_BOLD)
+        versionFont = wx.TheFontList.FindOrCreateFont(
+            10,
+            family = font.GetFamily(),
+            style = font.GetStyle(),
+            weight = wx.FONTWEIGHT_NORMAL)
+
+
+        text = wx.StaticText(self.panel, -1, 'PyKaraoke')
+        text.SetFont(topFont)
+        vsizer.Add(text, flag = wx.ALIGN_CENTER)
+
+        fullpath = self.parent.BigIconPath
+        image = wx.Image(fullpath)
+        image.ConvertAlphaToMask()
+        bitmap = wx.BitmapFromImage(image)
+
+        label = wx.StaticBitmap(self.panel, -1, bitmap)
+        vsizer.Add(label, flag = wx.ALIGN_CENTER | wx.TOP, border = 10)
+
+        text = wx.StaticText(self.panel, -1, 'PyKaraoke version %s' % (
+            pykversion.PYKARAOKE_VERSION_STRING))
+        text.SetFont(versionFont)
+        vsizer.Add(text, flag = wx.ALIGN_CENTER | wx.TOP, border = 10)
+        text = wx.StaticText(self.panel, -1, 'wxPython version %s' % (
+            wx.VERSION_STRING))
+        text.SetFont(versionFont)
+        vsizer.Add(text, flag = wx.ALIGN_CENTER)
+
+        pyver = sys.version
+        if ' ' in pyver:
+            pyver = pyver[:pyver.index(' ')]
+        text = wx.StaticText(self.panel, -1, 'Python version %s\n' % (pyver))
+        text.SetFont(versionFont)
+        vsizer.Add(text, flag = wx.ALIGN_CENTER)
+
+        # Add License information
+        text = wx.StaticText(self.panel, -1, " PyKaraoke is free software; you can redistribute it and/or modify it under\n the terms of the GNU Lesser General Public License as published by the\n Free Software Foundation; either version 2.1 of the License, or (at your\n option) any later version.\n \n PyKaraoke is distributed in the hope that it will be useful, but WITHOUT\n ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General\n Public License for more details.\n \n You should have received a copy of the GNU Lesser General Public\n License along with this library; if not, write to the\n Free Software Foundation, Inc.\n 59 Temple Place, Suite 330\n Boston, MA  02111-1307  USA")
+        text.SetFont(versionFont)
+        vsizer.Add(text, flag = wx.ALIGN_CENTER)
+
+        b = wx.Button(self.panel, wx.ID_OK, 'OK')
+        self.Bind(wx.EVT_BUTTON, self.clickedOK, b)
+        vsizer.Add(b, flag = wx.ALIGN_CENTER | wx.TOP, border = 10)
+
+        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+        hsizer.Add(vsizer, flag = wx.EXPAND | wx.ALL, border = 10,
+                   proportion = 1)
+
+        self.panel.SetSizerAndFit(hsizer)
+        self.Fit()
+
+    def clickedOK(self, event):
+        self.Show(False)
+        self.Destroy()
+
 class ExportWindow(wx.Frame):
 
     """ Shows the dialog for exporting the song list. """
@@ -3466,26 +3550,31 @@ class PyKaraokeWindow (wx.Frame):
         self.Frame = ExportWindow(self)
 
     def OnAbout(self, event):
-        abtnfAbout = wx.AboutDialogInfo()
-        abtnfAbout.AddArtist("Kelvin Lawson <kelvinl@users.sf.net>")
-        abtnfAbout.AddArtist("Tavmjung Bah")
-        abtnfAbout.SetCopyright("(C) 2005-2009 Kelvin Lawson\n(C) 2009 John Schneiderman\n(C) 2006 David Rose\n(C) 2005 William Ferrell")
-        abtnfAbout.SetDescription("A karaoke player to play your collection of karaoke songs.")
-        abtnfAbout.AddDeveloper("Will Ferrell <willfe@gmail.com>")
-        abtnfAbout.AddDeveloper("Andrei Gavrila")
-        abtnfAbout.AddDeveloper("Kelvin Lawson <kelvinl@users.sf.net>")
-        abtnfAbout.AddDeveloper("Craig Rindy")
-        abtnfAbout.AddDeveloper("David Rose <pykar@ddrose.com>")
-        abtnfAbout.AddDeveloper("John Schneiderman <JohnMS@member.fsf.org>")
-        #abtnfAbout.AddDocWriter("N/A")
-        abtnfAbout.SetIcon(wx.Icon(self.BigIconPath, wx.BITMAP_TYPE_PNG, 64, 64))
-        LGPLv2_Notice = "PyKaraoke is free software; you can redistribute it and/or modify it under\n the terms of the GNU Lesser General Public License as published by the\n Free Software Foundation; either version 2.1 of the License, or (at your\n option) any later version.\n \n PyKaraoke is distributed in the hope that it will be useful, but WITHOUT\n ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General\n Public License for more details.\n \n You should have received a copy of the GNU Lesser General Public\n License along with this library; if not, write to the\n Free Software Foundation, Inc.\n 59 Temple Place, Suite 330\n Boston, MA  02111-1307  USA"
-        abtnfAbout.SetLicence(LGPLv2_Notice)
-        abtnfAbout.SetName("PyKaraoke")
-        #abtnfAbout.AddTranslator("N/A")
-        abtnfAbout.SetVersion(pykversion.PYKARAOKE_VERSION_STRING)
-        abtnfAbout.SetWebSite("http://www.kibosh.org/pykaraoke/")
-        wx.AboutBox(abtnfAbout)
+        # Show the appropriate About window (we must use a special About window
+        # if using Wx2.6 on which AboutDialogInfo() controls are not available).
+        if HasWx26Only() == True:
+            self.Frame = Wx26AboutWindow(self)
+        else:
+            abtnfAbout = wx.AboutDialogInfo()
+            abtnfAbout.AddArtist("Kelvin Lawson <kelvinl@users.sf.net>")
+            abtnfAbout.AddArtist("Tavmjung Bah")
+            abtnfAbout.SetCopyright("(C) 2005-2009 Kelvin Lawson\n(C) 2009 John Schneiderman\n(C) 2006 David Rose\n(C) 2005 William Ferrell")
+            abtnfAbout.SetDescription("A karaoke player to play your collection of karaoke songs.")
+            abtnfAbout.AddDeveloper("Will Ferrell <willfe@gmail.com>")
+            abtnfAbout.AddDeveloper("Andrei Gavrila")
+            abtnfAbout.AddDeveloper("Kelvin Lawson <kelvinl@users.sf.net>")
+            abtnfAbout.AddDeveloper("Craig Rindy")
+            abtnfAbout.AddDeveloper("David Rose <pykar@ddrose.com>")
+            abtnfAbout.AddDeveloper("John Schneiderman <JohnMS@member.fsf.org>")
+            #abtnfAbout.AddDocWriter("N/A")
+            abtnfAbout.SetIcon(wx.Icon(self.BigIconPath, wx.BITMAP_TYPE_PNG, 64, 64))
+            LGPLv2_Notice = "PyKaraoke is free software; you can redistribute it and/or modify it under\n the terms of the GNU Lesser General Public License as published by the\n Free Software Foundation; either version 2.1 of the License, or (at your\n option) any later version.\n \n PyKaraoke is distributed in the hope that it will be useful, but WITHOUT\n ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General\n Public License for more details.\n \n You should have received a copy of the GNU Lesser General Public\n License along with this library; if not, write to the\n Free Software Foundation, Inc.\n 59 Temple Place, Suite 330\n Boston, MA  02111-1307  USA"
+            abtnfAbout.SetLicence(LGPLv2_Notice)
+            abtnfAbout.SetName("PyKaraoke")
+            #abtnfAbout.AddTranslator("N/A")
+            abtnfAbout.SetVersion(pykversion.PYKARAOKE_VERSION_STRING)
+            abtnfAbout.SetWebSite("http://www.kibosh.org/pykaraoke/")
+            wx.AboutBox(abtnfAbout)
 
     def OnPrintSongList(self, evt):
         PrintSongListWindow(self)
@@ -3735,6 +3824,25 @@ class PyKaraokeManager:
                     minutesRemaining = timeLeft / 60
                     secondsRemaining = timeLeft % 60
                     self.Frame.PlaylistPanel.StatusBar.SetStatusText("[%02d:%02d/%02d:%02d] %s - %s" % (minutes, seconds, minutesRemaining, secondsRemaining, self.Player.Song.Artist, self.Player.Song.Title))
+
+
+# Decide whether only WxPython v2.6 is available (and no later version).
+def HasWx26Only ():
+    # Don't do this for py2exe builds, for which we cannot use wxversion
+    if not hasattr(sys, 'frozen'):
+        # Check whether only Wx2.6 is installed. We know that a minimum of 2.6 is in use,
+        # so check whether any later versions are installed.
+        wx26_only = True
+        vers = wxversion.getInstalled()
+        for ver in vers:
+            if ('2.6' not in ver) and ('2.4' not in ver):
+                wx26_only = False
+    else:
+        # Py2exe builds: always assume later than Wx2.6
+        wx26_only = False
+
+    return wx26_only
+
 
 # Subclass wx.App so that we can override the normal Wx MainLoop().
 # We only have to do this because since Wx 2.8, the MainLoop()
