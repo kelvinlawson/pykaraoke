@@ -4,7 +4,7 @@
 #
 #******************************************************************************
 #****                                                                      ****
-#**** Copyright (C) 2008  PyKaraoke Development Team                       ****
+#**** Copyright (C) 2010  PyKaraoke Development Team                       ****
 #****                                                                      ****
 #**** This library is free software; you can redistribute it and/or        ****
 #**** modify it under the terms of the GNU Lesser General Public           ****

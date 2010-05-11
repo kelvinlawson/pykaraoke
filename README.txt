@@ -1,8 +1,8 @@
 
 ---------------------------------------------------------------------------
 
-Release:      pykaraoke v0.7.2
-Date:         27/10/2009
+Release:      pykaraoke v0.7.3
+Date:         11/05/2010
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
@@ -55,7 +55,11 @@ PyKaraoke requires the following libraries to be installed:
  * Pygame (www.pygame.org)
  * WxPython (www.wxpython.org)
  * SDL source distribution (www.libsdl.org)
- * Mutagen (http://code.google.com/p/mutagen/) - Optional
+
+Optional libraries are as follows:
+
+ * Mutagen (http://code.google.com/p/mutagen/)
+ * PyMedia - Only required for converting CDG/KAR to MPG
 
 PyKaraoke now offers two builds: an ultra-portable Python version, and
 a highly optimised C version. The default install is to use the faster
