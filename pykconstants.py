@@ -20,9 +20,10 @@ this package. """
 
 # Environment
 ENV_WINDOWS = 1
-ENV_LINUX = 2
+ENV_POSIX = 2
 ENV_OSX = 3
 ENV_GP2X = 4
+ENV_UNKNOWN = 5
 
 # States
 STATE_INIT          = 0

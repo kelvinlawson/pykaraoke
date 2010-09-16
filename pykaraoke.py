@@ -536,7 +536,7 @@ class ConfigWindow (wx.Frame):
         # Window placement only seems to work reliably on Linux.  Only
         # offer it there.
         self.DefaultPosCheckBox = None
-        if env == ENV_LINUX:
+        if env == ENV_POSIX:
             text = wx.StaticText(panel, -1, "Player Placement:")
             gsizer.Add(text, flag = wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, border = 5)
             pos_x = pos_y = ''
@@ -3000,7 +3000,7 @@ class SongListPrintout(wx.Printout):
         ppiScreenX, ppiScreenY = self.GetPPIScreen()
         logScale = float(ppiPrinterX) / float(ppiScreenX)
 
-        if env == ENV_LINUX:
+        if env == ENV_POSIX:
             # For some reason on Linux this scale seems to come out a
             # little bit wrong.  Experimentally, it seems it really
             # wants to be 1.0, but it always comes out 72/86 instead.

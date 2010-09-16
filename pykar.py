@@ -1024,16 +1024,6 @@ class midPlayer(pykPlayer):
         if env != ENV_WINDOWS:
             self.InternalOffsetTime += self.midifile.earliestNoteMS
 
-        if env == ENV_LINUX:
-            # For some reason, a further offset of -250 ms seems about
-            # right empirically, on Linux, but not on Windows or on
-            # the GP2X.
-
-            # Actually, on further experimentation, this seems to be
-            # specific to my particular machine.  Leave it out.
-            #self.InternalOffsetTime -= 250
-            pass
-
         # Now word-wrap the text to fit our window.
         self.lyrics = self.midifile.lyrics.wordWrapLyrics(self.font)
 

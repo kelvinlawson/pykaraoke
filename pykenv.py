@@ -21,16 +21,15 @@ from pykconstants import *
 import os
 
 # Try to guess which environment we're running in.
-env = 0
 if os.name == "posix":
     (uname, host, release, version, machine) = os.uname()
     if host == "gp2x":
         env = ENV_GP2X
-    elif (uname.lower()[:5] == "linux"):
-        env = ENV_LINUX
-    else:
+    elif (uname.lower()[:6] == "darwin"):
         env = ENV_OSX
-else:
+    else:
+        env = ENV_POSIX
+elif os.name == "nt":
     env = ENV_WINDOWS
-
-#env = ENV_GP2X
+else:
+	env = ENV_UNKNOWN
