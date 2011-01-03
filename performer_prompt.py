@@ -29,7 +29,7 @@ class PerformerPrompt(wx.Dialog):
     """ An interface for requesting a performer's name. """
     def __init__(self, parent):
         """ Creates the interface. """
-        wx.Dialog.__init__(self, parent, -1, "Karaoke Performer Prompt", size=(300, 70))
+        wx.Dialog.__init__(self, parent, -1, "Karaoke Performer Prompt")
 
         # Add the performer prompt
         self.PerformerText = wx.StaticText(self, wx.ID_ANY, "Performer Name:")
@@ -48,7 +48,7 @@ class PerformerPrompt(wx.Dialog):
         self.MainSizer = wx.BoxSizer(wx.VERTICAL)
         self.MainSizer.Add(self.PerformerSizer, 0, wx.ALL, 3)
         self.MainSizer.Add(self.ButtonSizer, 0, wx.ALL, 3)
-        self.SetSizer(self.MainSizer)
+        self.SetSizerAndFit(self.MainSizer)
 
         self.performer = ""
         self.PerformerTxtCtrl.SetFocus()
