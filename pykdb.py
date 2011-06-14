@@ -50,7 +50,9 @@ SETTINGS_VERSION = 6
 
 # Increment this version number whenever the database version changes
 # (which will also hopefully be infrequently).
-DATABASE_VERSION = 2
+DATABASE_VERSION = 3
+
+OS_SEP = os.sep.lower()
 
 class AppYielder:
     """ This is a simple class that knows how to yield control to the
@@ -181,10 +183,11 @@ class SongStruct:
         # Check to see if we are deriving song information from the filename
         if settings.CdgDeriveSongInformation:
             try:
-                self.Title = self.ParseTitle(Filepath, settings)    # Title for display in playlist
-                self.Artist = self.ParseArtist(Filepath, settings)  # Artist for display
-                self.Disc = self.ParseDisc(Filepath, settings)      # Disc for display
-                self.Track = self.ParseTrack(Filepath, settings)     # Track for display
+                parseMe = os.path.basename(Filepath)
+                self.Title = self.ParseTitle(parseMe, settings)    # Title for display in playlist
+                self.Artist = self.ParseArtist(parseMe, settings)  # Artist for display
+                self.Disc = self.ParseDisc(parseMe, settings)      # Disc for display
+                self.Track = self.ParseTrack(parseMe, settings)     # Track for display
             except:
                 # Filename did not match requested scheme, set the title to the filepath
                 # so that the structure is still created, but without any additional info
@@ -212,10 +215,16 @@ class SongStruct:
         if self.Filepath != '' and self.Filepath[-1] == '.':
             self.Filepath += 'cdg'
 
+        #self.SearchData = self.Title.lower() + ";;" + self.Artist.lower() + ";;" + self.DisplayFilename.lower()
+
         if ZipStoredName:
             self.DisplayFilename = os.path.basename(ZipStoredName)
             if isinstance(self.DisplayFilename, types.StringType):
                 self.DisplayFilename = self.DisplayFilename.decode(settings.ZipfileCoding)
+
+            Ziplist = self.Filepath.split("/")
+            #self.SearchData += ";;" + Ziplist[len(Ziplist)-1].lower()
+
         else:
             self.DisplayFilename = os.path.basename(Filepath)
             if isinstance(self.DisplayFilename, types.StringType):
@@ -236,13 +245,14 @@ class SongStruct:
                 self.MpgType = ext[1:]
 
     def ParseTitle(self, filepath, settings):
+        # print "Finding title: %s" % filepath 
         """ Parses the file path and returns the title of the song. If the filepath cannot be parsed a KeyError exception is thrown. If the settings contains a file naming scheme that we do not support a KeyError exception is thrown."""
         title = ''
         # Make sure we are to parse information
         if settings.CdgDeriveSongInformation:
             if settings.CdgFileNameType == 0: # Disc-Track-Artist-Title.Ext
                 # Make sure we can parse the filepath
-                if len(filepath.split("-")) == 4:
+                if len(filepath.split("-")) >= 4:
                     title = filepath.split("-")[3] # Find the Title in the filename
                 else:
                     raise KeyError, "Invalid type for file: %s!" % filepath
@@ -267,6 +277,7 @@ class SongStruct:
             else:
                 raise KeyError, "File name type is invalid!"
             # Remove the first and last space
+            title = title.replace("_", " ")
             title = title.strip(" ")
             # Remove the filename extension
             title = os.path.splitext(title)[0]
@@ -290,6 +301,7 @@ class SongStruct:
             else:
                 raise KeyError, "File name type is invalid!"
             # Remove the first and last space
+            artist = artist.replace("_", " ")
             artist = artist.strip(" ")
         #print "Artist parsed: %s" % artist
         return artist
@@ -310,6 +322,7 @@ class SongStruct:
             else:
                 raise KeyError, "File name type is invalid!"
             # Remove the first and last space
+            disc = disc.replace("_", " ")
             disc = disc.strip(" ")
             # Remove the filename path
             disc = os.path.basename(disc)
@@ -332,6 +345,7 @@ class SongStruct:
             else:
                 raise KeyError, "File name type is invalid!"
             # Remove the first and last space
+            #track = rtack.replace("_", " ")
             #track = track.strip(" ")
         #print "Track parsed: %s" % track
         return track
@@ -636,7 +650,7 @@ class TitleStruct:
             try:
                 catalogFile = open(catalogPathname, "rU")
             except:
-                print "Could not open titles file %s" % (catalogPathname)
+                print "Could not open titles file %s" % (catalogPathname.encode('ascii', 'replace'))
                 return
 
         for line in catalogFile:
@@ -644,7 +658,7 @@ class TitleStruct:
                 line = line.decode('utf-8').strip()
             except UnicodeDecodeError:
                 line = line.decode('utf-8', 'replace')
-                print "Invalid characters in %s:\n%s" % (catalogPathname, line)
+                print "Invalid characters in %s:\n%s" % (catalogPathname.encode('ascii', 'replace'), line)
 
             if line:
                 tuple = line.split('\t')
@@ -654,7 +668,7 @@ class TitleStruct:
                 elif len(tuple) == 3:
                     filename, title, artist = tuple
                 else:
-                    print "Invalid line in %s:\n%s" % (catalogPathname, line)
+                    print "Invalid line in %s:\n%s" % (catalogPathname.encode('ascii', 'replace'), line)
                     continue
 
                 # Allow a forward slash in the file to stand in for
@@ -664,7 +678,7 @@ class TitleStruct:
                 pathname = os.path.join(dirname, filename)
                 song = songDb.filesByFullpath.get(pathname, None)
                 if song is None:
-                    print "Unknown file in %s:\n%s" % (catalogPathname, filename)
+                    print "Unknown file in %s:\n%s" % (catalogPathname.encode('ascii', 'replace'), filename.encode('ascii', 'replace'))
                 else:
                     song.titles = self
                     self.songs.append(song)
@@ -709,7 +723,7 @@ class TitleStruct:
             try:
                 catalogFile = open(catalogPathname, "w")
             except:
-                print "Could not rewrite titles file %s" % (catalogPathname)
+                print "Could not rewrite titles file %s" % (catalogPathname.encode('ascii', 'replace'))
                 return
 
         relTo = os.path.normcase(os.path.normpath(catalogPathname))
@@ -1384,7 +1398,7 @@ class SongDB:
         try:
             filedir_list = os.listdir(FolderToScan)
         except:
-            print "Couldn't scan %s" % (FolderToScan)
+            print "Couldn't scan %s" % (FolderToScan.encode('ascii', 'replace'))
             return False
 
         filedir_list.sort()
@@ -1430,7 +1444,7 @@ class SongDB:
             # Every so often, update the progress bar.
             basename = os.path.split(full_path)[1]
             self.BusyDlg.SetProgress(
-                "Scanning %s" % basename,
+                "Scanning %s" % basename.encode('ascii', 'replace'),
                 self.__computeProgressValue(progress))
             yielder.Yield()
             self.lastBusyUpdate = now
@@ -1456,7 +1470,7 @@ class SongDB:
                 try:
                     self.addSong(SongStruct(full_path, self.Settings, DatabaseAdd = True))
                 except KeyError:
-                    print "Excluding filename with unexpected format: %s " % os.path.basename(full_path)
+                    print "Excluding filename with unexpected format: %s " % (os.path.basename(full_path)).encode('ascii', 'replace')
             # Look inside ZIPs if configured to do so
             elif self.Settings.LookInsideZips and ext.lower() == ".zip":
                 try:
@@ -1472,7 +1486,7 @@ class SongDB:
                                 nextProgress = progress + [(i, len(namelist))]
                                 basename = os.path.split(full_path)[1]
                                 self.BusyDlg.SetProgress(
-                                    "Scanning %s" % (basename),
+                                    "Scanning %s" % (basename.encode('ascii', 'replace')),
                                     self.__computeProgressValue(nextProgress))
                                 yielder.Yield()
                                 self.lastBusyUpdate = now
@@ -1485,17 +1499,17 @@ class SongDB:
                                 # Python zipfile only supports deflated and stored
                                 info = zip.getinfo(filename)
                                 if info.compress_type == zipfile.ZIP_STORED or info.compress_type == zipfile.ZIP_DEFLATED:
-                                    #print ("Adding song %s in ZIP file %s"%(filename, full_path))
+                                    #print ("Adding song %s in ZIP file %s"%(filename.encode('ascii', 'replace'), full_path.encode('ascii', 'replace')))
                                     try:
                                         self.addSong(SongStruct(full_path, self.Settings, ZipStoredName = filename, DatabaseAdd = True))
                                     except KeyError:
-                                        print "Excluding filename with unexpected format: %s " % os.path.basename(full_path)
+                                        print "Excluding filename with unexpected format: %s " % full_path.encode('ascii', 'replace')
                                 else:
-                                    print ("ZIP member compressed with unsupported type (%d): %s"%(info.compress_type, full_path))
+                                    print ("ZIP member compressed with unsupported type (%d): %s"%(info.compress_type, full_path.encode('ascii', 'replace')))
                     else:
-                        print "Cannot parse ZIP file: " + full_path 
+                        print "Cannot parse ZIP file: %s" % full_path.encode('ascii', 'replace') 
                 except:
-                    print "Error looking inside zip " + full_path
+                    print "Error looking inside zip %s" % full_path.encode('ascii', 'replace')
 
     # Add a folder to the database search list
     def FolderAdd (self, FolderPath):
@@ -1521,24 +1535,12 @@ class SongDB:
         ResultsList = []
         LowerTerms = SearchTerms.lower()
         TermsList = LowerTerms.split()
+
         for song in self.FullSongList:
-            yielder.ConsiderYield()
-            LowerTitle = song.Title.lower()
-            LowerArtist = song.Artist.lower()
-            LowerPath = song.DisplayFilename.lower()
-            # If it's a zip file, also include the zip filename
-            if song.ZipStoredName:
-                LowerZipName = os.path.basename(song.Filepath).lower()
-            else:
-                LowerZipName = ""
-            misses = 0
+            found = True
             for term in TermsList:
-                if (term not in LowerTitle) and \
-                   (term not in LowerArtist) and \
-                   (term not in LowerZipName) and \
-                   (term not in LowerPath):
-                    misses = misses + 1
-            if misses == 0:
+                found = (found and (term in song.SearchData))
+            if found:
                 ResultsList.append(song)
         return ResultsList
 
@@ -1707,7 +1709,13 @@ class SongDB:
         return (file.DisplayFilename.lower(), file.MakeSortKey(file.Artist), file.MakeSortKey(file.Title), id(file))
 
     def addSong(self, file):
+        #index here
+        file.SearchData = file.Title.lower() + ";;" + file.Artist.lower() + ";;" + file.DisplayFilename.lower()
+        if file.ZipStoredName:
+            Ziplist = file.Filepath.split("/")
+            file.SearchData += ";;" + Ziplist[len(Ziplist)-1].lower()
         self.FullSongList.append(file)
+
         if file.Title:
             self.GotTitles = True
         if file.Artist:
@@ -1765,7 +1773,7 @@ class SongDB:
         for list in fileHashes.values():
             if len(list) > 1:
                 filenames = map(lambda i: self.FullSongList[i].DisplayFilename, list)
-                print "Identical songs: %s" % (', '.join(filenames))
+                print "Identical songs: %s" % (', '.join(filenames).encode('ascii', 'replace'))
                 for i in list[1:]:
                     extra = self.FullSongList[i]
                     removeIndexes[i] = True

@@ -1303,6 +1303,8 @@ class midPlayer(pykPlayer):
 
             manager.Flip()
 
+        pykPlayer.UpdateHostLyrics(self)
+
         return True
 
     def getNewSyllables(self):

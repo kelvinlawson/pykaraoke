@@ -23,8 +23,9 @@ implementations for different types of Karaoke files."""
 from pykconstants import *
 from pykmanager import manager
 from pykenv import env
-import pygame
+import pygame, wx
 import sys
+import pygst, gst
 import types
 import os
 
@@ -155,7 +156,9 @@ class pykPlayer:
 
     # Close the whole thing down
     def Close(self):
+        self.ClearHostLyrics()
         self.State = STATE_CLOSING
+        manager.Music.set_state(gst.STATE_NULL)
 
     # you must call Play() to restart. Blocks until pygame is initialised
     def Rewind(self):
@@ -169,6 +172,8 @@ class pykPlayer:
     # expect Stop to do on a CD player. Play() restarts from
     # the beginning
     def Stop(self):
+        self.ClearHostLyrics()
+        manager.Music.set_state(gst.STATE_NULL)
         self.Rewind()
             
     # Get the song length (in seconds)
@@ -357,6 +362,20 @@ class pykPlayer:
         # to do anything here.
         pass
 
+    def ClearHostLyrics(self):
+        # Update the host lyrics
+        if manager.HostLyrics:
+            manager.HostLyrics.SetBitmap(manager.HostSplash)
+
+    def UpdateHostLyrics(self):
+        # Update the host lyrics
+        if manager.HostLyrics:
+            hostscaled = pygame.transform.smoothscale(manager.surface, (160, 120))
+            IMG = wx.EmptyImage(160, 120)
+            IMG.SetData(pygame.image.tostring(hostscaled, 'RGB'))
+            manager.HostLyrics.SetBitmap(IMG.ConvertToBitmap())
+            hostscaled.unlock()
+
     def handleEvent(self, event):
         if event.type == pygame.USEREVENT:
             self.Close()
@@ -420,6 +439,8 @@ class pykPlayer:
     def shutdown(self):
         # This will be called by the pykManager to shut down the thing
         # immediately.
+        self.ClearHostLyrics()
+        manager.Music.set_state(gst.STATE_NULL)
 
         # If the caller gave us a callback, let them know we're finished
         if self.State != STATE_CLOSED:

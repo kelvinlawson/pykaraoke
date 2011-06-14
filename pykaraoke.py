@@ -3348,6 +3348,57 @@ class PyKaraokeWindow (wx.Frame):
         self.LeftSizer.Add(hsizer, 0, wx.ALL | wx.EXPAND, 5)
         self.LeftSizer.Add(self.TreePanel, 1, wx.ALL | wx.EXPAND, 5)
         self.LeftSizer.Add(self.SearchPanel, 1, wx.ALL | wx.EXPAND, 5)
+
+        # Add lyrics display here
+        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+        imgSplash = wx.Image("/usr/share/pykaraoke/icons/splash.png")
+        imgSplash = imgSplash.Scale(160, 120)
+        manager.HostSplash = wx.BitmapFromImage(imgSplash)
+        self.HostLyrics = wx.StaticBitmap(self.leftPanel, bitmap=manager.HostSplash, style=wx.SUNKEN_BORDER)
+        hsizer.Add(self.HostLyrics, flag = wx.EXPAND)
+
+        vsizer = wx.BoxSizer(wx.VERTICAL)
+
+        hsizerKey = wx.BoxSizer(wx.HORIZONTAL)
+
+        text = wx.StaticText(self.leftPanel, -1, 'Key: ')
+        hsizerKey.Add(text, flag = wx.ALIGN_CENTER_VERTICAL)
+        self.KeyLabel = wx.StaticText(self.leftPanel, -1, '0   ', style=wx.ALIGN_CENTER|wx.SIMPLE_BORDER)
+        hsizerKey.Add(self.KeyLabel, flag = wx.ALIGN_CENTER_VERTICAL)
+        self.keydownButton = wx.Button(self.leftPanel, -1, '-', size=(20, 20))
+        self.Bind(wx.EVT_BUTTON, self.OnKeyDownClicked, self.keydownButton)
+        hsizerKey.Add(self.keydownButton, flag = wx.ALIGN_CENTER_VERTICAL)
+        self.keyresetButton = wx.Button(self.leftPanel, -1, '=', size=(20, 20))
+        self.Bind(wx.EVT_BUTTON, self.OnKeyResetClicked, self.keyresetButton)
+        hsizerKey.Add(self.keyresetButton, flag = wx.ALIGN_CENTER_VERTICAL)
+        self.keyupButton = wx.Button(self.leftPanel, -1, '+', size=(20, 20))
+        self.Bind(wx.EVT_BUTTON, self.OnKeyUpClicked, self.keyupButton)
+        hsizerKey.Add(self.keyupButton, flag = wx.ALIGN_CENTER_VERTICAL)
+
+        #hsizerTempo = wx.BoxSizer(wx.HORIZONTAL)
+
+        #text = wx.StaticText(self.leftPanel, -1, 'Rate: ')
+        #hsizerTempo.Add(text, flag = wx.ALIGN_CENTER_VERTICAL)
+        #self.TempoLabel = wx.StaticText(self.leftPanel, -1, '1.00  ', style=wx.ALIGN_CENTER|wx.SIMPLE_BORDER)
+        #hsizerTempo.Add(self.TempoLabel, flag = wx.ALIGN_CENTER_VERTICAL)
+        #self.tempodownButton = wx.Button(self.leftPanel, -1, '-', size=(20, 20))
+        #self.Bind(wx.EVT_BUTTON, self.OnTempoDownClicked, self.tempodownButton)
+        #hsizerTempo.Add(self.tempodownButton, flag = wx.ALIGN_CENTER_VERTICAL)
+        #self.temporesetButton = wx.Button(self.leftPanel, -1, '=', size=(20, 20))
+        #self.Bind(wx.EVT_BUTTON, self.OnTempoResetClicked, self.temporesetButton)
+        #hsizerTempo.Add(self.temporesetButton, flag = wx.ALIGN_CENTER_VERTICAL)
+        #self.tempoupButton = wx.Button(self.leftPanel, -1, '+', size=(20, 20))
+        #self.Bind(wx.EVT_BUTTON, self.OnTempoUpClicked, self.tempoupButton)
+        #hsizerTempo.Add(self.tempoupButton, flag = wx.ALIGN_CENTER_VERTICAL)
+
+        vsizer.Add(hsizerKey, 0, wx.ALL | wx.ALIGN_CENTER | wx.ALIGN_CENTER_VERTICAL, 5)
+        #vsizer.Add(hsizerTempo, 0, wx.ALL | wx.ALIGN_CENTER | wx.ALIGN_CENTER_VERTICAL, 5)
+        hsizer.Add(vsizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        
+        self.LeftSizer.Add(hsizer, 0, wx.ALL | wx.ALIGN_CENTER | wx.ALIGN_BOTTOM, 5)
+        manager.HostLyrics = self.HostLyrics
+        manager.KeyLabel = self.KeyLabel
+        #manager.TempoLabel = self.TempoLabel
         self.leftPanel.SetSizer(self.LeftSizer)
 
         # Create the buttons on the right panel
@@ -3455,6 +3506,24 @@ class PyKaraokeWindow (wx.Frame):
             self.LeftSizer.Show(self.SearchPanel, True)
             self.LeftSizer.Layout()
             self.SearchPanel.SearchText.SetFocus()
+
+    def OnKeyDownClicked(self, event):
+        manager.ShiftDown()
+
+    def OnKeyUpClicked(self, event):
+        manager.ShiftUp()
+
+    def OnKeyResetClicked(self, event):
+        manager.ShiftReset()
+
+    def OnTempoDownClicked(self, event):
+        manager.TempoDown()
+
+    def OnTempoUpClicked(self, event):
+        manager.TempoUp()
+
+    def OnTempoResetClicked(self, event):
+        manager.TempoReset()
 
     def OnVolumeUpClicked(self, event):
         """ Moves the volume up. """

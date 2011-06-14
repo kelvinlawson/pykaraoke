@@ -171,6 +171,7 @@
 # the screen into 24 segments and only update those segments
 # which have actually been updated.
 
+import gst
 from pykconstants import *
 from pykplayer import pykPlayer
 from pykenv import env
@@ -284,13 +285,13 @@ class cdgPlayer(pykPlayer):
                 audio_path = self.soundFileData.GetFilepath()
                 if type(audio_path) == unicode:
                     audio_path = audio_path.encode(sys.getfilesystemencoding())
-                pygame.mixer.music.load(audio_path)
+                manager.LoadMusic(audio_path) 
             except:
                 self.Close()
                 raise
 
             # Set an event for when the music finishes playing
-            pygame.mixer.music.set_endevent(pygame.USEREVENT)
+            #pygame.mixer.music.set_endevent(pygame.USEREVENT)
 
             # Account for the size of the playback buffer in the lyrics
             # display.  Assume that the buffer will be mostly full.  On a
@@ -313,18 +314,18 @@ class cdgPlayer(pykPlayer):
 
     def doPlay(self):
         if self.soundFileData:
-            pygame.mixer.music.play()
+            manager.Music.set_state(gst.STATE_PLAYING)
 
     # Pause the song - Use Pause() again to unpause
     def doPause(self):
-        if self.soundFileData:
-            pygame.mixer.music.pause()
+        if manager.Music:
+            manager.Music.set_state(gst.STATE_PAUSED)
             self.PauseStartTime = self.GetPos()
 
     def doUnpause(self):
-        if self.soundFileData:
+        if manager.Music:
             self.pauseOffsetTime = self.pauseOffsetTime + (self.GetPos() - self.PauseStartTime)
-            pygame.mixer.music.unpause()
+            manager.Music.set_state(gst.STATE_PLAYING)
 
     # you must call Play() to restart. Blocks until pygame is initialised
     def doRewind(self):
@@ -337,10 +338,11 @@ class cdgPlayer(pykPlayer):
         # Move file pointer to the beginning of the file
         self.packetReader.Rewind()
 
-        if self.soundFileData:
+        if manager.Music.get_state() == gst.STATE_PLAYING:
             # Actually stop the audio
-            pygame.mixer.music.rewind()
-            pygame.mixer.music.stop()
+            manager.Music.set_state(gst.STATE_NULL)
+
+        manager.Music.seek_simple(gst.FORMAT_TIME, gst.SEEK_FLAG_FLUSH, 0)
 
     def GetLength(self):
         """Give the number of seconds in the song."""
@@ -349,9 +351,9 @@ class cdgPlayer(pykPlayer):
     # Get the current time (in milliseconds). Blocks if pygame is
     # not initialised yet.
     def GetPos(self):
-        if self.soundFileData:
-            return pygame.mixer.music.get_pos()
-        else:
+        #if manager.Music:
+        #    return manager.Music.query_position(gst.FORMAT_TIME, None)[0]
+        #else:
             return pykPlayer.GetPos(self)
 
     def SetupOptions(self):
@@ -370,9 +372,10 @@ class cdgPlayer(pykPlayer):
     def shutdown(self):
         # This will be called by the pykManager to shut down the thing
         # immediately.
-        if self.soundFileData:
-            if manager.audioProps:
-                pygame.mixer.music.stop()
+#        if self.soundFileData:
+        if manager.Music <> None:
+            if manager.Music.get_state() == gst.STATE_PLAYING:
+                manager.Music.set_state(gst.STATE_NULL)
 
         # Make sure our surfaces are deallocated before we call up to
         # CloseDisplay(), otherwise bad things can happen.
@@ -607,6 +610,8 @@ class cdgPlayer(pykPlayer):
                 pygame.display.update(rect_list)
         else:
             manager.Flip()
+
+        pykPlayer.UpdateHostLyrics(self)
 
 def defaultErrorPrint(ErrorString):
     print (ErrorString)

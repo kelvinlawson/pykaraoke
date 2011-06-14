@@ -145,7 +145,9 @@ class mpgPlayer(pykPlayer):
             filepath = filepath.encode(sys.getfilesystemencoding())
         self.Movie = pygame.movie.Movie(filepath)
         self.Movie.set_display(manager.display, (0, 0, manager.displaySize[0], manager.displaySize[1]))
-
+ 
+    def doStuff(self):
+        pykPlayer.UpdateHostLyrics(self)
 
     def doPlay(self):
         self.Movie.play()

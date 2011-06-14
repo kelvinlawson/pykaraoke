@@ -26,6 +26,7 @@ import pykversion
 import pygame
 import os
 import sys
+import pygst, gst
 
 # Python 2.3 and newer ship with optparse; older Python releases need "Optik"
 # installed (optik.sourceforge.net)
@@ -57,6 +58,31 @@ class pykManager:
         self.displayFlags = 0
         self.displayDepth = 0
         self.cpuSpeed = None
+        self.HostLyrics = None
+        self.PostBuffer = None
+        self.Mixer = None
+        self.KeyShift = 0
+        self.Tempo = 1.00
+        self.Music = gst.Pipeline("player")
+        self.volume = gst.element_factory_make('volume')
+        self.pitcher = gst.element_factory_make("pitch")
+        #self.tempoer = gst.element_factory_make('scaletempo', 'scaletempo')
+
+        source = gst.element_factory_make("filesrc", "file-source")
+        decoder = gst.element_factory_make("mad", "mp3-decoder")
+        conv1 = gst.element_factory_make("audioconvert", "converter")
+        #conv2 = gst.element_factory_make ("audioconvert", "converter2")
+        resample = gst.element_factory_make ("audioresample", "audioresample")
+        sink = gst.element_factory_make("autoaudiosink")
+
+        #self.Music.add(source, decoder, conv1, self.tempoer, conv2, resample, self.pitcher, sink)
+        #gst.element_link_many(source, decoder, conv1, self.tempoer, conv2, resample, self.pitcher, sink)
+        self.Music.add(source, decoder, self.volume, conv1, self.pitcher, resample, sink)
+        gst.element_link_many(source, decoder, self.volume, conv1, self.pitcher, resample, sink)
+
+        #bus = self.Music.get_bus()
+        #bus.add_signal_watch()
+        #bus.connect("message", self.on_MusicMsg)
 
         # Find the correct font path. If fully installed on Linux this
         # will be sys.prefix/share/pykaraoke/fonts. Otherwise look for
@@ -79,6 +105,79 @@ class pykManager:
         # This factor may be changed by the user to make text bigger
         # or smaller on those players that support it.
         self.fontScale = None
+
+    def LoadMusic(self, MusicFile):
+        self.Music.get_by_name("file-source").set_property("location", MusicFile)
+
+    def on_MusicMsg(self, bus, message):
+        t = message.type
+        if t == gst.MESSAGE_EOS:
+            self.Music.set_state(gst.STATE_NULL)
+        elif t == gst.MESSAGE_ERROR:
+            self.Music.set_state(gst.STATE_NULL)
+            err, debug = message.parse_error()
+            print "Error: %s" % err, debug
+
+    def TempoUp(self):
+        self.Tempo += 0.05
+        self.UpdateTempo()
+
+    def TempoDown(self):
+        self.Tempo -= 0.05
+        self.UpdateTempo()
+
+    def TempoReset(self):
+        self.Tempo = 1.00
+        self.UpdateTempo()
+
+    def UpdateTempo(self):
+        self.Tempo = min(self.Tempo, 2.00)
+        self.Tempo = max(self.Tempo, 0.05)
+        #query = gst.query_new_duration (gst.FORMAT_TIME)
+        #if gst_element_query (self.Music, query):
+        #    duration = 0
+        #    try:
+        #        gst_query_parse_duration (query, NULL, duration)
+        #    except:
+        #        print "error parsing query"
+        #else:
+        #    print "unable to query duration"
+
+        pos = self.Music.query_position(gst.FORMAT_TIME, None)[0]
+        #self.Music.seek(self.Tempo, gst.FORMAT_TIME, gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE, gst.SEEK_TYPE_SET, -1, gst.SEEK_TYPE_NONE, gst.CLOCK_TIME_NONE )
+        event = gst.event_new_seek(self.Tempo, gst.FORMAT_TIME, gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE, gst.SEEK_TYPE_SET, pos, gst.SEEK_TYPE_NONE, 0 )
+        if not self.Music.send_event(event):
+            print "Tempo SendEvent failed"
+        else:
+            self.TempoLabel.SetLabel(str(self.Tempo))
+
+    def ShiftUp(self):
+        self.KeyShift += 1
+        self.UpdateKey()
+
+    def ShiftDown(self):
+        self.KeyShift -= 1
+        self.UpdateKey()
+
+    def ShiftReset(self):
+        self.KeyShift = 0
+        self.UpdateKey()
+
+    def UpdateKey(self):
+        self.KeyShift = min(self.KeyShift, 24)
+        self.KeyShift = max(self.KeyShift, -24)
+        if self.KeyShift == 0:
+            pitch = float(1)
+        elif self.KeyShift < 0:
+            pitch = float(1 + (float(self.KeyShift) / 48))
+        elif self.KeyShift > 0:
+            pitch = float(1 + (float(self.KeyShift) / 24))
+
+        self.pitcher.set_property('pitch', pitch)
+        if self.KeyShift > 0:        
+            self.KeyLabel.SetLabel(str("+" + str(self.KeyShift)))
+        else:
+            self.KeyLabel.SetLabel(str(self.KeyShift))
 
     def setCpuSpeed(self, activityName):
         """ Sets the CPU speed appropriately according to what the
@@ -103,36 +202,36 @@ class pykManager:
 
     def VolumeUp(self):
         try:
-            volume = pygame.mixer.music.get_volume()
+            volume = self.Music.get_property('volume')
         except pygame.error:
             print "Failed to raise music volume!"
             return
         volume = min(volume + 0.1, 1.0)
 
-        pygame.mixer.music.set_volume(volume)
+        self.volume.set_property('volume', volume)
 
     def VolumeDown(self):
         try:
-            volume = pygame.mixer.music.get_volume()
+            volume = self.Music.get_property('volume')
         except pygame.error:
             print "Failed to lower music volume!"
             return
         volume = max(volume - 0.1, 0.0)
 
-        pygame.mixer.music.set_volume(volume)
+        self.volume.set_property('volume', volume)
 
     def GetVolume(self):
         """ Gives the current volume level. """
         if vars().has_key('music'):
-            return pygame.mixer.music.get_volume()
+            return self.volume.get_property('volume')
         else:
-            return 0.50 # 75% is the industry recommended maximum value
+            return 0.75 # 75% is the industry recommended maximum value
 
     def SetVolume(self, volume):
         """ Sets the volume of the music playback. """
         volume = min(volume, 1.0)
         volume = max(volume, 0.0)
-        pygame.mixer.music.set_volume(volume)
+        self.volume.set_property('volume', volume)
 
     def GetFontScale(self):
         """ Returns the current font scale. """
@@ -277,12 +376,12 @@ class pykManager:
         if audioProps != self.audioProps:
             # If the audio properties have changed, we have to shut
             # down and re-start the audio subsystem.
-            pygame.mixer.quit()
-            pygame.mixer.init(*audioProps)
+            #pygame.mixer.quit()
+            #pygame.mixer.init(*audioProps)
             self.audioProps = audioProps
 
     def CloseAudio(self):
-        pygame.mixer.quit()
+        #pygame.mixer.quit()
         self.audioProps = None
 
     def OpenCPUControl(self):
