@@ -1958,7 +1958,7 @@ class SearchResultsPanel (wx.Panel):
         # Empty the previous results and perform a new search
         self.StatusBar.SetStatusText ("Please Wait... Searching")
         songList = self.KaraokeMgr.SongDB.SearchDatabase(
-            str(self.SearchText.GetValue()), wxAppYielder())
+            self.SearchText.GetValue(), wxAppYielder())
         if self.KaraokeMgr.SongDB.GetDatabaseSize() == 0:
             setupString = "You do not have any songs in your database. Would you like to add folders now?"
             answer = wx.MessageBox(setupString, "Setup database now?", wx.YES_NO | wx.ICON_QUESTION)
