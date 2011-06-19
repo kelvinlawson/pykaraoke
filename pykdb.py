@@ -650,7 +650,7 @@ class TitleStruct:
             try:
                 catalogFile = open(catalogPathname, "rU")
             except:
-                print "Could not open titles file %s" % (catalogPathname.encode('ascii', 'replace'))
+                print "Could not open titles file %s" % (repr(catalogPathname))
                 return
 
         for line in catalogFile:
@@ -658,7 +658,7 @@ class TitleStruct:
                 line = line.decode('utf-8').strip()
             except UnicodeDecodeError:
                 line = line.decode('utf-8', 'replace')
-                print "Invalid characters in %s:\n%s" % (catalogPathname.encode('ascii', 'replace'), line)
+                print "Invalid characters in %s:\n%s" % (repr(catalogPathname), line)
 
             if line:
                 tuple = line.split('\t')
@@ -668,7 +668,7 @@ class TitleStruct:
                 elif len(tuple) == 3:
                     filename, title, artist = tuple
                 else:
-                    print "Invalid line in %s:\n%s" % (catalogPathname.encode('ascii', 'replace'), line)
+                    print "Invalid line in %s:\n%s" % (repr(catalogPathname), line)
                     continue
 
                 # Allow a forward slash in the file to stand in for
@@ -678,7 +678,7 @@ class TitleStruct:
                 pathname = os.path.join(dirname, filename)
                 song = songDb.filesByFullpath.get(pathname, None)
                 if song is None:
-                    print "Unknown file in %s:\n%s" % (catalogPathname.encode('ascii', 'replace'), filename.encode('ascii', 'replace'))
+                    print "Unknown file in %s:\n%s" % (repr(catalogPathname), repr(filename))
                 else:
                     song.titles = self
                     self.songs.append(song)
@@ -723,7 +723,7 @@ class TitleStruct:
             try:
                 catalogFile = open(catalogPathname, "w")
             except:
-                print "Could not rewrite titles file %s" % (catalogPathname.encode('ascii', 'replace'))
+                print "Could not rewrite titles file %s" % (repr(catalogPathname))
                 return
 
         relTo = os.path.normcase(os.path.normpath(catalogPathname))
@@ -1398,10 +1398,14 @@ class SongDB:
         try:
             filedir_list = os.listdir(FolderToScan)
         except:
-            print "Couldn't scan %s" % (FolderToScan.encode('ascii', 'replace'))
+            print "Couldn't scan %s" % (repr(FolderToScan))
             return False
 
-        filedir_list.sort()
+        # Sort the list, using plain strings for the sort key to
+        # prevent issues with non-unicode files in the list
+        filedir_list.sort(key=str)
+
+        # Loop through the list
         for i in range(len(filedir_list)):
             item = filedir_list[i]
             if self.BusyDlg.Clicked:
@@ -1409,7 +1413,15 @@ class SongDB:
 
             # Allow windows to refresh now and again while scanning
             yielder.ConsiderYield()
-            full_path = os.path.join(FolderToScan, item)
+
+            # Build the full file path. Check file types match, as
+            # os.listdir() can return non-unicode while the folder
+            # is still unicode.
+            if (type(FolderToScan) != type(item)):
+                full_path = os.path.join(str(FolderToScan), str(item))
+                print "Folder %s and file %s do not match types" % (repr(FolderToScan), repr(item))
+            else:
+                full_path = os.path.join(FolderToScan, item)
 
             nextProgress = progress + [(i, len(filedir_list))]
             self.fileScan(full_path, nextProgress, yielder)
@@ -1470,7 +1482,7 @@ class SongDB:
                 try:
                     self.addSong(SongStruct(full_path, self.Settings, DatabaseAdd = True))
                 except KeyError:
-                    print "Excluding filename with unexpected format: %s " % (os.path.basename(full_path)).encode('ascii', 'replace')
+                    print "Excluding filename with unexpected format: %s " % repr(os.path.basename(full_path))
             # Look inside ZIPs if configured to do so
             elif self.Settings.LookInsideZips and ext.lower() == ".zip":
                 try:
@@ -1486,7 +1498,7 @@ class SongDB:
                                 nextProgress = progress + [(i, len(namelist))]
                                 basename = os.path.split(full_path)[1]
                                 self.BusyDlg.SetProgress(
-                                    "Scanning %s" % (basename.encode('ascii', 'replace')),
+                                    "Scanning %s" % basename.encode('ascii', 'replace'),
                                     self.__computeProgressValue(nextProgress))
                                 yielder.Yield()
                                 self.lastBusyUpdate = now
@@ -1499,17 +1511,17 @@ class SongDB:
                                 # Python zipfile only supports deflated and stored
                                 info = zip.getinfo(filename)
                                 if info.compress_type == zipfile.ZIP_STORED or info.compress_type == zipfile.ZIP_DEFLATED:
-                                    #print ("Adding song %s in ZIP file %s"%(filename.encode('ascii', 'replace'), full_path.encode('ascii', 'replace')))
+                                    #print ("Adding song %s in ZIP file %s"%(repr(filename), repr(full_path)))
                                     try:
                                         self.addSong(SongStruct(full_path, self.Settings, ZipStoredName = filename, DatabaseAdd = True))
                                     except KeyError:
-                                        print "Excluding filename with unexpected format: %s " % full_path.encode('ascii', 'replace')
+                                        print "Excluding filename with unexpected format: %s " % repr(os.path.basename(full_path))
                                 else:
-                                    print ("ZIP member compressed with unsupported type (%d): %s"%(info.compress_type, full_path.encode('ascii', 'replace')))
+                                    print ("ZIP member compressed with unsupported type (%d): %s"%(info.compress_type, repr(full_path)))
                     else:
-                        print "Cannot parse ZIP file: %s" % full_path.encode('ascii', 'replace') 
+                        print "Cannot parse ZIP file: " + repr(full_path)
                 except:
-                    print "Error looking inside zip %s" % full_path.encode('ascii', 'replace')
+                    print "Error looking inside zip " + repr(full_path)
 
     # Add a folder to the database search list
     def FolderAdd (self, FolderPath):
@@ -1773,7 +1785,7 @@ class SongDB:
         for list in fileHashes.values():
             if len(list) > 1:
                 filenames = map(lambda i: self.FullSongList[i].DisplayFilename, list)
-                print "Identical songs: %s" % (', '.join(filenames).encode('ascii', 'replace'))
+                print "Identical songs: %s" % repr((', '.join(filenames)))
                 for i in list[1:]:
                     extra = self.FullSongList[i]
                     removeIndexes[i] = True

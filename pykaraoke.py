@@ -2160,8 +2160,7 @@ class SearchResultsPanel (wx.Panel):
                     detailsString += '\nTitles file: ' + titles.ZipStoredName + '\nInside ZIP: ' + titles.Filepath + '\n'
                 else:
                     detailsString += '\nTitles file: ' + titles.Filepath + '\n'
-
-            wx.MessageBox(detailsString, song.DisplayFilename, wx.OK)
+            wx.MessageBox(detailsString.decode('ascii', 'replace'), song.DisplayFilename, wx.OK)
 
     def onResize(self, event):
         self.doResize(resize_event = True)
