@@ -21,6 +21,23 @@
 **** Boston, MA  02111-1307  USA                                           ****
 *******************************************************************************
 
+2010-09-16 Kelvin Lawson <kelvinl@users.sf.net> 0.7.4
+ * Bug fixes:
+    pykaraoke.py: Allow search for unicode song names.
+    pykaraoke.py: Fix FileDetails dialog for non-ascii characters.
+    pykdb.py: Fixes for international characters in filenames.
+
+2011-01-02 Kelvin Lawson <kelvinl@users.sf.net>
+ * Enhancements:
+    performer_prompt.py: Improve sizing on Windows.
+
+2010-09-16 Kelvin Lawson <kelvinl@users.sf.net>
+  * Enhancements:
+    pykar.py: Better platform detection using ENV_POSIX.
+    pykaraoke.py: Better platform detection using ENV_POSIX.
+    pykconstants.py: Better platform detection using ENV_POSIX.
+    pykenv.py: Better platform detection using ENV_POSIX.
+
 2010-05-11 Kelvin Lawson <kelvinl@users.sf.net> 0.7.3
   * Bug fixes:
     -r1.62 pykaraoke.py: Make About window work with Wx2.6 again. Recent 
