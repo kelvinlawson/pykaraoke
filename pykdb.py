@@ -1387,9 +1387,10 @@ class SongDB:
             print "Couldn't scan %s" % (repr(FolderToScan))
             return False
 
-        # Sort the list, using plain strings for the sort key to
-        # prevent issues with non-unicode files in the list
-        filedir_list.sort(key=str)
+        # Sort the list, using printable strings for the sort key to
+        # prevent issues with unicode characters in non-unicode strings
+        # in the list
+        filedir_list.sort(key=repr)
 
         # Loop through the list
         for i in range(len(filedir_list)):
@@ -1442,7 +1443,7 @@ class SongDB:
             # Every so often, update the progress bar.
             basename = os.path.split(full_path)[1]
             self.BusyDlg.SetProgress(
-                "Scanning %s" % basename.encode('ascii', 'replace'),
+                "Scanning %s" % basename,
                 self.__computeProgressValue(progress))
             yielder.Yield()
             self.lastBusyUpdate = now
@@ -1484,7 +1485,7 @@ class SongDB:
                                 nextProgress = progress + [(i, len(namelist))]
                                 basename = os.path.split(full_path)[1]
                                 self.BusyDlg.SetProgress(
-                                    "Scanning %s" % basename.encode('ascii', 'replace'),
+                                    "Scanning %s" % basename,
                                     self.__computeProgressValue(nextProgress))
                                 yielder.Yield()
                                 self.lastBusyUpdate = now

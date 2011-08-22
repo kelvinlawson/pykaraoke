@@ -21,7 +21,11 @@
 **** Boston, MA  02111-1307  USA                                           ****
 *******************************************************************************
 
-2010-09-16 Kelvin Lawson <kelvinl@users.sf.net> 0.7.4
+2011-08-22 Kelvin Lawson <kelvinl@users.sf.net>
+ * Bug fixes:
+    pykdb.py: Fixes for unicode strings converted to ASCII.
+
+2011-06-19 Kelvin Lawson <kelvinl@users.sf.net> 0.7.4
  * Bug fixes:
     pykaraoke.py: Allow search for unicode song names.
     pykaraoke.py: Fix FileDetails dialog for non-ascii characters.
