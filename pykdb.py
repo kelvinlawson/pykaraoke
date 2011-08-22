@@ -1546,11 +1546,15 @@ class SongDB:
                 LowerZipName = ""
             misses = 0
             for term in TermsList:
-                if (term not in LowerTitle) and \
-                   (term not in LowerArtist) and \
-                   (term not in LowerZipName) and \
-                   (term not in LowerPath):
-                    misses = misses + 1
+                try:
+                    if (term not in LowerTitle) and \
+                       (term not in LowerArtist) and \
+                       (term not in LowerZipName) and \
+                       (term not in LowerPath):
+                        misses = misses + 1
+                except UnicodeDecodeError:
+                    print "Unicode error looking up %s in %s" % (repr(term), repr(LowerZipName))
+                    misses = misses + 1 
             if misses == 0:
                 ResultsList.append(song)
         return ResultsList

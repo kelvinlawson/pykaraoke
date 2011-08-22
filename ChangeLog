@@ -24,6 +24,7 @@
 2011-08-22 Kelvin Lawson <kelvinl@users.sf.net>
  * Bug fixes:
     pykdb.py: Fixes for unicode strings converted to ASCII.
+	pykaraoke.py: Fixes for bytestrings that are not unicode.
 
 2011-06-19 Kelvin Lawson <kelvinl@users.sf.net> 0.7.4
  * Bug fixes:
