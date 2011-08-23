@@ -24,6 +24,7 @@
 2011-08-23 Kelvin Lawson <kelvinl@users.sf.net>
  * Enhancements:
     pykdb.py: Reduce memory usage during duplicate file hash check.
+    pykdb.py: Handle corrupted ZIP files.
 
 2011-08-22 Kelvin Lawson <kelvinl@users.sf.net>
  * Bug fixes:

@@ -437,8 +437,11 @@ class SongStruct:
             # zip, too.
 
             for file in filelist:
-                data = zip.read(file)
-                songDatas.append(SongData(file, data))
+                try:
+                    data = zip.read(file)
+                    songDatas.append(SongData(file, data))
+                except zipfile.BadZipfile:
+                    print "Error in ZIP containing " + file
         else:
             # A non-zipped file; this is an easy case.
             songDatas.append(SongData(self.Filepath, None))
