@@ -440,7 +440,7 @@ class SongStruct:
                 try:
                     data = zip.read(file)
                     songDatas.append(SongData(file, data))
-                except zipfile.BadZipfile:
+                except:
                     print "Error in ZIP containing " + file
         else:
             # A non-zipped file; this is an easy case.
@@ -453,10 +453,18 @@ class SongStruct:
             # the zip file.  This time we are just looking for loose
             # files on the disk.
             for file in os.listdir(dir):
+                # Handle potential byte-strings with invalid characters
+                # that startswith() will not handle.
                 try:
                     file = unicode(file)
                 except UnicodeDecodeError:
                     file = file.decode("ascii", "replace")
+                try:
+                    prefix = unicode(prefix)
+                except UnicodeDecodeError:
+                    prefix = prefix.decode("ascii", "replace")
+
+                # Check for a file which matches the prefix
                 if file.startswith(prefix):
                     path = os.path.join(dir, file)
                     if path != self.Filepath:
