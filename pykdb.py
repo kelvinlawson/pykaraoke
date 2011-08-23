@@ -1773,8 +1773,23 @@ class SongDB:
                 return
 
             song = self.FullSongList[i]
+
+            # Calculate the MD5 hash of the songfile.
             m = md5()
-            m.update(song.GetSongDatas()[0].GetData())
+
+            # If the data has already been read in, use it directly.
+            # Otherwise read the file off disk for temporary use.
+            song_data = song.GetSongDatas()[0]
+            if song_data.data != None:
+                m.update(song_data.data)
+            else:
+                f = open(song_data.filename)
+                if f != None:
+                    while True:
+                        data = f.read(64*1024)
+                        if not data:
+                            break
+                        m.update(data)
             list = fileHashes.setdefault(m.digest(), [])
             if list:
                 numDuplicates += 1
