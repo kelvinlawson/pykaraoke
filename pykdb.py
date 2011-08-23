@@ -450,6 +450,10 @@ class SongStruct:
             # the zip file.  This time we are just looking for loose
             # files on the disk.
             for file in os.listdir(dir):
+                try:
+                    file = unicode(file)
+                except UnicodeDecodeError:
+                    file = file.decode("ascii", "replace")
                 if file.startswith(prefix):
                     path = os.path.join(dir, file)
                     if path != self.Filepath:
