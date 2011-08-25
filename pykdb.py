@@ -1457,6 +1457,11 @@ class SongDB:
         if now - self.lastBusyUpdate > 0.1:
             # Every so often, update the progress bar.
             basename = os.path.split(full_path)[1]
+            # Sanitise byte-strings
+            try:
+                basename = unicode(basename)
+            except UnicodeDecodeError:
+                basename = basename.decode("ascii", "replace")
             self.BusyDlg.SetProgress(
                 "Scanning %s" % basename,
                 self.__computeProgressValue(progress))
@@ -1499,6 +1504,11 @@ class SongDB:
                                 # Every so often, update the progress bar.
                                 nextProgress = progress + [(i, len(namelist))]
                                 basename = os.path.split(full_path)[1]
+                                # Sanitise byte-strings
+                                try:
+                                    basename = unicode(basename)
+                                except UnicodeDecodeError:
+                                    basename = basename.decode("ascii", "replace")
                                 self.BusyDlg.SetProgress(
                                     "Scanning %s" % basename,
                                     self.__computeProgressValue(nextProgress))
@@ -1783,28 +1793,31 @@ class SongDB:
             if self.BusyDlg.Clicked:
                 return
 
-            song = self.FullSongList[i]
 
             # Calculate the MD5 hash of the songfile.
             m = md5()
 
-            # If the data has already been read in, use it directly.
-            # Otherwise read the file off disk for temporary use.
-            song_data = song.GetSongDatas()[0]
-            if song_data.data != None:
-                m.update(song_data.data)
-            else:
-                f = open(song_data.filename)
-                if f != None:
-                    while True:
-                        data = f.read(64*1024)
-                        if not data:
-                            break
-                        m.update(data)
-            list = fileHashes.setdefault(m.digest(), [])
-            if list:
-                numDuplicates += 1
-            list.append(i)
+            # Get details of the associated files
+            song = self.FullSongList[i]
+            datas = song.GetSongDatas()
+            if len(datas) > 0:
+                song_data = datas[0]
+                # If the data has already been read in, use it directly.
+                # Otherwise read the file off disk for temporary use.
+                if song_data.data != None:
+                    m.update(song_data.data)
+                else:
+                    f = open(song_data.filename)
+                    if f != None:
+                        while True:
+                            data = f.read(64*1024)
+                            if not data:
+                                break
+                            m.update(data)
+                list = fileHashes.setdefault(m.digest(), [])
+                if list:
+                    numDuplicates += 1
+                list.append(i)
 
         # Remove the identical files from the database.  If specified,
         # remove them from disk too.
