@@ -1,8 +1,8 @@
 
 ---------------------------------------------------------------------------
 
-Release:      pykaraoke v0.7.4
-Date:         20/06/2011
+Release:      pykaraoke v0.7.5
+Date:         26/08/2011
 Author:       Kelvin Lawson <kelvinl@users.sourceforge.net>
 License:      LGPL
 Website:      http://www.kibosh.org/pykaraoke/
@@ -31,19 +31,6 @@ one database.
 
 No song files are provided - this package provides you with the player
 needed to play your own karaoke song files.
-
----------------------------------------------------------------------------
-
-WHAT'S NEW
-
-PyKaraoke now works together with WxPython v2.8. Users with WxPython v2.6
-are, however, still supported.
-
-There are also some other minor changes to the layout of the search results
-page, a change to the scrolling behaviour, and improved handling of corrupt
-CDG rip files.
-
-There are now vastly more options available on the Configure page.
 
 ---------------------------------------------------------------------------
 
