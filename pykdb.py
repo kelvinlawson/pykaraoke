@@ -451,8 +451,11 @@ class SongStruct:
             # zip, too.
 
             for file in filelist:
-                data = zip.read(file)
-                songDatas.append(SongData(file, data))
+                try:
+                    data = zip.read(file)
+                    songDatas.append(SongData(file, data))
+                except:
+                    print "Error in ZIP containing " + file
         else:
             # A non-zipped file; this is an easy case.
             songDatas.append(SongData(self.Filepath, None))
@@ -464,6 +467,18 @@ class SongStruct:
             # the zip file.  This time we are just looking for loose
             # files on the disk.
             for file in os.listdir(dir):
+                # Handle potential byte-strings with invalid characters
+                # that startswith() will not handle.
+                try:
+                    file = unicode(file)
+                except UnicodeDecodeError:
+                    file = file.decode("ascii", "replace")
+                try:
+                    prefix = unicode(prefix)
+                except UnicodeDecodeError:
+                    prefix = prefix.decode("ascii", "replace")
+
+                # Check for a file which matches the prefix
                 if file.startswith(prefix):
                     path = os.path.join(dir, file)
                     if path != self.Filepath:
@@ -1401,9 +1416,10 @@ class SongDB:
             print "Couldn't scan %s" % (repr(FolderToScan))
             return False
 
-        # Sort the list, using plain strings for the sort key to
-        # prevent issues with non-unicode files in the list
-        filedir_list.sort(key=str)
+        # Sort the list, using printable strings for the sort key to
+        # prevent issues with unicode characters in non-unicode strings
+        # in the list
+        filedir_list.sort(key=repr)
 
         # Loop through the list
         for i in range(len(filedir_list)):
@@ -1455,8 +1471,13 @@ class SongDB:
         if now - self.lastBusyUpdate > 0.1:
             # Every so often, update the progress bar.
             basename = os.path.split(full_path)[1]
+            # Sanitise byte-strings
+            try:
+                basename = unicode(basename)
+            except UnicodeDecodeError:
+                basename = basename.decode("ascii", "replace")
             self.BusyDlg.SetProgress(
-                "Scanning %s" % basename.encode('ascii', 'replace'),
+                "Scanning %s" % basename,
                 self.__computeProgressValue(progress))
             yielder.Yield()
             self.lastBusyUpdate = now
@@ -1497,8 +1518,13 @@ class SongDB:
                                 # Every so often, update the progress bar.
                                 nextProgress = progress + [(i, len(namelist))]
                                 basename = os.path.split(full_path)[1]
+                                # Sanitise byte-strings
+                                try:
+                                    basename = unicode(basename)
+                                except UnicodeDecodeError:
+                                    basename = basename.decode("ascii", "replace")
                                 self.BusyDlg.SetProgress(
-                                    "Scanning %s" % basename.encode('ascii', 'replace'),
+                                    "Scanning %s" % basename,
                                     self.__computeProgressValue(nextProgress))
                                 yielder.Yield()
                                 self.lastBusyUpdate = now
@@ -1551,7 +1577,10 @@ class SongDB:
         for song in self.FullSongList:
             found = True
             for term in TermsList:
-                found = (found and (term in song.SearchData))
+                try:
+                    found = (found and (term in song.SearchData))
+                except UnicodeDecodeError:
+                    print "Unicode error looking up %s in %s" % (repr(term), repr(LowerZipName))
             if found:
                 ResultsList.append(song)
         return ResultsList
@@ -1771,13 +1800,31 @@ class SongDB:
             if self.BusyDlg.Clicked:
                 return
 
-            song = self.FullSongList[i]
+
+            # Calculate the MD5 hash of the songfile.
             m = md5()
-            m.update(song.GetSongDatas()[0].GetData())
-            list = fileHashes.setdefault(m.digest(), [])
-            if list:
-                numDuplicates += 1
-            list.append(i)
+
+            # Get details of the associated files
+            song = self.FullSongList[i]
+            datas = song.GetSongDatas()
+            if len(datas) > 0:
+                song_data = datas[0]
+                # If the data has already been read in, use it directly.
+                # Otherwise read the file off disk for temporary use.
+                if song_data.data != None:
+                    m.update(song_data.data)
+                else:
+                    f = open(song_data.filename)
+                    if f != None:
+                        while True:
+                            data = f.read(64*1024)
+                            if not data:
+                                break
+                            m.update(data)
+                list = fileHashes.setdefault(m.digest(), [])
+                if list:
+                    numDuplicates += 1
+                list.append(i)
 
         # Remove the identical files from the database.  If specified,
         # remove them from disk too.
